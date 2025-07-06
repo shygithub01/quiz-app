@@ -1,0 +1,8 @@
+.env.local
+node_modules/
+.next/
+.env.local
+.env.local.save
+.streamlit/secrets.toml
+.env.local*
+secrets.toml

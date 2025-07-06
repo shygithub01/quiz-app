@@ -1,0 +1,163 @@
+import streamlit as st
+from openai import OpenAI, RateLimitError, APIError
+import pdfplumber
+import docx
+import pytesseract
+from PIL import Image
+from striprtf.striprtf import rtf_to_text
+
+# -----------------------------------------
+# 🔧 Setup
+# -----------------------------------------
+st.set_page_config(page_title="📄 AI Quiz Generator", layout="centered")
+st.title("📄 AI Quiz Generator from Uploaded Files")
+
+openai_api_key = st.secrets["OPENAI_API_KEY"]
+client = OpenAI(api_key=openai_api_key)
+
+# -----------------------------------------
+# 🧠 Utility Functions
+# -----------------------------------------
+def extract_text(file):
+    if file.type == "application/pdf":
+        with pdfplumber.open(file) as pdf:
+            return "\n".join([page.extract_text() or "" for page in pdf.pages])
+    elif file.type == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
+        doc = docx.Document(file)
+        return "\n".join([para.text for para in doc.paragraphs])
+    elif file.type == "application/rtf":
+        return rtf_to_text(str(file.read(), "utf-8"))
+    elif file.type.startswith("image/"):
+        image = Image.open(file)
+        return pytesseract.image_to_string(image)
+    elif file.type == "text/plain":
+        return str(file.read(), "utf-8")
+    return None
+
+def generate_questions(text, num_questions):
+    prompt = f"""
+    Create {num_questions} multiple-choice questions from the content below.
+    Each question should have:
+    - 1 question
+    - 4 options labeled A, B, C, D
+    - a line with 'Answer: X'
+
+    Format:
+    Question?
+    A. Option A
+    B. Option B
+    C. Option C
+    D. Option D
+    Answer: B
+
+    Content:
+    {text}
+    """
+    try:
+        response = client.chat.completions.create(
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": prompt}],
+        )
+        return response.choices[0].message.content
+    except (RateLimitError, APIError) as e:
+        st.error(f"OpenAI error: {e}")
+        return None
+
+def parse_questions(raw_text):
+    blocks = raw_text.strip().split("\n\n")
+    parsed = []
+    for block in blocks:
+        lines = [line.strip() for line in block.strip().split("\n") if line.strip()]
+        if len(lines) >= 6:
+            question = lines[0]
+            options = lines[1:5]
+            answer_line = [line for line in lines if "Answer:" in line]
+            if answer_line:
+                correct = answer_line[0].strip()[-1]
+                parsed.append({
+                    "question": question,
+                    "options": options,
+                    "correct": correct
+                })
+    return parsed
+
+# -----------------------------------------
+# 🧼 State Initialization
+# -----------------------------------------
+if "stage" not in st.session_state:
+    st.session_state.stage = "upload"  # upload, quiz, result
+if "questions" not in st.session_state:
+    st.session_state.questions = []
+if "current" not in st.session_state:
+    st.session_state.current = 0
+if "score" not in st.session_state:
+    st.session_state.score = 0
+
+# -----------------------------------------
+# 📤 Upload + Start Quiz
+# -----------------------------------------
+if st.session_state.stage == "upload":
+    uploaded_file = st.file_uploader("Upload a file", type=["pdf", "docx", "txt", "rtf", "png", "jpg", "jpeg"])
+    num_questions = st.selectbox("How many questions would you like to generate?", [5, 10, 15], index=0)
+
+    if st.button("Start Quiz"):
+        if not uploaded_file:
+            st.error("❌ Please upload a file before starting the quiz.")
+        else:
+            text = extract_text(uploaded_file)
+            if not text or len(text.strip()) < 10:
+                st.error("❌ Not enough content found in the uploaded file.")
+            else:
+                with st.spinner("Generating quiz questions..."):
+                    raw = generate_questions(text, num_questions)
+                if raw:
+                    parsed = parse_questions(raw)
+                    if parsed:
+                        st.session_state.questions = parsed
+                        st.session_state.current = 0
+                        st.session_state.score = 0
+                        st.session_state.stage = "quiz"
+                        st.rerun()
+                    else:
+                        st.error("❌ Failed to parse valid questions.")
+
+# -----------------------------------------
+# ❓ Quiz In Progress
+# -----------------------------------------
+elif st.session_state.stage == "quiz":
+    q_list = st.session_state.questions
+    idx = st.session_state.current
+
+    if idx < len(q_list):
+        q = q_list[idx]
+        st.subheader(f"Question {idx + 1} of {len(q_list)}")
+        st.progress(idx / len(q_list))
+        st.write(q["question"])
+        choice = st.radio("Choose one:", q["options"], key=f"choice_{idx}")
+
+        if st.button("Next"):
+            selected = choice.split(".")[0].strip().upper()
+            if selected == q["correct"].upper():
+                st.session_state.score += 1
+            st.session_state.current += 1
+            st.rerun()
+    else:
+        st.session_state.stage = "result"
+        st.rerun()
+
+# -----------------------------------------
+# ✅ Result + Restart
+# -----------------------------------------
+elif st.session_state.stage == "result":
+    total = len(st.session_state.questions)
+    score = st.session_state.score
+    percent = round(score / total * 100)
+    st.success(f"🎉 Quiz Completed! You scored {score} out of {total} ({percent}%)")
+
+    if st.button("Restart Quiz"):
+        # Reset everything
+        for key in ["stage", "questions", "current", "score"]:
+            st.session_state[key] = None
+        st.session_state.stage = "upload"
+        st.rerun()
+
