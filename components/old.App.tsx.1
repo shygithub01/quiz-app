@@ -15,12 +15,12 @@ const FILE_TYPES_LABEL = "PDF, Word documents (.docx), Plain text (.txt), RTF, a
 type QuizQuestion = {
   question: string;
   options: string[];
-  answer: string;
+  answer: string; // correct answer letter
   userAnswer?: string;
 };
 
 function parseAIQuizText(quiz: string): QuizQuestion[] {
-  // (AI parsing logic as before)
+  // (same as before)
   const lines = quiz.split("\n").map(line => line.trim()).filter(Boolean);
   const questions: QuizQuestion[] = [];
   let idx = 0;
@@ -50,16 +50,7 @@ function parseAIQuizText(quiz: string): QuizQuestion[] {
   return questions;
 }
 
-// Utility: Fisher-Yates shuffle for indices:
-function pickRandomIndices(total: number, n: number): number[] {
-  const indices = Array.from({ length: total }, (_, i) => i);
-  for (let i = total - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [indices[i], indices[j]] = [indices[j], indices[i]];
-  }
-  return indices.slice(0, n);
-}
-
+// ---- Extracted Header ----
 function Header() {
   return (
     <div style={{
@@ -86,14 +77,12 @@ export default function App() {
   const [fileName, setFileName] = useState("");
   const [numQuestions, setNumQuestions] = useState(5);
   const [status, setStatus] = useState<"welcome"|"loading"|"quiz"|"results">("welcome");
-
-  // NEW: Track all questions from backend and the "picked" indices for user quiz
-  const [allQuestions, setAllQuestions] = useState<QuizQuestion[]>([]);
-  const [quizIndices, setQuizIndices] = useState<number[]>([]);
   const [quizQuestions, setQuizQuestions] = useState<QuizQuestion[]>([]);
   const [activeQuestion, setActiveQuestion] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [score, setScore] = useState(0);
+
+  // ... handlers (as before, omitted for brevity) ...
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
@@ -105,7 +94,6 @@ export default function App() {
       setFileName("");
     }
   };
-
   const handleStartQuiz = async () => {
     if (!file) return;
     setStatus("loading");
@@ -119,20 +107,9 @@ export default function App() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to generate quiz");
-
-      // Parse all 20 questions
-      const allParsed: QuizQuestion[] = parseAIQuizText(data.quiz);
-      allParsed.forEach(q => (q.userAnswer = ""));
-      setAllQuestions(allParsed);
-
-      // Pick N random indices per run
-      const N = Math.min(numQuestions, allParsed.length);
-      const indices = pickRandomIndices(allParsed.length, N);
-      setQuizIndices(indices);
-
-      setQuizQuestions(indices.map(i => {
-        return { ...allParsed[i], userAnswer: "" };
-      }));
+      const parsedQuestions: QuizQuestion[] = parseAIQuizText(data.quiz);
+      parsedQuestions.forEach(q => (q.userAnswer = ""));
+      setQuizQuestions(parsedQuestions);
       setActiveQuestion(0);
       setStatus("quiz");
     } catch (e:any) {
@@ -141,46 +118,38 @@ export default function App() {
     }
   };
 
-  const handleSelectOption = (optionIdx: number) => {
-    setQuizQuestions(prev => {
-      const updated = [...prev];
-      updated[activeQuestion].userAnswer = "ABCD"[optionIdx];
-      const isLast = activeQuestion === updated.length - 1;
-      if (isLast) {
-        const sc = updated.reduce(
-          (sum, q) => sum + ((q.userAnswer || "") === q.answer ? 1 : 0),
-          0
-        );
-        setScore(sc);
-        setStatus("results");
-      } else {
-        setActiveQuestion(activeQuestion + 1);
-      }
-      return updated;
-    });
-  };
 
-  // New Requiz logic: "Retake this quiz" uses same indices as last randomization
-  const handleRequiz = () => {
-    if (allQuestions.length > 0 && quizIndices.length > 0) {
-      setQuizQuestions(quizIndices.map(i => ({ ...allQuestions[i], userAnswer: "" })));
-      setActiveQuestion(0);
-      setScore(0);
-      setStatus("quiz");
+const handleSelectOption = (optionIdx: number) => {
+  setQuizQuestions(prev => {
+    const updated = [...prev];
+    updated[activeQuestion].userAnswer = "ABCD"[optionIdx];
+
+    const isLast = activeQuestion === updated.length - 1;
+
+    if (isLast) {
+      const sc = updated.reduce(
+        (sum, q) => sum + ((q.userAnswer || "") === q.answer ? 1 : 0),
+        0
+      );
+      setScore(sc);
+      setStatus("results");
+    } else {
+      setActiveQuestion(activeQuestion + 1);
     }
-  };
 
-  // Start new file/quiz from scratch
-  const handleNewQuiz = () => {
+    return updated;
+  });
+};
+
+
+  const handleRetake = () => {
     setFile(null);
     setFileName("");
     setNumQuestions(5);
+    setStatus("welcome");
     setQuizQuestions([]);
-    setQuizIndices([]);
-    setAllQuestions([]);
     setActiveQuestion(0);
     setScore(0);
-    setStatus("welcome");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -188,6 +157,7 @@ export default function App() {
     <div style={{ minHeight: "100vh", background: "#f7f8fc" }}>
       <Header />
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+        {/* ---- Below is the dynamic content swap ---- */}
         {status === "welcome" && (
           <div style={{
             background: "#fff", maxWidth: 420, padding: 34, borderRadius: 16, boxShadow: "0 3px 40px rgba(0,0,0,0.10)",
@@ -368,21 +338,13 @@ export default function App() {
                 );
               })}
             </div>
-            <button onClick={handleRequiz}
+            <button onClick={handleRetake}
               style={{
-                marginTop: 10,
-                background: "linear-gradient(90deg, #3cbeff, #61e97c)",
-                color: "#fff", fontSize: 17, fontWeight: 600, border: "none", padding: "12px 0", borderRadius: 9, width: "100%", cursor: "pointer"
-              }}>
-              Retake this quiz (same questions)
-            </button>
-            <button onClick={handleNewQuiz}
-              style={{
-                marginTop: 10,
+                marginTop: 19,
                 background: "linear-gradient(90deg, #7faac8, #36c458)",
                 color: "#fff", fontSize: 17, fontWeight: 600, border: "none", padding: "12px 0", borderRadius: 9, width: "100%", cursor: "pointer"
               }}>
-              Start new quiz (different random questions)
+              Retake Quiz
             </button>
           </div>
         )}

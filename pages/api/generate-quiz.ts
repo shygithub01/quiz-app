@@ -5,21 +5,17 @@ import pdfParse from "pdf-parse";
 import mammoth from "mammoth";
 import { createWorker } from "tesseract.js";
 
-// ------------- KEY IMPROVEMENT: FILE TYPE ---------------
 interface UploadedFile {
   originalFilename?: string;
   filepath: string;
   mimetype?: string;
   size?: number;
   newFilename?: string;
-  [key: string]: any; // For any extra/unknown properties
+  [key: string]: any;
 }
-// --------------------------------------------------------
 
 export const config = {
-  api: {
-    bodyParser: false,   // Required for formidable
-  },
+  api: { bodyParser: false },
 };
 
 function parseTxtOrRtf(buffer: Buffer) {
@@ -34,31 +30,23 @@ async function extractText(file: UploadedFile) {
   const ext = parseFileExt(file.originalFilename || "");
   const buffer = fs.readFileSync(file.filepath);
 
-  // PDF
   if (ext === "pdf") {
     const data = await pdfParse(buffer);
     return data.text;
   }
-
-  // DOCX
   if (ext === "docx") {
     const result = await mammoth.extractRawText({ buffer });
     return result.value;
   }
-
-  // TXT or RTF
   if (ext === "txt" || ext === "rtf") {
     return parseTxtOrRtf(buffer);
   }
-
-  // IMAGES - jpg, jpeg, png
   if (["jpg", "jpeg", "png"].includes(ext)) {
     const worker = await createWorker("eng");
     const { data: { text } } = await worker.recognize(buffer);
     await worker.terminate();
     return text;
   }
-
   throw new Error("Unsupported file type: " + ext);
 }
 
@@ -67,19 +55,15 @@ interface FormidableResult {
   files: any;
 }
 
-
 function parseForm(req: NextApiRequest): Promise<FormidableResult> {
   return new Promise((resolve, reject) => {
-    const form = formidable({ maxFileSize: 10 * 1024 * 1024 }); // 10MB
+    const form = formidable({ maxFileSize: 10 * 1024 * 1024 });
     form.parse(req, (err: any, fields: any, files: any) => {
       if (err) reject(err);
       else resolve({ fields, files });
     });
   });
 }
-
-
-
 
 async function generateQuiz(text: string, numQuestions: number) {
   const apiKey = process.env.OPENAI_API_KEY!;
@@ -125,18 +109,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   try {
     const { fields, files } = await parseForm(req);
     const fileObj = Array.isArray(files.file) ? files.file[0] : files.file;
-    const file = fileObj as UploadedFile; // ENSURE correct typing here
-    const numQuestions = parseInt((fields.numQuestions as string) || "5", 10);
-
-    if (!file) return res.status(400).json({ error: "No file uploaded." });
-
-    // 1. Extract the text from uploaded file
+    const file = fileObj as UploadedFile;
+    // Always generate 20 questions:
     const extractedText = await extractText(file);
-
-    // 2. Generate quiz from OpenAI
-    const quiz = await generateQuiz(extractedText, numQuestions);
-
-    res.status(200).json({ quiz });
+    const fullQuizText = await generateQuiz(extractedText, 20);
+    res.status(200).json({ quiz: fullQuizText });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
   }
