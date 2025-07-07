@@ -1,9 +1,20 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import formidable, { File } from "formidable";
+import formidable from "formidable";
 import fs from "fs";
 import pdfParse from "pdf-parse";
 import mammoth from "mammoth";
 import { createWorker } from "tesseract.js";
+
+// ------------- KEY IMPROVEMENT: FILE TYPE ---------------
+interface UploadedFile {
+  originalFilename?: string;
+  filepath: string;
+  mimetype?: string;
+  size?: number;
+  newFilename?: string;
+  [key: string]: any; // For any extra/unknown properties
+}
+// --------------------------------------------------------
 
 export const config = {
   api: {
@@ -19,7 +30,7 @@ function parseFileExt(fileName: string) {
   return fileName.split('.').pop()?.toLowerCase() || "";
 }
 
-async function extractText(file: File) {
+async function extractText(file: UploadedFile) {
   const ext = parseFileExt(file.originalFilename || "");
   const buffer = fs.readFileSync(file.filepath);
 
@@ -52,22 +63,25 @@ async function extractText(file: File) {
 }
 
 interface FormidableResult {
-  fields: formidable.Fields;
-  files: formidable.Files;
+  fields: any;
+  files: any;
 }
+
 
 function parseForm(req: NextApiRequest): Promise<FormidableResult> {
   return new Promise((resolve, reject) => {
     const form = formidable({ maxFileSize: 10 * 1024 * 1024 }); // 10MB
-    form.parse(req, (err, fields, files) => {
+    form.parse(req, (err: any, fields: any, files: any) => {
       if (err) reject(err);
       else resolve({ fields, files });
     });
   });
 }
 
+
+
+
 async function generateQuiz(text: string, numQuestions: number) {
-  // Use fetch instead of openai npm client for lighter install.
   const apiKey = process.env.OPENAI_API_KEY!;
   const prompt = `
 Generate ${numQuestions} multiple-choice questions (A-D) with correct answers and explanations from the following content.
@@ -110,7 +124,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const { fields, files } = await parseForm(req);
-    const file = Array.isArray(files.file) ? files.file[0] : files.file;
+    const fileObj = Array.isArray(files.file) ? files.file[0] : files.file;
+    const file = fileObj as UploadedFile; // ENSURE correct typing here
     const numQuestions = parseInt((fields.numQuestions as string) || "5", 10);
 
     if (!file) return res.status(400).json({ error: "No file uploaded." });
