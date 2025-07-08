@@ -10,6 +10,17 @@ interface Question {
   explanation?: string;
 }
 
+interface QuizData {
+  questions: Question[];
+  metadata?: {
+    userId: string;
+    fileType: string;
+    fileName: string;
+    processingTime: number;
+    timestamp: string;
+  };
+}
+
 interface UserAnswer {
   questionId: number;
   selectedAnswer: string;
@@ -32,6 +43,42 @@ export default function App() {
   const [userAnswers, setUserAnswers] = useState<UserAnswer[]>([]);
   const [quizCompleted, setQuizCompleted] = useState<boolean>(false);
   const [showResults, setShowResults] = useState<boolean>(false);
+
+  // Loading state
+  if (!isLoaded) {
+    return (
+      <div className="container loading-container">
+        <div className="spinner"></div>
+        <p>Loading...</p>
+      </div>
+    );
+  }
+
+  // Auth gate
+  if (!isSignedIn) {
+    return (
+      <div className="container auth-container">
+        <div className="auth-card">
+          <h1>🧠 AI Quiz Generator</h1>
+          <p>Transform your documents into interactive quizzes</p>
+          <div className="features">
+            <div className="feature">📄 Upload PDF, DOCX, TXT, or Images</div>
+            <div className="feature">🤖 AI-powered question generation</div>
+            <div className="feature">⚡ Interactive quiz experience</div>
+          </div>
+          <SignInButton 
+            mode="modal"
+            afterSignInUrl="/"
+            afterSignUpUrl="/"
+          >
+            <button className="signin-btn">
+              🚀 Get Started - Sign In
+            </button>
+          </SignInButton>
+        </div>
+      </div>
+    );
+  }
 
   // Parse quiz text into structured data
   const parseQuizText = (quizText: string): Question[] => {
@@ -85,18 +132,26 @@ export default function App() {
 
   // Complete reset function for "Upload new document"
   const resetAll = () => {
+    // Clear file selection
     setFile(null);
+    
+    // Clear quiz data
     setFullQuizData([]);
     setCurrentQuiz([]);
     setCurrentQuestionIndex(0);
     setUserAnswers([]);
     setQuizCompleted(false);
     setShowResults(false);
+    
+    // Clear any errors
     setError("");
     setLoading(false);
     setUploadProgress(0);
+    
+    // Reset number of questions to default
     setNumQuestions(5);
     
+    // Clear file input
     setTimeout(() => {
       const fileInput = document.getElementById('file-upload') as HTMLInputElement;
       if (fileInput) {
@@ -223,332 +278,322 @@ export default function App() {
 
   return (
     <div className="container">
-      {/* CONSISTENT HEADER FOR ALL SCREENS */}
       <header className="header">
         <div className="header-left">
           <h1>🧠 AI Quiz Generator</h1>
           <span className="tagline">Transform your documents into interactive quizzes</span>
         </div>
-        {isSignedIn && (
-          <div className="user-info">
-            <div className="user-details">
-              <span className="user-name">
-                {user?.firstName || user?.emailAddresses[0]?.emailAddress}
-              </span>
-            </div>
-            <SignOutButton afterSignOutUrl="/">
-              <button className="signout-btn">🚪 Sign Out</button>
-            </SignOutButton>
+        <div className="user-info">
+          <div className="user-details">
+            <span className="user-name">
+              {user?.firstName || user?.emailAddresses[0]?.emailAddress}
+            </span>
           </div>
-        )}
+          <SignOutButton afterSignOutUrl="/">
+            <button className="signout-btn">🚪 Sign Out</button>
+          </SignOutButton>
+        </div>
       </header>
 
       <main className="main-content">
-        {/* LOADING STATE */}
-        {!isLoaded && (
-          <div className="center-content">
-            <div className="spinner"></div>
-            <p className="loading-text">Loading...</p>
-          </div>
-        )}
+        {/* Upload Section */}
+        {!currentQuiz.length && !showResults && (
+          <div className="upload-section">
+            <div className="upload-card">
+              <h2>📄 Upload Your Document</h2>
+              <p>Upload a document and we'll generate quiz questions from its content</p>
+              
+              <form onSubmit={handleSubmit} className="upload-form">
+                <div className="file-input-container">
+                  <label htmlFor="file-upload" className="file-label">
+                    {file ? (
+                      <>
+                        <span className="file-icon">📎</span>
+                        <span className="file-details">
+                          <strong>{file.name}</strong>
+                          <small>({(file.size / 1024 / 1024).toFixed(2)} MB)</small>
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span className="upload-icon">📁</span>
+                        <span>Choose a File</span>
+                      </>
+                    )}
+                  </label>
+                  <input
+                    id="file-upload"
+                    type="file"
+                    onChange={handleFileChange}
+                    accept=".pdf,.docx,.txt,.rtf,.jpg,.jpeg,.png"
+                    className="file-input"
+                    disabled={loading}
+                  />
+                </div>
 
-        {/* AUTH GATE - MATCHES MAIN APP DESIGN */}
-        {isLoaded && !isSignedIn && (
-          <div className="center-content">
-            <div className="auth-card">
-              <h2>Welcome to AI Quiz Generator</h2>
-              <p>Create interactive quizzes from your documents using AI</p>
-              
-              <div className="features">
-                <div className="feature">
-                  <span className="feature-icon">📄</span>
-                  <span>Upload PDF, DOCX, TXT, or Images</span>
+                <div className="questions-selector">
+                  <label htmlFor="numQuestions">Number of Questions:</label>
+                  <select
+                    id="numQuestions"
+                    value={numQuestions}
+                    onChange={(e) => setNumQuestions(Number(e.target.value))}
+                    disabled={loading}
+                  >
+                    <option value={3}>3 Questions</option>
+                    <option value={5}>5 Questions</option>
+                    <option value={7}>7 Questions</option>
+                    <option value={10}>10 Questions</option>
+                  </select>
                 </div>
-                <div className="feature">
-                  <span className="feature-icon">🤖</span>
-                  <span>AI-powered question generation</span>
-                </div>
-                <div className="feature">
-                  <span className="feature-icon">⚡</span>
-                  <span>Interactive quiz experience</span>
-                </div>
-              </div>
-              
-              <SignInButton mode="modal">
-                <button className="signin-btn">
-                  🚀 Get Started - Sign In
+
+                {error && (
+                  <div className="error-message">
+                    <span className="error-icon">⚠️</span>
+                    {error}
+                  </div>
+                )}
+
+                {loading && (
+                  <div className="progress-container">
+                    <div className="progress-bar">
+                      <div className="progress-fill" style={{ width: `${uploadProgress}%` }}></div>
+                    </div>
+                    <p className="progress-text">
+                      {uploadProgress < 100 ? "Uploading..." : "Generating quiz..."}
+                    </p>
+                  </div>
+                )}
+
+                <button type="submit" disabled={!file || loading} className="start-btn">
+                  {loading ? (
+                    <>
+                      <span className="spinner-small"></span>
+                      Generating Quiz...
+                    </>
+                  ) : (
+                    "Start Quiz"
+                  )}
                 </button>
-              </SignInButton>
+              </form>
             </div>
           </div>
         )}
 
-        {/* MAIN APP CONTENT */}
-        {isLoaded && isSignedIn && (
-          <>
-            {/* Upload Section */}
-            {!currentQuiz.length && !showResults && (
-              <div className="center-content">
-                <div className="upload-card">
-                  <h2>📄 Upload Your Document</h2>
-                  <p>Upload a document and we'll generate quiz questions from its content</p>
+        {/* Quiz Section */}
+        {currentQuiz.length > 0 && !showResults && currentQuestion && (
+          <div className="quiz-section">
+            <div className="quiz-header">
+              <h2>Question {currentQuestionIndex + 1} of {currentQuiz.length}</h2>
+              <div className="progress-indicator">
+                <div className="progress-bar">
+                  <div 
+                    className="progress-fill" 
+                    style={{ width: `${((currentQuestionIndex + 1) / currentQuiz.length) * 100}%` }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+            
+            <div className="question-container">
+              <h3 className="question-text">{currentQuestion.question}</h3>
+              
+              <div className="options-container">
+                {Object.entries(currentQuestion.options).map(([key, value]) => (
+                  <button
+                    key={key}
+                    className={`option-btn ${currentUserAnswer?.selectedAnswer === key ? 'selected' : ''}`}
+                    onClick={() => selectAnswer(key)}
+                  >
+                    <span className="option-letter">{key}.</span>
+                    <span className="option-text">{value}</span>
+                  </button>
+                ))}
+              </div>
+              
+              <div className="navigation-container">
+                <button 
+                  onClick={prevQuestion} 
+                  disabled={currentQuestionIndex === 0}
+                  className="nav-btn prev-btn"
+                >
+                  ← Previous
+                </button>
+                
+                <button 
+                  onClick={nextQuestion} 
+                  disabled={!currentUserAnswer}
+                  className="nav-btn next-btn"
+                >
+                  {currentQuestionIndex === currentQuiz.length - 1 ? 'Finish Quiz' : 'Next →'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Results Section */}
+        {showResults && (
+          <div className="results-section">
+            <div className="results-card">
+              <h2>Quiz Results</h2>
+              <div className="score-display">
+                <span className="score-text">You scored</span>
+                <span className="score-number">{calculateScore()}/{currentQuiz.length}</span>
+              </div>
+              
+              <div className="answers-review">
+                {currentQuiz.map((question, index) => {
+                  const userAnswer = userAnswers.find(a => a.questionId === question.id);
+                  const isCorrect = userAnswer?.selectedAnswer === question.correctAnswer;
                   
-                  <form onSubmit={handleSubmit} className="upload-form">
-                    <div className="file-input-container">
-                      <label htmlFor="file-upload" className="file-label">
-                        {file ? (
-                          <>
-                            <span className="file-icon">📎</span>
-                            <span className="file-details">
-                              <strong>{file.name}</strong>
-                              <small>({(file.size / 1024 / 1024).toFixed(2)} MB)</small>
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <span className="upload-icon">📁</span>
-                            <span>Choose a File</span>
-                          </>
+                  return (
+                    <div key={question.id} className="answer-item">
+                      <h4>Q{index + 1}: {question.question}</h4>
+                      
+                      <div className="options-review">
+                        {Object.entries(question.options).map(([key, value]) => {
+                          const isUserAnswer = userAnswer?.selectedAnswer === key;
+                          const isCorrectAnswer = question.correctAnswer === key;
+                          
+                          return (
+                            <div 
+                              key={key} 
+                              className={`option-review ${
+                                isCorrectAnswer ? 'correct' : 
+                                isUserAnswer && !isCorrect ? 'incorrect' : ''
+                              }`}
+                            >
+                              <span className="option-letter">{key}.</span>
+                              <span className="option-text">{value}</span>
+                              {isCorrectAnswer && <span className="check-mark">✓</span>}
+                              {isUserAnswer && !isCorrect && <span className="x-mark">✗</span>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      
+                      <div className="answer-feedback">
+                        <div className="user-answer">
+                          Your answer: {userAnswer?.selectedAnswer || 'Not answered'}
+                        </div>
+                        <div className="correct-answer">
+                          Correct answer: {question.correctAnswer}
+                        </div>
+                        {question.explanation && (
+                          <div className="explanation">
+                            <strong>Explanation:</strong> {question.explanation}
+                          </div>
                         )}
-                      </label>
-                      <input
-                        id="file-upload"
-                        type="file"
-                        onChange={handleFileChange}
-                        accept=".pdf,.docx,.txt,.rtf,.jpg,.jpeg,.png"
-                        className="file-input"
-                        disabled={loading}
-                      />
-                    </div>
-
-                    <div className="questions-selector">
-                      <label htmlFor="numQuestions">Number of Questions:</label>
-                      <select
-                        id="numQuestions"
-                        value={numQuestions}
-                        onChange={(e) => setNumQuestions(Number(e.target.value))}
-                        disabled={loading}
-                      >
-                        <option value={3}>3 Questions</option>
-                        <option value={5}>5 Questions</option>
-                        <option value={7}>7 Questions</option>
-                        <option value={10}>10 Questions</option>
-                      </select>
-                    </div>
-
-                    {error && (
-                      <div className="error-message">
-                        <span className="error-icon">⚠️</span>
-                        {error}
-                      </div>
-                    )}
-
-                    {loading && (
-                      <div className="progress-container">
-                        <div className="progress-bar">
-                          <div className="progress-fill" style={{ width: `${uploadProgress}%` }}></div>
-                        </div>
-                        <p className="progress-text">
-                          {uploadProgress < 100 ? "Uploading..." : "Generating quiz..."}
-                        </p>
-                      </div>
-                    )}
-
-                    <button type="submit" disabled={!file || loading} className="start-btn">
-                      {loading ? (
-                        <>
-                          <span className="spinner-small"></span>
-                          Generating Quiz...
-                        </>
-                      ) : (
-                        "Start Quiz"
-                      )}
-                    </button>
-                  </form>
-                </div>
-              </div>
-            )}
-
-            {/* Quiz Section */}
-            {currentQuiz.length > 0 && !showResults && currentQuestion && (
-              <div className="center-content">
-                <div className="quiz-card">
-                  <div className="quiz-header">
-                    <h2>Question {currentQuestionIndex + 1} of {currentQuiz.length}</h2>
-                    <div className="progress-indicator">
-                      <div className="progress-bar">
-                        <div 
-                          className="progress-fill" 
-                          style={{ width: `${((currentQuestionIndex + 1) / currentQuiz.length) * 100}%` }}
-                        ></div>
                       </div>
                     </div>
-                  </div>
-                  
-                  <div className="question-container">
-                    <h3 className="question-text">{currentQuestion.question}</h3>
-                    
-                    <div className="options-container">
-                      {Object.entries(currentQuestion.options).map(([key, value]) => (
-                        <button
-                          key={key}
-                          className={`option-btn ${currentUserAnswer?.selectedAnswer === key ? 'selected' : ''}`}
-                          onClick={() => selectAnswer(key)}
-                        >
-                          <span className="option-letter">{key}.</span>
-                          <span className="option-text">{value}</span>
-                        </button>
-                      ))}
-                    </div>
-                    
-                    <div className="navigation-container">
-                      <button 
-                        onClick={prevQuestion} 
-                        disabled={currentQuestionIndex === 0}
-                        className="nav-btn prev-btn"
-                      >
-                        ← Previous
-                      </button>
-                      
-                      <button 
-                        onClick={nextQuestion} 
-                        disabled={!currentUserAnswer}
-                        className="nav-btn next-btn"
-                      >
-                        {currentQuestionIndex === currentQuiz.length - 1 ? 'Finish Quiz' : 'Next →'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                  );
+                })}
               </div>
-            )}
-
-            {/* Results Section */}
-            {showResults && (
-              <div className="center-content">
-                <div className="results-card">
-                  <h2>Quiz Results</h2>
-                  <div className="score-display">
-                    <span className="score-text">You scored</span>
-                    <span className="score-number">{calculateScore()}/{currentQuiz.length}</span>
-                  </div>
-                  
-                  <div className="answers-review">
-                    {currentQuiz.map((question, index) => {
-                      const userAnswer = userAnswers.find(a => a.questionId === question.id);
-                      const isCorrect = userAnswer?.selectedAnswer === question.correctAnswer;
-                      
-                      return (
-                        <div key={question.id} className="answer-item">
-                          <h4>Q{index + 1}: {question.question}</h4>
-                          
-                          <div className="options-review">
-                            {Object.entries(question.options).map(([key, value]) => {
-                              const isUserAnswer = userAnswer?.selectedAnswer === key;
-                              const isCorrectAnswer = question.correctAnswer === key;
-                              
-                              return (
-                                <div 
-                                  key={key} 
-                                  className={`option-review ${
-                                    isCorrectAnswer ? 'correct' : 
-                                    isUserAnswer && !isCorrect ? 'incorrect' : ''
-                                  }`}
-                                >
-                                  <span className="option-letter">{key}.</span>
-                                  <span className="option-text">{value}</span>
-                                  {isCorrectAnswer && <span className="check-mark">✓</span>}
-                                  {isUserAnswer && !isCorrect && <span className="x-mark">✗</span>}
-                                </div>
-                              );
-                            })}
-                          </div>
-                          
-                          <div className="answer-feedback">
-                            <div className="user-answer">
-                              Your answer: {userAnswer?.selectedAnswer || 'Not answered'}
-                            </div>
-                            <div className="correct-answer">
-                              Correct answer: {question.correctAnswer}
-                            </div>
-                            {question.explanation && (
-                              <div className="explanation">
-                                <strong>Explanation:</strong> {question.explanation}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                  
-                  <div className="action-buttons">
-                    <button onClick={retakeQuiz} className="retake-btn">
-                      Retake this quiz (same questions)
-                    </button>
-                    <button onClick={() => startQuiz(fullQuizData)} className="new-quiz-btn">
-                      Start new quiz (different random questions)
-                    </button>
-                    <button onClick={resetAll} className="upload-new-btn">
-                      📄 Upload new document
-                    </button>
-                  </div>
-                </div>
+              
+              <div className="action-buttons">
+                <button onClick={retakeQuiz} className="retake-btn">
+                  Retake this quiz (same questions)
+                </button>
+                <button onClick={() => startQuiz(fullQuizData)} className="new-quiz-btn">
+                  Start new quiz (different random questions)
+                </button>
+                <button onClick={resetAll} className="upload-new-btn">
+                  📄 Upload new document
+                </button>
               </div>
-            )}
-          </>
+            </div>
+          </div>
         )}
       </main>
 
       <style jsx>{`
-        /* 🔥 NUCLEAR FIX FOR INVISIBLE TEXT */
-.option-btn {
-  display: flex !important;
-  align-items: center !important;
-  padding: 15px 20px !important;
-  border: 2px solid #ddd !important;
-  border-radius: 12px !important;
-  background: #ffffff !important;
-  cursor: pointer !important;
-  transition: all 0.3s ease !important;
-  text-align: left !important;
-}
-
-.option-btn .option-letter {
-  font-weight: bold !important;
-  margin-right: 15px !important;
-  min-width: 20px !important;
-  color: #000000 !important;
-  background: transparent !important;
-}
-
-.option-btn .option-text {
-  flex: 1 !important;
-  color: #000000 !important;
-  background: transparent !important;
-  font-size: 16px !important;
-}
-
-.option-btn:hover .option-letter,
-.option-btn:hover .option-text {
-  color: #333333 !important;
-}
-
-.option-btn.selected {
-  border-color: #667eea !important;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
-}
-
-.option-btn.selected .option-letter,
-.option-btn.selected .option-text {
-  color: #ffffff !important;
-}
-
         .container {
           min-height: 100vh;
           background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
           font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        }
+        
+        .loading-container {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
           color: white;
+        }
+        
+        .spinner {
+          width: 40px;
+          height: 40px;
+          border: 4px solid rgba(255,255,255,0.3);
+          border-top: 4px solid white;
+          border-radius: 50%;
+          animation: spin 1s linear infinite;
+          margin-bottom: 20px;
+        }
+        
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
+        
+        .auth-container {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+        }
+        
+        .auth-card {
+          background: white;
+          padding: 40px;
+          border-radius: 20px;
+          box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+          text-align: center;
+          max-width: 400px;
+        }
+        
+        .auth-card h1 {
+          color: #333;
+          margin-bottom: 15px;
+          font-size: 2.5rem;
+        }
+        
+        .auth-card p {
+          color: #666;
+          margin-bottom: 30px;
+          font-size: 1.1rem;
+        }
+        
+        .features {
+          margin: 30px 0;
+        }
+        
+        .feature {
+          padding: 10px 0;
+          color: #555;
+          border-bottom: 1px solid #eee;
+        }
+        
+        .feature:last-child {
+          border-bottom: none;
+        }
+        
+        .signin-btn {
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          color: white;
+          padding: 15px 30px;
+          border: none;
+          border-radius: 12px;
+          cursor: pointer;
+          font-size: 16px;
+          font-weight: 600;
+          transition: all 0.3s ease;
+          width: 100%;
+        }
+        
+        .signin-btn:hover {
+          transform: translateY(-2px);
+          box-shadow: 0 10px 20px rgba(0,0,0,0.2);
         }
         
         .header {
@@ -558,17 +603,17 @@ export default function App() {
           padding: 20px 40px;
           background: rgba(255,255,255,0.1);
           backdrop-filter: blur(10px);
+          color: white;
         }
         
         .header-left h1 {
           margin: 0;
           font-size: 2rem;
-          color: white;
         }
         
         .tagline {
           font-size: 0.9rem;
-          opacity: 0.9;
+          opacity: 0.8;
           margin-left: 10px;
         }
         
@@ -602,102 +647,18 @@ export default function App() {
           padding: 40px 20px;
         }
         
-        .center-content {
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          min-height: 60vh;
+        .upload-section, .quiz-section, .results-section {
+          margin-bottom: 40px;
         }
         
-        .loading-text {
-          color: white;
-          font-size: 1.1rem;
-          margin-top: 20px;
-        }
-        
-        .spinner {
-          width: 40px;
-          height: 40px;
-          border: 4px solid rgba(255,255,255,0.3);
-          border-top: 4px solid white;
-          border-radius: 50%;
-          animation: spin 1s linear infinite;
-        }
-        
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-        
-        .auth-card, .upload-card, .quiz-card, .results-card {
+        .upload-card, .quiz-section, .results-card {
           background: white;
           padding: 40px;
           border-radius: 20px;
           box-shadow: 0 20px 40px rgba(0,0,0,0.1);
-          color: #333;
-          width: 100%;
-          max-width: 600px;
         }
         
-        .auth-card {
-          text-align: center;
-        }
-        
-        .auth-card h2 {
-          color: #333;
-          margin-bottom: 15px;
-          font-size: 2rem;
-        }
-        
-        .auth-card p {
-          color: #666;
-          margin-bottom: 30px;
-          font-size: 1.1rem;
-        }
-        
-        .features {
-          margin: 30px 0;
-          text-align: left;
-        }
-        
-        .feature {
-          display: flex;
-          align-items: center;
-          padding: 15px 0;
-          color: #555;
-          border-bottom: 1px solid #eee;
-        }
-        
-        .feature:last-child {
-          border-bottom: none;
-        }
-        
-        .feature-icon {
-          font-size: 1.5rem;
-          margin-right: 15px;
-          width: 30px;
-        }
-        
-        .signin-btn {
-          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-          color: white;
-          padding: 15px 30px;
-          border: none;
-          border-radius: 12px;
-          cursor: pointer;
-          font-size: 16px;
-          font-weight: 600;
-          transition: all 0.3s ease;
-          width: 100%;
-          margin-top: 20px;
-        }
-        
-        .signin-btn:hover {
-          transform: translateY(-2px);
-          box-shadow: 0 10px 20px rgba(0,0,0,0.2);
-        }
-        
-        .upload-card h2, .quiz-card h2, .results-card h2 {
+        .upload-card h2 {
           text-align: center;
           color: #333;
           margin-bottom: 10px;
@@ -1096,7 +1057,7 @@ export default function App() {
             padding: 20px 10px;
           }
           
-          .auth-card, .upload-card, .quiz-card, .results-card {
+          .upload-card, .quiz-section, .results-card {
             padding: 20px;
           }
           
@@ -1107,217 +1068,6 @@ export default function App() {
           .action-buttons {
             flex-direction: column;
           }
-         .option-btn * {
-            color: #333 !important;
-          }
-
-         .option-btn.selected * {
-            color: white !important;
-          }
-
-
-
-/* 📱 COMPREHENSIVE MOBILE RESPONSIVENESS */
-@media (max-width: 768px) {
-  .container {
-    min-height: 100vh;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  }
-  
-  .header {
-    flex-direction: column;
-    gap: 15px;
-    padding: 15px 20px;
-    text-align: center;
-  }
-  
-  .header-left h1 {
-    font-size: 1.5rem;
-  }
-  
-  .tagline {
-    font-size: 0.8rem;
-    margin-left: 0;
-    margin-top: 5px;
-  }
-  
-  .user-info {
-    flex-direction: column;
-    gap: 10px;
-  }
-  
-  .main-content {
-    padding: 20px 15px;
-  }
-  
-  .auth-card, .upload-card, .quiz-card, .results-card {
-    padding: 25px 20px;
-    margin: 0 10px;
-    border-radius: 15px;
-  }
-  
-  .auth-card h2 {
-    font-size: 1.5rem;
-  }
-  
-  .features {
-    margin: 20px 0;
-  }
-  
-  .feature {
-    padding: 10px 0;
-    font-size: 0.9rem;
-  }
-  
-  .feature-icon {
-    font-size: 1.2rem;
-    margin-right: 12px;
-  }
-  
-  .signin-btn, .start-btn {
-    padding: 12px 25px;
-    font-size: 15px;
-  }
-  
-  .file-label {
-    min-height: 100px;
-    flex-direction: column;
-    text-align: center;
-  }
-  
-  .upload-icon, .file-icon {
-    font-size: 1.5rem;
-    margin-right: 0;
-    margin-bottom: 10px;
-  }
-  
-  .question-text {
-    font-size: 1.1rem;
-    margin-bottom: 20px;
-  }
-  
-  .option-btn {
-    padding: 12px 15px;
-    font-size: 14px;
-  }
-  
-  .option-letter {
-    margin-right: 12px;
-    min-width: 18px;
-  }
-  
-  .navigation-container {
-    flex-direction: column;
-    gap: 15px;
-  }
-  
-  .nav-btn {
-    padding: 12px 20px;
-    width: 100%;
-  }
-  
-  .score-display {
-    padding: 20px;
-  }
-  
-  .score-number {
-    font-size: 2.5rem;
-  }
-  
-  .answer-item {
-    padding: 15px;
-    margin-bottom: 20px;
-  }
-  
-  .answer-item h4 {
-    font-size: 1rem;
-    margin-bottom: 12px;
-  }
-  
-  .action-buttons {
-    gap: 12px;
-  }
-  
-  .retake-btn, .new-quiz-btn, .upload-new-btn {
-    padding: 12px 25px;
-    font-size: 15px;
-  }
-}
-
-/* 📱 SMALL MOBILE (iPhone SE, etc.) */
-@media (max-width: 480px) {
-  .header {
-    padding: 10px 15px;
-  }
-  
-  .header-left h1 {
-    font-size: 1.3rem;
-  }
-  
-  .main-content {
-    padding: 15px 10px;
-  }
-  
-  .auth-card, .upload-card, .quiz-card, .results-card {
-    padding: 20px 15px;
-    margin: 0 5px;
-  }
-  
-  .question-text {
-    font-size: 1rem;
-  }
-  
-  .option-btn {
-    padding: 10px 12px;
-    font-size: 13px;
-  }
-  
-  .score-number {
-    font-size: 2rem;
-  }
-}
-
-/* 🖥️ LARGE SCREENS */
-@media (min-width: 1200px) {
-  .main-content {
-    max-width: 900px;
-  }
-  
-  .auth-card, .upload-card, .quiz-card, .results-card {
-    max-width: 700px;
-  }
-}
-
-
-/* 👆 TOUCH-FRIENDLY ELEMENTS */
-.option-btn, .nav-btn, .signin-btn, .start-btn {
-  min-height: 44px; /* iOS recommended touch target */
-  touch-action: manipulation; /* Prevents zoom on tap */
-}
-
-.file-label {
-  min-height: 120px; /* Larger touch area for file upload */
-}
-
-/* Improve button spacing on mobile */
-@media (max-width: 768px) {
-  .options-container {
-    gap: 12px;
-  }
-  
-  .action-buttons {
-    gap: 15px;
-  }
-}
-
-
-
-
-
-
-
-
-
         }
       `}</style>
     </div>

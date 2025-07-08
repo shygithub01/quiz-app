@@ -1,5 +1,4 @@
-// your-app-folder/pages/index.tsx
-
+// pages/index.tsx - Back to Original
 import App from "../components/App";
 
 export default function Home() {
