@@ -77,6 +77,12 @@ export default function App() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
+      // ADD FILE SIZE CHECK HERE:
+      if (selectedFile.size > 5 * 1024 * 1024) { // 5MB limit
+        setError("File too large! Please choose a smaller file (max 5MB). Mobile photos are often very large - try compressing the image first.");
+        e.target.value = ''; // Clear the input
+        return;
+      }
       setFile(selectedFile);
       setError("");
       resetQuiz();
@@ -125,6 +131,13 @@ export default function App() {
     setError("");
     setUploadProgress(0);
     resetQuiz();
+
+    // ADD THIS FOR BETTER MOBILE FEEDBACK:
+    if (file.size > 1024 * 1024) { // If file is larger than 1MB
+      setError("Processing large file... This may take a moment, especially for high-resolution mobile photos. Please wait...");
+      // Clear this "error" after a moment since it's really just info
+      setTimeout(() => setError(""), 2000);
+    }
     
     const formData = new FormData();
     formData.append("file", file);
