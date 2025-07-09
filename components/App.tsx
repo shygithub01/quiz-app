@@ -236,7 +236,7 @@ export default function App() {
                 {user?.firstName || user?.emailAddresses[0]?.emailAddress}
               </span>
             </div>
-            <SignOutButton afterSignOutUrl="/">
+            <SignOutButton redirectUrl="/">
               <button className="signout-btn">🚪 Sign Out</button>
             </SignOutButton>
           </div>
