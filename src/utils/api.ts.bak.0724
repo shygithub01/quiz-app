@@ -1,0 +1,118 @@
+// API utility functions for quiz generation
+
+export interface GenerateQuizFromDocumentParams {
+  file: File;
+  numQuestions?: number;
+  difficulty?: string;
+  quizType?: string;
+}
+
+export interface GenerateQuizFromTopicParams {
+  topic: string;
+  difficulty: string;
+  quizType: string;
+  numQuestions: number;
+}
+
+export interface QuizResponse {
+  quiz: any[];
+  success: boolean;
+  message?: string;
+  error?: string;
+  quizId?: string;
+}
+
+// API Base URL - CRITICAL: Point to your local server
+const API_BASE_URL = 'http://localhost:3001';
+
+// Generate quiz from uploaded document
+export const generateQuizFromDocument = async (params: GenerateQuizFromDocumentParams): Promise<QuizResponse> => {
+  const formData = new FormData();
+  formData.append("file", params.file);
+  
+  if (params.numQuestions) {
+    formData.append("numQuestions", params.numQuestions.toString());
+  }
+  if (params.difficulty) {
+    formData.append("difficulty", params.difficulty);
+  }
+  if (params.quizType) {
+    formData.append("quizType", params.quizType);
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/generate-quiz`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || `Server error: ${response.status}`);
+  }
+
+  return await response.json();
+};
+
+// Generate quiz from topic - CORRECTED ENDPOINT
+export const generateQuizFromTopic = async (params: GenerateQuizFromTopicParams): Promise<QuizResponse> => {
+  const response = await fetch(`${API_BASE_URL}/api/generate-quiz-from-topic`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(params),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || `Server error: ${response.status}`);
+  }
+
+  return await response.json();
+};
+
+// Get quiz history
+export const getQuizHistory = async () => {
+  const response = await fetch(`${API_BASE_URL}/api/quiz-history`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch quiz history');
+  }
+  return await response.json();
+};
+
+// Get specific quiz by ID
+export const getQuizById = async (quizId: string) => {
+  const response = await fetch(`${API_BASE_URL}/api/quiz-history/${encodeURIComponent(quizId)}`);
+  if (!response.ok) {
+    throw new Error('Failed to fetch quiz data');
+  }
+  return await response.json();
+};
+
+// Save quiz to history
+export const saveQuizToHistory = async (quizData: any) => {
+  const response = await fetch(`${API_BASE_URL}/api/quiz-history`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(quizData),
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to save quiz history');
+  }
+  
+  return await response.json();
+};
+
+// Delete quiz from history
+export const deleteQuizFromHistory = async (quizId: string) => {
+  const response = await fetch(`${API_BASE_URL}/api/quiz-history/${encodeURIComponent(quizId)}`, {
+    method: 'DELETE'
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to delete quiz');
+  }
+  
+  return await response.json();
+};

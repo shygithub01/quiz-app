@@ -1,0 +1,510 @@
+const { onRequest } = require("firebase-functions/v2/https");
+const { defineSecret } = require("firebase-functions/params");
+const cors = require("cors");
+const OpenAI = require("openai");
+const multer = require("multer");
+const mammoth = require("mammoth");
+const pdfParse = require("pdf-parse");
+const Busboy = require("busboy");
+const fs = require("fs");
+
+// Define secrets
+const openaiApiKey = defineSecret("OPENAI_API_KEY");
+
+// Configure multer for file uploads
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+  fileFilter: (req, file, cb) => {
+    // Accept text files, Word documents, and PDFs
+    if (file.mimetype === 'text/plain' || 
+        file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+        file.mimetype === 'application/msword' ||
+        file.mimetype === 'application/pdf') {
+      cb(null, true);
+    } else {
+      cb(new Error('Only .txt, .docx, .doc, and .pdf files are allowed'), false);
+    }
+  }
+});
+
+// CORS configuration
+const corsHandler = cors({
+  origin: [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://quizapp-42057.web.app",
+    "https://quizist.ai",
+    "https://www.quizist.ai"
+  ],
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
+});
+
+// Helper function to handle CORS preflight
+const handleCors = (req, res) => {
+  return new Promise((resolve) => {
+    corsHandler(req, res, () => {
+      resolve();
+    });
+  });
+};
+
+// Helper function to get MIME type from filename
+const getMimeType = (filename) => {
+  const ext = filename.toLowerCase().split('.').pop();
+  switch (ext) {
+    case 'txt':
+      return 'text/plain';
+    case 'docx':
+      return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    case 'doc':
+      return 'application/msword';
+    case 'pdf':
+      return 'application/pdf';
+    default:
+      return 'application/octet-stream';
+  }
+};
+
+// Enhanced function to extract text from uploaded file
+const extractTextFromFile = async (file) => {
+  try {
+    console.log(`📄 Processing file: ${file.originalname}, Type: ${file.mimetype}, Size: ${file.size} bytes`);
+    
+    if (file.mimetype === 'text/plain') {
+      const text = file.buffer.toString('utf8');
+      console.log(`✅ Extracted ${text.length} characters from text file`);
+      return text;
+    } else if (file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+      const result = await mammoth.extractRawText({ buffer: file.buffer });
+      console.log(`✅ Extracted ${result.value.length} characters from DOCX file`);
+      return result.value;
+    } else if (file.mimetype === 'application/msword') {
+      try {
+        console.log('📄 Attempting DOC file parsing...');
+        const result = await mammoth.extractRawText({ buffer: file.buffer });
+        console.log(`✅ Extracted ${result.value.length} characters from DOC file`);
+        return result.value;
+      } catch (docError) {
+        console.error('❌ DOC file parsing error:', docError);
+        
+        // Check if it's the common "body element" error
+        if (docError.message.includes('Could not find the body element')) {
+          throw new Error(`This DOC file appears to be corrupted or in an unsupported format. Please convert it to DOCX format using Microsoft Word or LibreOffice, or try uploading a different file.`);
+        }
+        
+        throw new Error(`Unable to read this DOC file: ${docError.message}. Please convert it to DOCX format or upload a different file.`);
+      }
+    } else if (file.mimetype === 'application/pdf') {
+      try {
+        console.log('📄 Attempting PDF parsing...');
+        const pdfData = await pdfParse(file.buffer);
+        console.log(`✅ Extracted ${pdfData.text.length} characters from PDF file`);
+        console.log(`📄 PDF text preview: "${pdfData.text.substring(0, 200)}..."`);
+        return pdfData.text;
+      } catch (pdfError) {
+        console.error('❌ PDF parsing error:', pdfError);
+        throw new Error(`Unable to read this PDF file. Please ensure it's not password-protected or corrupted. Error: ${pdfError.message}`);
+      }
+    } else {
+      const supportedTypes = ['PDF (.pdf)', 'Word documents (.docx, .doc)', 'Text files (.txt)'];
+      throw new Error(`Unsupported file type: ${file.originalname}. Please upload only: ${supportedTypes.join(', ')}`);
+    }
+  } catch (error) {
+    console.error(`❌ Error processing file: ${error.message}`);
+    throw new Error(`Error processing file: ${error.message}`);
+  }
+};
+
+// Helper function to get OpenAI key
+const getOpenAIKey = () => {
+  return openaiApiKey.value();
+};
+
+let quizHistory = [];
+
+// Main quiz generation endpoint that handles both document and topic requests
+exports.generateQuiz = onRequest({ secrets: [openaiApiKey], region: 'us-central1' }, async (req, res) => {
+  await handleCors(req, res);
+  
+  try {
+    const openai = new OpenAI({ apiKey: getOpenAIKey() });
+    
+    // Check if it's a file upload (JSON with base64 file) or topic request
+    if (req.body.file && req.body.fileName) {
+      // Handle file upload (base64-encoded file)
+      console.log('📄 Detected file upload request');
+      console.log('📄 File name:', req.body.fileName);
+      console.log('📄 File type:', req.body.fileType);
+      console.log('📄 Base64 length:', req.body.file.length);
+      
+      try {
+        // Convert base64 to buffer
+        const fileBuffer = Buffer.from(req.body.file, 'base64');
+        console.log('✅ File buffer created:', fileBuffer.length, 'bytes');
+        
+        // Create a mock file object for extractTextFromFile
+        const mockFile = {
+          buffer: fileBuffer,
+          originalname: req.body.fileName,
+          mimetype: req.body.fileType || getMimeType(req.body.fileName),
+          size: fileBuffer.length
+        };
+        
+        // Extract text from the uploaded file
+        const fileContent = await extractTextFromFile(mockFile);
+        
+        const numQuestions = parseInt(req.body.numQuestions) || 5;
+        const difficulty = req.body.difficulty || 'medium';
+        const quizType = req.body.quizType || 'multiple-choice';
+        
+        console.log("Processing file upload with settings:", { numQuestions, difficulty, quizType });
+        console.log("Extracted text length:", fileContent.length);
+        
+        const prompt = `Create exactly ${numQuestions} ${difficulty} difficulty ${quizType} questions based on the following text. 
+
+Text: "${fileContent.substring(0, 8000)}"
+
+IMPORTANT: You must return ONLY a valid JSON array with this EXACT format, no additional text or markdown:
+[
+  {
+    "id": 1,
+    "question": "Question text here?",
+    "options": {
+      "A": "Option A text",
+      "B": "Option B text", 
+      "C": "Option C text",
+      "D": "Option D text"
+    },
+    "correctAnswer": "A",
+    "explanation": "Brief explanation here"
+  }
+]
+
+CRITICAL REQUIREMENTS:
+1. Return ONLY the JSON array, no additional text
+2. No markdown formatting
+3. No code blocks
+4. Valid JSON syntax
+5. Exactly ${numQuestions} questions
+6. Each question must have id, question, options (A-D), correctAnswer, and explanation`;
+
+        const response = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [{ role: "user", content: prompt }],
+          max_tokens: 2000,
+          temperature: 0.8,
+          top_p: 0.9,
+        });
+
+        const content = response.choices[0].message.content.trim();
+        console.log('🤖 OpenAI document response received');
+        console.log('🤖 Raw OpenAI response:', content);
+        
+        let quizData;
+        try {
+          quizData = JSON.parse(content);
+        } catch (parseError) {
+          console.error('JSON parsing error:', parseError);
+          console.error('Failed to parse content:', content);
+          throw new Error('Failed to parse AI response');
+        }
+        
+        if (!Array.isArray(quizData) || quizData.length === 0) {
+          throw new Error('Invalid quiz format received from OpenAI');
+        }
+
+        // Ensure we have the correct number of questions
+        if (quizData.length !== numQuestions) {
+          console.warn(`Expected ${numQuestions} questions, got ${quizData.length}`);
+          while (quizData.length < numQuestions) {
+            quizData.push({
+              id: quizData.length + 1,
+              question: `Additional question ${quizData.length + 1} based on the uploaded document content`,
+              options: { A: "Option A", B: "Option B", C: "Option C", D: "Option D" },
+              correctAnswer: "A",
+              explanation: "Explanation for the correct answer"
+            });
+          }
+        }
+
+        console.log(`✅ Successfully generated ${quizData.length} questions from document`);
+        
+        res.json({ 
+          quiz: quizData,
+          success: true,
+          message: 'Quiz generated successfully from document!'
+        });
+
+      } catch (aiError) {
+        console.error('❌ AI generation error:', aiError);
+        res.status(500).json({ 
+          error: 'Failed to generate quiz from document',
+          success: false 
+        });
+      }
+      
+    } else {
+      // Handle JSON request (topic-based quiz) - KEPT UNCHANGED
+      const { topic, difficulty = 'medium', quizType = 'multiple-choice', numQuestions = 5 } = req.body;
+      
+      if (!topic) {
+        return res.status(400).json({ error: 'Topic is required for topic-based quiz generation' });
+      }
+
+      console.log(`🧠 Generating quiz from topic: ${topic}`);
+      
+      // Enhanced randomization strategies for topic-based quizzes
+      const variations = [
+        "Focus on practical applications and real-world scenarios",
+        "Emphasize fundamental concepts and principles", 
+        "Include recent developments and current trends",
+        "Focus on problem-solving and analytical thinking",
+        "Emphasize cause-and-effect relationships",
+        "Include comparative analysis between different approaches",
+        "Focus on historical context and timeline",
+        "Emphasize key figures and their contributions",
+        "Include interconnections with other related topics",
+        "Focus on common misconceptions and clarifications"
+      ];
+      
+      const randomVariation = variations[Math.floor(Math.random() * variations.length)];
+      const timeSeed = Date.now() % 1000;
+      
+      console.log(`🎲 Topic variation: ${randomVariation}`);
+      
+      const prompt = `Create exactly ${numQuestions} ${difficulty} difficulty ${quizType} questions about "${topic}".
+
+Variation: ${randomVariation}
+Randomization Seed: ${timeSeed}
+
+Return ONLY a valid JSON array with this EXACT format:
+[
+  {
+    "id": 1,
+    "question": "Question text here?",
+    "options": {
+      "A": "Option A text",
+      "B": "Option B text", 
+      "C": "Option C text",
+      "D": "Option D text"
+    },
+    "correctAnswer": "A",
+    "explanation": "Brief explanation here"
+  }
+]
+
+CRITICAL: Return ONLY the JSON array, no additional text, no markdown formatting.`;
+
+      try {
+        const response = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [{ role: "user", content: prompt }],
+          max_tokens: 2000,
+          temperature: 0.8,
+          top_p: 0.9,
+        });
+
+        const content = response.choices[0].message.content.trim();
+        console.log('🤖 OpenAI topic response received');
+        
+        let quizData;
+        try {
+          quizData = JSON.parse(content);
+        } catch (parseError) {
+          console.error('JSON parsing error:', parseError);
+          // Retry with simpler prompt
+          const retryPrompt = `Create exactly ${numQuestions} multiple choice questions about "${topic}":
+          Generate ${numQuestions} questions as JSON array.`;
+          
+          const retryCompletion = await openai.chat.completions.create({
+            messages: [{ role: "user", content: retryPrompt }],
+            model: "gpt-4o-mini",
+            temperature: 0.3,
+          });
+          
+          try {
+            quizData = JSON.parse(retryCompletion.choices[0].message.content);
+          } catch (retryParseError) {
+            console.error('Retry parsing also failed:', retryParseError);
+            throw new Error('Failed to parse AI response');
+          }
+        }
+        
+        if (!Array.isArray(quizData) || quizData.length === 0) {
+          throw new Error('Invalid quiz format received from OpenAI');
+        }
+
+        // Ensure we have the correct number of questions
+        if (quizData.length !== numQuestions) {
+          console.warn(`Expected ${numQuestions} questions, got ${quizData.length}`);
+          while (quizData.length < numQuestions) {
+            quizData.push({
+              id: quizData.length + 1,
+              question: `Additional question ${quizData.length + 1} about ${topic}`,
+              options: { A: "Option A", B: "Option B", C: "Option C", D: "Option D" },
+              correctAnswer: "A",
+              explanation: "Explanation for the correct answer"
+            });
+          }
+        }
+
+        console.log(`✅ Successfully generated ${quizData.length} questions from topic`);
+        
+        res.json({ 
+          quiz: quizData,
+          success: true,
+          message: 'Quiz generated successfully from topic!'
+        });
+
+      } catch (aiError) {
+        console.error('❌ AI generation error:', aiError);
+        res.status(500).json({ 
+          error: 'Failed to generate quiz from topic',
+          success: false 
+        });
+      }
+    }
+  } catch (error) {
+    console.error('❌ General error:', error);
+    res.status(500).json({ error: "Failed to generate quiz." });
+  }
+});
+
+exports.generateQuizFromTopic = onRequest({ secrets: [openaiApiKey], region: 'us-central1' }, async (req, res) => {
+  await handleCors(req, res);
+  try {
+    const openai = new OpenAI({ apiKey: getOpenAIKey() });
+    const { topic, difficulty = 'medium', quizType = 'multiple-choice', numQuestions = 5 } = req.body;
+    
+    const prompt = `Generate a ${numQuestions}-question ${difficulty} difficulty ${quizType} quiz on the topic: ${topic}. 
+    Format the response as a JSON array with the following structure:
+    [
+      {
+        "id": 1,
+        "question": "Question text here",
+        "options": {
+          "A": "Option A",
+          "B": "Option B", 
+          "C": "Option C",
+          "D": "Option D"
+        },
+        "correctAnswer": "A",
+        "explanation": "Explanation for the correct answer"
+      }
+    ]`;
+
+    const completion = await openai.chat.completions.create({
+      messages: [{ role: "user", content: prompt }],
+      model: "gpt-4",
+    });
+
+    // Parse the response as JSON
+    let quizData;
+    try {
+      quizData = JSON.parse(completion.choices[0].message.content);
+    } catch (parseError) {
+      // If parsing fails, create a simple quiz structure
+      quizData = [
+        {
+          id: 1,
+          question: `Sample question about ${topic}`,
+          options: {
+            A: "Option A",
+            B: "Option B", 
+            C: "Option C",
+            D: "Option D"
+          },
+          correctAnswer: "A",
+          explanation: "Sample explanation"
+        }
+      ];
+    }
+
+    const quizId = uuidv4();
+    const quiz = {
+      id: quizId,
+      topic,
+      questions: quizData,
+      createdAt: new Date(),
+    };
+
+    quizHistory.push(quiz);
+    res.status(200).json({ quizId, quiz });
+  } catch (error) {
+    console.error("Error in generateQuizFromTopic:", error);
+    res.status(500).json({ error: "Failed to generate quiz from topic." });
+  }
+});
+
+exports.getQuizHistory = onRequest({ region: 'us-central1' }, (req, res) => {
+  handleCors(req, res, (req, res) => {
+    res.status(200).json(quizHistory);
+  });
+});
+
+exports.getQuizById = onRequest({ region: 'us-central1' }, (req, res) => {
+  handleCors(req, res, (req, res) => {
+    const { id } = req.query;
+    const quiz = quizHistory.find(q => q.id === id);
+    if (quiz) {
+      res.status(200).json(quiz);
+    } else {
+      res.status(404).json({ error: "Quiz not found." });
+    }
+  });
+});
+
+exports.saveQuizHistory = onRequest({ region: 'us-central1' }, (req, res) => {
+  handleCors(req, res, (req, res) => {
+    const quiz = req.body;
+    quizHistory.push(quiz);
+    res.status(200).json({ message: "Quiz saved." });
+  });
+});
+
+exports.updateQuizCompletion = onRequest({ region: 'us-central1' }, (req, res) => {
+  handleCors(req, res, (req, res) => {
+    const { id } = req.body;
+    const quiz = quizHistory.find(q => q.id === id);
+    if (quiz) {
+      quiz.completed = true;
+      res.status(200).json({ message: "Quiz marked as completed." });
+    } else {
+      res.status(404).json({ error: "Quiz not found." });
+    }
+  });
+});
+
+exports.deleteQuiz = onRequest({ region: 'us-central1' }, (req, res) => {
+  handleCors(req, res, (req, res) => {
+    const { id } = req.body;
+    const index = quizHistory.findIndex(q => q.id === id);
+    if (index !== -1) {
+      quizHistory.splice(index, 1);
+      res.status(200).json({ message: "Quiz deleted." });
+    } else {
+      res.status(404).json({ error: "Quiz not found." });
+    }
+  });
+});
+
+exports.testCors = onRequest({ region: 'us-central1' }, (req, res) => {
+  handleCors(req, res, (req, res) => {
+    res.status(200).json({ 
+      message: "CORS test successful",
+      method: req.method,
+      headers: req.headers,
+      timestamp: new Date().toISOString()
+    });
+  });
+});
+
+exports.healthCheck = onRequest({ region: 'us-central1' }, (req, res) => {
+  handleCors(req, res, (req, res) => {
+    res.status(200).json({ status: "OK" });
+  });
+});
+

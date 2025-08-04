@@ -1,0 +1,1185 @@
+import React, { useState, useEffect } from 'react'
+import { useAuth } from '@/contexts/AuthContext'
+import { useSearchParams } from 'react-router-dom'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { 
+  Brain, 
+  FileText, 
+  Zap, 
+  Upload, 
+  ArrowLeft, 
+  ArrowRight, 
+  CheckCircle, 
+  XCircle, 
+  MessageSquare, 
+  Target, 
+  Lightbulb, 
+  Play, 
+  Trash2, 
+  Clock, 
+  Award 
+} from 'lucide-react'
+
+interface Question {
+  id: number;
+  question: string;
+  options: { A: string; B: string; C: string; D: string };
+  correctAnswer: string;
+  explanation?: string;
+}
+
+interface UserAnswer {
+  questionId: number;
+  selectedAnswer: string;
+}
+
+interface FakeFile {
+  name: string;
+  size: number;
+  type: string;
+  lastModified: number;
+  kind?: string;
+}
+
+interface PastQuiz {
+  id: string;
+  title: string;
+  type: 'document' | 'topic';
+  score?: number;
+  questionCount: number;
+  createdAt: string;
+  completedAt?: string;
+  settings?: {
+    difficulty?: string;
+    numQuestions?: number;
+  };
+}
+
+const formatQuizTitle = (quiz: PastQuiz) => {
+  if (quiz.type === 'topic') {
+    return `${quiz.title} (${quiz.settings?.difficulty || 'medium'}, ${quiz.settings?.numQuestions || quiz.questionCount}Q)`
+  }
+  return quiz.title || 'Untitled Quiz'
+}
+
+export default function Home() {
+  const { user, signIn } = useAuth()
+  const isSignedIn = !!user
+  const isLoaded = true
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  // Tab and topic states
+  const [activeTab, setActiveTab] = useState<'document' | 'topic'>('document');
+  const [topic, setTopic] = useState<string>('');
+  const [difficulty, setDifficulty] = useState<string>('medium');
+  const [quizType, setQuizType] = useState<string>('multiple-choice');
+
+  // State management
+  const [file, setFile] = useState<File | FakeFile | null>(null);
+  const [originalFile, setOriginalFile] = useState<File | null>(null);
+  const [numQuestions, setNumQuestions] = useState<number>(5);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string>("");
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+
+  // Quiz states
+  const [fullQuizData, setFullQuizData] = useState<Question[]>([]);
+  const [currentQuiz, setCurrentQuiz] = useState<Question[]>([]);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
+  const [userAnswers, setUserAnswers] = useState<UserAnswer[]>([]);
+  const [quizCompleted, setQuizCompleted] = useState<boolean>(false);
+  const [showResults, setShowResults] = useState<boolean>(false);
+
+  // Past quizzes state
+  const [pastQuizzes, setPastQuizzes] = useState<PastQuiz[]>([]);
+  const [loadingPastQuizzes, setLoadingPastQuizzes] = useState<boolean>(false);
+
+  // Track current quiz ID
+  const [currentQuizId, setCurrentQuizId] = useState<string | null>(null);
+
+  // Load past quizzes when signed in and user is available
+  useEffect(() => {
+    if (isSignedIn && user?.uid && !currentQuiz.length && !showResults) {
+      console.log('🎯 Triggering loadPastQuizzes for user:', user.uid);
+      loadPastQuizzes();
+    }
+  }, [isSignedIn, user?.uid]);
+
+  // Load past quizzes
+  const loadPastQuizzes = async () => {
+    if (!user?.uid) return;
+    
+    try {
+      setLoadingPastQuizzes(true);
+      console.log('🔄 Loading past quizzes for user:', user.uid);
+      
+      const response = await fetch('http://localhost:3001/api/quiz-history', {
+        headers: {
+          'user-id': user.uid,
+          'user-email': user.email || ''
+        }
+      });
+      
+      if (response.ok) {
+        const quizzes = await response.json();
+        console.log('📊 Received quizzes:', quizzes);
+        
+        // Transform the data to match PastQuiz interface
+        const transformedQuizzes = quizzes.map((quiz: any) => ({
+          id: quiz.id,
+          title: quiz.title,
+          type: quiz.type,
+          score: quiz.score,
+          questionCount: quiz.questionCount,
+          createdAt: quiz.createdAt,
+          completedAt: quiz.completedAt,
+          settings: quiz.settings
+        }));
+        
+        setPastQuizzes(transformedQuizzes.slice(0, 3));
+      } else {
+        console.error('Failed to load past quizzes:', response.status);
+      }
+    } catch (error) {
+      console.error('Failed to load past quizzes:', error);
+    } finally {
+      setLoadingPastQuizzes(false);
+    }
+  };
+
+  // Handle retake from URL
+  useEffect(() => {
+    const retakeQuizId = searchParams.get('retake')
+    if (retakeQuizId && isSignedIn) {
+      console.log('🔄 Retaking quiz:', retakeQuizId)
+      handleRetakeQuiz(retakeQuizId)
+      setSearchParams({})
+    }
+  }, [isSignedIn, searchParams])
+
+  // Handle retaking a quiz
+  const handleRetakeQuiz = async (quizId: string) => {
+    try {
+      setLoading(true)
+      setError('')
+      console.log('📥 Fetching quiz for retake:', quizId)
+      
+      const response = await fetch(`http://localhost:3001/api/quiz-history/${encodeURIComponent(quizId)}`)
+      if (!response.ok) {
+        throw new Error('Failed to fetch quiz data')
+      }
+      
+      const quizData = await response.json()
+      console.log('📋 Retrieved quiz data:', quizData)
+      
+      if (!quizData.quiz || quizData.quiz.length === 0) {
+        throw new Error('No questions found in saved quiz')
+      }
+      
+      setFullQuizData(quizData.quiz)
+      setCurrentQuiz(quizData.quiz)
+      setCurrentQuestionIndex(0)
+      setUserAnswers([])
+      setQuizCompleted(false)
+      setShowResults(false)
+      setCurrentQuizId(quizData.id || quizId)
+      
+      setFile({
+        name: quizData.title || quizData.fileName || 'Unknown Quiz',
+        size: 0,
+        type: quizData.type || 'quiz',
+        lastModified: Date.now(),
+        kind: 'retake'
+      })
+
+      if (quizData.type === 'topic') {
+        setActiveTab('topic')
+        setTopic(quizData.title)
+        setDifficulty(quizData.settings?.difficulty || 'medium')
+        setQuizType(quizData.settings?.quizType || 'multiple-choice')
+        setNumQuestions(quizData.settings?.numQuestions || 5)
+      } else {
+        setActiveTab('document')
+      }
+      
+      console.log('✅ Quiz retake setup complete')
+    } catch (error: any) {
+      console.error('❌ Error setting up retake:', error)
+      setError(`Failed to retake quiz: ${error.message}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const parseQuizText = (quizText: string): Question[] => {
+    const questions: Question[] = [];
+    const questionBlocks = quizText.split(/Q\d+:/);
+    questionBlocks.forEach((block, index) => {
+      if (index === 0 || !block.trim()) return;
+
+      const lines = block.trim().split('\n').filter(line => line.trim());
+      if (lines.length < 6) return;
+
+      const questionText = lines[0].trim();
+      const options = { A: '', B: '', C: '', D: '' };
+      let correctAnswer = '';
+      let explanation = '';
+
+      lines.forEach(line => {
+        const trimmedLine = line.trim();
+        if (trimmedLine.startsWith('A.')) options.A = trimmedLine.substring(2).trim();
+        else if (trimmedLine.startsWith('B.')) options.B = trimmedLine.substring(2).trim();
+        else if (trimmedLine.startsWith('C.')) options.C = trimmedLine.substring(2).trim();
+        else if (trimmedLine.startsWith('D.')) options.D = trimmedLine.substring(2).trim();
+        else if (trimmedLine.startsWith('Answer:')) correctAnswer = trimmedLine.substring(7).trim();
+        else if (trimmedLine.startsWith('Explanation:')) explanation = trimmedLine.substring(12).trim();
+      });
+
+      if (questionText && options.A && options.B && options.C && options.D && correctAnswer) {
+        questions.push({
+          id: index,
+          question: questionText,
+          options,
+          correctAnswer,
+          explanation
+        });
+      }
+    });
+    return questions;
+  };
+
+  const processQuizData = (data: any): Question[] => {
+    console.log('🔍 Processing quiz data:', data);
+    
+    try {
+      if (!data.quiz) {
+        throw new Error('No quiz data received from server');
+      }
+
+      let questions: Question[] = [];
+
+      if (Array.isArray(data.quiz)) {
+        console.log('📋 Processing array format');
+        questions = data.quiz.map((q: any, index: number) => ({
+          id: q.id || index + 1,
+          question: q.question || `Question ${index + 1}`,
+          options: q.options || { A: '', B: '', C: '', D: '' },
+          correctAnswer: q.correctAnswer || 'A',
+          explanation: q.explanation || ''
+        }));
+      }
+      else if (typeof data.quiz === 'string') {
+        console.log('📄 Processing string format');
+        questions = parseQuizText(data.quiz);
+      }
+      else {
+        throw new Error('Unsupported quiz data format');
+      }
+
+      const validQuestions = questions.filter(q => 
+        q.question && 
+        q.options && 
+        q.options.A && 
+        q.options.B && 
+        q.options.C && 
+        q.options.D && 
+        q.correctAnswer
+      );
+
+      console.log(`✅ Processed ${validQuestions.length} valid questions`);
+      return validQuestions;
+
+    } catch (error: any) {
+      console.error('❌ Error processing quiz data:', error);
+      throw new Error(`Failed to process quiz data: ${error.message}`);
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      if (selectedFile.size > 5 * 1024 * 1024) {
+        setError("File too large! Please choose a smaller file (max 5MB).");
+        e.target.value = '';
+        return;
+      }
+      setFile(selectedFile);
+      setOriginalFile(selectedFile);
+      setError("");
+      resetQuiz();
+    }
+  };
+
+  const resetAll = () => {
+    setFile(null);
+    setOriginalFile(null);
+    setFullQuizData([]);
+    setCurrentQuiz([]);
+    setCurrentQuestionIndex(0);
+    setUserAnswers([]);
+    setQuizCompleted(false);
+    setShowResults(false);
+    setError("");
+    setLoading(false);
+    setUploadProgress(0);
+    setNumQuestions(5);
+    setTopic('');
+    setDifficulty('medium');
+    setQuizType('multiple-choice');
+    setActiveTab('document');
+    setCurrentQuizId(null);
+    setTimeout(() => {
+      const fileInput = document.getElementById('file-upload') as HTMLInputElement;
+      if (fileInput) fileInput.value = '';
+    }, 100);
+    loadPastQuizzes();
+  };
+
+  const resetQuiz = () => {
+    setCurrentQuestionIndex(0);
+    setUserAnswers([]);
+    setQuizCompleted(false);
+    setShowResults(false);
+    setError("");
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!file || (file as any).kind === "file" && !('size' in file)) {
+      setError("Please select a file");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    setUploadProgress(0);
+    resetQuiz();
+
+    const formData = new FormData();
+    formData.append("file", file as File);
+
+    try {
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => Math.min(prev + 10, 90));
+      }, 200);
+
+      const res = await fetch("/api/generate-quiz", {
+        method: "POST",
+        body: formData,
+      });
+
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || `Server error: ${res.status}`);
+      }
+
+      const data = await res.json();
+      const parsedQuestions = processQuizData(data);
+      setCurrentQuizId(data.quizId || null);
+
+      if (parsedQuestions.length === 0) {
+        throw new Error("No valid questions could be generated from your document.");
+      }
+
+      setFullQuizData(parsedQuestions);
+      startQuiz(parsedQuestions, false);
+    } catch (error: any) {
+      setError(error.message || 'Failed to generate quiz. Please try again.');
+    } finally {
+      setLoading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  const handleTopicSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!topic.trim()) {
+      setError("Please enter a topic");
+      return;
+    }
+    setLoading(true);
+    setError("");
+    setUploadProgress(0);
+    resetQuiz();
+
+    try {
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => Math.min(prev + 10, 90));
+      }, 200);
+
+      const res = await fetch("/api/generate-quiz-from-topic", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          topic: topic.trim(),
+          difficulty,
+          quizType,
+          numQuestions,
+        }),
+      });
+
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || `Server error: ${res.status}`);
+      }
+
+      const data = await res.json();
+      const parsedQuestions = processQuizData(data);
+      setCurrentQuizId(data.quizId || null);
+
+      if (parsedQuestions.length === 0) {
+        throw new Error("No valid questions could be generated from this topic.");
+      }
+
+      setFile({
+        name: `Quiz on "${topic}"`,
+        size: 0,
+        type: 'topic',
+        lastModified: Date.now(),
+        kind: 'topic'
+      });
+
+      setFullQuizData(parsedQuestions);
+      startQuiz(parsedQuestions, false);
+    } catch (error: any) {
+      setError(error.message || 'Failed to generate quiz. Please try again.');
+    } finally {
+      setLoading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  const startQuiz = (questions: Question[], isRetake = false) => {
+    let selectedQuestions;
+    
+    if (isRetake) {
+      selectedQuestions = questions;
+      console.log('🔄 Starting retake with exact same questions');
+    } else {
+      const shuffled = [...questions].sort(() => Math.random() - 0.5);
+      selectedQuestions = shuffled.slice(0, numQuestions);
+      console.log('🎲 Starting new quiz with shuffled questions');
+    }
+    
+    setCurrentQuiz(selectedQuestions);
+    setCurrentQuestionIndex(0);
+    setUserAnswers([]);
+    setQuizCompleted(false);
+    setShowResults(false);
+  };
+
+  const retakeQuiz = () => {
+    setCurrentQuestionIndex(0);
+    setUserAnswers([]);
+    setQuizCompleted(false);
+    setShowResults(false);
+  };
+
+  const handleNewQuiz = async () => {
+    if (!originalFile && activeTab === 'document') {
+      setError("Please upload a document to generate new questions");
+      return;
+    }
+    if (!topic.trim() && activeTab === 'topic') {
+      setError("Please enter a topic to generate new questions");
+      return;
+    }
+    
+    setLoading(true);
+    setError("");
+    setShowResults(false);
+    setCurrentQuestionIndex(0);
+    setUserAnswers([]);
+    setCurrentQuiz([]);
+    setUploadProgress(0);
+    
+    try {
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => Math.min(prev + 10, 90));
+      }, 200);
+
+      let res;
+      if (activeTab === 'document' && originalFile) {
+        const formData = new FormData();
+        formData.append("file", originalFile);
+        formData.append("forceNew", "true");  // FIXED: Force new quiz creation
+        res = await fetch("/api/generate-quiz", {
+          method: "POST",
+          body: formData,
+        });
+      } else if (activeTab === 'topic') {
+        res = await fetch("/api/generate-quiz-from-topic", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            topic: topic.trim(),
+            difficulty,
+            quizType,
+            numQuestions,
+            forceNew: true,  // FIXED: Force new quiz creation
+          }),
+        });
+      } else {
+        throw new Error("No source available for new quiz generation");
+      }
+
+      clearInterval(progressInterval);
+      setUploadProgress(100);
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to generate new quiz");
+      }
+
+      const data = await res.json();
+      const parsedQuestions = processQuizData(data);
+      setCurrentQuizId(data.quizId || null);
+
+      if (parsedQuestions.length === 0) {
+        throw new Error("No valid questions could be generated");
+      }
+
+      setFullQuizData(parsedQuestions);
+      startQuiz(parsedQuestions, false);
+    } catch (error: any) {
+      setError(error.message || 'Failed to generate new quiz. Please try again.');
+    } finally {
+      setLoading(false);
+      setUploadProgress(0);
+    }
+  };
+
+  const selectAnswer = (answer: string) => {
+    const currentQuestion = currentQuiz[currentQuestionIndex];
+    const newAnswers = userAnswers.filter(a => a.questionId !== currentQuestion.id);
+    newAnswers.push({ questionId: currentQuestion.id, selectedAnswer: answer });
+    setUserAnswers(newAnswers);
+  };
+
+  const nextQuestion = () => {
+    if (currentQuestionIndex < currentQuiz.length - 1) {
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
+    } else {
+      setQuizCompleted(true);
+      setShowResults(true);
+    }
+  };
+
+  const prevQuestion = () => {
+    if (currentQuestionIndex > 0) {
+      setCurrentQuestionIndex(currentQuestionIndex - 1);
+    }
+  };
+
+  const calculateScore = () => {
+    let correct = 0;
+    currentQuiz.forEach(question => {
+      const userAnswer = userAnswers.find(a => a.questionId === question.id);
+      if (userAnswer && userAnswer.selectedAnswer === question.correctAnswer) {
+        correct++;
+      }
+    });
+    return correct;
+  };
+
+  const deleteQuiz = async (quizId: string) => {
+    try {
+      await fetch(`http://localhost:3001/api/quiz-history/${quizId}`, { method: 'DELETE' });
+      setPastQuizzes(prev => prev.filter(q => q.id !== quizId));
+    } catch (error) {
+      console.error('Failed to delete quiz:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (showResults && isSignedIn && currentQuiz.length > 0 && currentQuizId) {
+      fetch(`http://localhost:3001/api/quiz-history/${currentQuizId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          answers: userAnswers,
+          score: calculateScore(),
+          completedAt: new Date().toISOString(),
+        }),
+      }).then(() => loadPastQuizzes()).catch(() => {});
+    }
+  }, [showResults, currentQuizId]);
+
+  const currentQuestion = currentQuiz[currentQuestionIndex];
+  const currentUserAnswer = currentQuestion ? userAnswers.find(a => a.questionId === currentQuestion.id) : null;
+
+  if (!isLoaded) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh]">
+        <div className="w-8 h-8 border-4 border-white/30 border-t-white rounded-full animate-spin mb-4"></div>
+        <p className="text-white/80 text-lg">Loading...</p>
+      </div>
+    )
+  }
+
+  if (!isSignedIn) {
+    return (
+      <div className="w-full max-w-2xl">
+        <Card className="bg-white/10 backdrop-blur-md border-white/20 shadow-2xl">
+          <CardHeader className="text-center space-y-4">
+            <div className="flex items-center justify-center gap-3 mb-2">
+              <Brain className="w-10 h-10 text-white animate-pulse" />
+              <CardTitle className="text-3xl md:text-4xl font-bold text-white">
+                AI Quiz Generator
+              </CardTitle>
+            </div>
+            <p className="text-white/80 text-lg">
+              Create interactive quizzes from your documents using AI
+            </p>
+          </CardHeader>
+          
+          <CardContent className="space-y-6">
+            <div className="grid gap-4">
+              <div className="flex items-center gap-4 p-4 bg-white/10 rounded-lg border border-white/20">
+                <FileText className="w-6 h-6 text-white flex-shrink-0" />
+                <span className="text-white">Upload TXT, DOCX, PDF files</span>
+              </div>
+              <div className="flex items-center gap-4 p-4 bg-white/10 rounded-lg border border-white/20">
+                <Brain className="w-6 h-6 text-white flex-shrink-0" />
+                <span className="text-white">AI-powered question generation</span>
+              </div>
+              <div className="flex items-center gap-4 p-4 bg-white/10 rounded-lg border border-white/20">
+                <Zap className="w-6 h-6 text-white flex-shrink-0" />
+                <span className="text-white">Interactive quiz experience</span>
+              </div>
+            </div>
+
+            <Button 
+              size="lg" 
+              className="w-full bg-white text-purple-600 hover:bg-white/90 font-semibold" 
+              onClick={signIn}
+            >
+              <Brain className="w-5 h-5 mr-2" />
+              Get Started - Sign In
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (!currentQuiz.length && !showResults) {
+    return (
+      <div className="w-full max-w-4xl space-y-8">
+        <Card className="bg-white/10 backdrop-blur-md border-white/20 shadow-2xl">
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl font-bold text-white flex items-center justify-center gap-2">
+              <Upload className="w-6 h-6" />
+              Generate Your Quiz
+            </CardTitle>
+            <p className="text-white/80">
+              Upload a document or enter a topic to generate quiz questions
+            </p>
+          </CardHeader>
+
+          <CardContent>
+            <div className="flex gap-2 mb-6 p-1 bg-white/10 rounded-lg">
+              <Button
+                variant={activeTab === 'document' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setActiveTab('document')}
+                className={`flex-1 ${activeTab === 'document' ? 'bg-white text-purple-600' : 'text-white hover:bg-white/20'}`}
+              >
+                <FileText className="w-4 h-4 mr-2" />
+                Document
+              </Button>
+              <Button
+                variant={activeTab === 'topic' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => setActiveTab('topic')}
+                className={`flex-1 ${activeTab === 'topic' ? 'bg-white text-purple-600' : 'text-white hover:bg-white/20'}`}
+              >
+                <MessageSquare className="w-4 h-4 mr-2" />
+                Topic
+              </Button>
+            </div>
+
+            {activeTab === 'document' && (
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <div className="relative">
+                  <label
+                    htmlFor="file-upload"
+                    className={`flex items-center gap-4 p-6 border-2 border-dashed rounded-lg cursor-pointer transition-all duration-300 ${
+                      file 
+                        ? 'border-white/50 bg-white/10' 
+                        : 'border-white/30 hover:border-white/50 hover:bg-white/5'
+                    }`}
+                  >
+                    {file ? (
+                      <>
+                        <FileText className="w-8 h-8 text-white flex-shrink-0" />
+                        <div className="flex flex-col flex-1 min-w-0">
+                          <strong className="text-white truncate">{file.name}</strong>
+                          {('size' in file && file.size > 0) && (
+                            <small className="text-white/70">
+                              ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                            </small>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-8 h-8 text-white flex-shrink-0" />
+                        <span className="text-white font-medium">Choose a File (.txt, .docx, .pdf)</span>
+                      </>
+                    )}
+                  </label>
+                  <input
+                    id="file-upload"
+                    type="file"
+                    onChange={handleFileChange}
+                    accept=".txt,.docx,.pdf"
+                    className="absolute inset-0 opacity-0 cursor-pointer"
+                    disabled={loading}
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="numQuestions" className="block text-sm font-semibold text-white">
+                    Number of Questions:
+                  </label>
+                  <select
+                    id="numQuestions"
+                    value={numQuestions}
+                    onChange={e => setNumQuestions(Number(e.target.value))}
+                    disabled={loading}
+                    className="w-full p-3 border border-white/30 rounded-lg bg-white/10 text-white backdrop-blur-md focus:border-white/50 focus:ring-2 focus:ring-white/20 focus:outline-none transition-colors"
+                  >
+                    <option value={3} className="bg-purple-600">3 Questions</option>
+                    <option value={5} className="bg-purple-600">5 Questions</option>
+                    <option value={7} className="bg-purple-600">7 Questions</option>
+                    <option value={10} className="bg-purple-600">10 Questions</option>
+                  </select>
+                </div>
+
+                {error && (
+                  <div className="flex items-center gap-3 bg-red-500/20 text-white p-4 rounded-lg border border-red-400/30">
+                    <XCircle className="w-5 h-5 flex-shrink-0" />
+                    <span>{error}</span>
+                  </div>
+                )}
+
+                {loading && (
+                  <div className="space-y-3">
+                    <div className="w-full bg-white/20 rounded-full h-2 overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-white to-white/80 transition-all duration-300 rounded-full"
+                        style={{ width: `${uploadProgress}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-center text-white/80">
+                      {uploadProgress < 100 ? "Uploading..." : "Generating quiz..."}
+                    </p>
+                  </div>
+                )}
+
+                <Button
+                  type="submit"
+                  disabled={!file || loading}
+                  size="lg"
+                  className="w-full bg-white text-purple-600 hover:bg-white/90 font-semibold disabled:opacity-50"
+                >
+                  {loading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-purple-600/30 border-t-purple-600 rounded-full animate-spin mr-2"></div>
+                      Generating Quiz...
+                    </>
+                  ) : (
+                    <>
+                      <Brain className="w-5 h-5 mr-2" />
+                      Start Quiz
+                    </>
+                  )}
+                </Button>
+              </form>
+            )}
+
+            {activeTab === 'topic' && (
+              <form onSubmit={handleTopicSubmit} className="space-y-6">
+                <div className="space-y-2">
+                  <label htmlFor="topic" className="block text-sm font-semibold text-white">
+                    Enter Topic or Subject:
+                  </label>
+                  <textarea
+                    id="topic"
+                    value={topic}
+                    onChange={e => setTopic(e.target.value)}
+                    placeholder="e.g., World War 2, React Hooks, Biology, Machine Learning..."
+                    disabled={loading}
+                    rows={3}
+                    className="w-full p-3 border border-white/30 rounded-lg bg-white/10 text-white placeholder-white/50 backdrop-blur-md focus:border-white/50 focus:ring-2 focus:ring-white/20 focus:outline-none transition-colors resize-none"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label htmlFor="difficulty" className="block text-sm font-semibold text-white">
+                      <Target className="w-4 h-4 inline mr-1" />
+                      Difficulty:
+                    </label>
+                    <select
+                      id="difficulty"
+                      value={difficulty}
+                      onChange={e => setDifficulty(e.target.value)}
+                      disabled={loading}
+                      className="w-full p-3 border border-white/30 rounded-lg bg-white/10 text-white backdrop-blur-md focus:border-white/50 focus:ring-2 focus:ring-white/20 focus:outline-none transition-colors"
+                    >
+                      <option value="easy" className="bg-purple-600">Easy</option>
+                      <option value="medium" className="bg-purple-600">Medium</option>
+                      <option value="hard" className="bg-purple-600">Hard</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label htmlFor="quizType" className="block text-sm font-semibold text-white">
+                      <Lightbulb className="w-4 h-4 inline mr-1" />
+                      Quiz Type:
+                    </label>
+                    <select
+                      id="quizType"
+                      value={quizType}
+                      onChange={e => setQuizType(e.target.value)}
+                      disabled={loading}
+                      className="w-full p-3 border border-white/30 rounded-lg bg-white/10 text-white backdrop-blur-md focus:border-white/50 focus:ring-2 focus:ring-white/20 focus:outline-none transition-colors"
+                    >
+                      <option value="multiple-choice" className="bg-purple-600">Multiple Choice</option>
+                      <option value="conceptual" className="bg-purple-600">Conceptual</option>
+                      <option value="factual" className="bg-purple-600">Factual</option>
+                      <option value="application" className="bg-purple-600">Application</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label htmlFor="numQuestionsTopics" className="block text-sm font-semibold text-white">
+                    Number of Questions:
+                  </label>
+                  <select
+                    id="numQuestionsTopics"
+                    value={numQuestions}
+                    onChange={e => setNumQuestions(Number(e.target.value))}
+                    disabled={loading}
+                    className="w-full p-3 border border-white/30 rounded-lg bg-white/10 text-white backdrop-blur-md focus:border-white/50 focus:ring-2 focus:ring-white/20 focus:outline-none transition-colors"
+                  >
+                    <option value={3} className="bg-purple-600">3 Questions</option>
+                    <option value={5} className="bg-purple-600">5 Questions</option>
+                    <option value={7} className="bg-purple-600">7 Questions</option>
+                    <option value={10} className="bg-purple-600">10 Questions</option>
+                  </select>
+                </div>
+
+                {error && (
+                  <div className="flex items-center gap-3 bg-red-500/20 text-white p-4 rounded-lg border border-red-400/30">
+                    <XCircle className="w-5 h-5 flex-shrink-0" />
+                    <span>{error}</span>
+                  </div>
+                )}
+
+                {loading && (
+                  <div className="space-y-3">
+                    <div className="w-full bg-white/20 rounded-full h-2 overflow-hidden">
+                      <div 
+                        className="h-full bg-gradient-to-r from-white to-white/80 transition-all duration-300 rounded-full"
+                        style={{ width: `${uploadProgress}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-center text-white/80">
+                      {uploadProgress < 100 ? "Processing..." : "Generating quiz..."}
+                    </p>
+                  </div>
+                )}
+
+                <Button
+                  type="submit"
+                  disabled={!topic.trim() || loading}
+                  size="lg"
+                  className="w-full bg-white text-purple-600 hover:bg-white/90 font-semibold disabled:opacity-50"
+                >
+                  {loading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-purple-600/30 border-t-purple-600 rounded-full animate-spin mr-2"></div>
+                      Generating Quiz...
+                    </>
+                  ) : (
+                    <>
+                      <Brain className="w-5 h-5 mr-2" />
+                      Generate Quiz
+                    </>
+                  )}
+                </Button>
+              </form>
+            )}
+          </CardContent>
+        </Card>
+
+        {pastQuizzes.length > 0 && (
+          <Card className="bg-white/10 backdrop-blur-md border-white/20 shadow-2xl">
+            <CardHeader>
+              <CardTitle className="text-xl font-bold text-white flex items-center gap-2">
+                <Clock className="w-5 h-5" />
+                Recent Quizzes
+              </CardTitle>
+              <p className="text-white/80">Continue where you left off</p>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4">
+                {loadingPastQuizzes ? (
+                  <div className="text-center py-8">
+                    <div className="w-8 h-8 border-4 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-4"></div>
+                    <p className="text-white/80">Loading quizzes...</p>
+                  </div>
+                ) : (
+                  pastQuizzes.map((quiz) => (
+                    <div
+                      key={quiz.id}
+                      className="flex items-center justify-between p-4 bg-white/5 rounded-lg border border-white/20 hover:bg-white/10 transition-colors"
+                    >
+                      <div className="flex items-center gap-3 flex-1">
+                        <FileText className="w-5 h-5 text-white/80 flex-shrink-0" />
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-white font-medium truncate">
+                            {formatQuizTitle(quiz)}
+                          </h3>
+                          <div className="flex items-center gap-4 text-sm text-white/70">
+                            <span className="flex items-center gap-1">
+                              <Award className="w-3 h-3" />
+                              {quiz.score !== undefined 
+                                ? `${quiz.score}/${quiz.questionCount}` 
+                                : `${quiz.questionCount} questions`
+                              }
+                            </span>
+                            <span>
+                              {new Date(quiz.createdAt).toLocaleDateString()}
+                            </span>
+                            {quiz.settings?.difficulty && (
+                              <span className="capitalize">{quiz.settings.difficulty}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          size="sm"
+                          className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                          onClick={() => handleRetakeQuiz(quiz.id)}
+                        >
+                          <Play className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-white/70 hover:text-white hover:bg-red-500/20"
+                          onClick={() => deleteQuiz(quiz.id)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    )
+  }
+
+  if (currentQuiz.length > 0 && !showResults && currentQuestion) {
+    return (
+      <div className="w-full max-w-3xl">
+        <Card className="bg-white/10 backdrop-blur-md border-white/20 shadow-2xl">
+          <CardHeader className="text-center space-y-4">
+            <CardTitle className="text-xl font-semibold text-white">
+              Question {currentQuestionIndex + 1} of {currentQuiz.length}
+            </CardTitle>
+            <div className="w-full max-w-md mx-auto bg-white/20 rounded-full h-3 overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-white to-white/80 transition-all duration-300 rounded-full"
+                style={{ width: `${((currentQuestionIndex + 1) / currentQuiz.length) * 100}%` }}
+              ></div>
+            </div>
+          </CardHeader>
+
+          <CardContent className="space-y-6">
+            <h3 className="text-xl font-semibold text-white leading-relaxed">
+              {currentQuestion.question}
+            </h3>
+
+            <div className="space-y-3">
+              {(['A', 'B', 'C', 'D'] as const).map((key) => (
+                <Button
+                  key={key}
+                  variant={currentUserAnswer?.selectedAnswer === key ? "default" : "ghost"}
+                  className={`w-full justify-start text-left h-auto py-4 px-4 ${
+                    currentUserAnswer?.selectedAnswer === key
+                      ? 'bg-white text-purple-600'
+                      : 'bg-white/10 hover:bg-white/20 text-white border-white/30'
+                  }`}
+                  onClick={() => selectAnswer(key)}
+                >
+                  <span className={`font-bold mr-3 text-lg ${
+                    currentUserAnswer?.selectedAnswer === key ? 'text-purple-600' : 'text-white'
+                  }`}>
+                    {key}.
+                  </span>
+                  <span className="flex-1">
+                    {currentQuestion.options[key]}
+                  </span>
+                </Button>
+              ))}
+            </div>
+
+            <div className="flex justify-between gap-4 pt-4">
+              <Button
+                onClick={prevQuestion}
+                disabled={currentQuestionIndex === 0}
+                variant="outline"
+                className="px-6 bg-white/10 border-white/30 text-white hover:bg-white/20"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Previous
+              </Button>
+              <Button
+                onClick={nextQuestion}
+                disabled={!currentUserAnswer}
+                className="px-6 bg-white text-purple-600 hover:bg-white/90 font-semibold"
+              >
+                {currentQuestionIndex === currentQuiz.length - 1 ? 'Finish Quiz' : 'Next'}
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  if (showResults) {
+    const score = calculateScore();
+    const percentage = Math.round((score / currentQuiz.length) * 100);
+
+    return (
+      <div className="w-full max-w-4xl space-y-6">
+        <Card className="bg-white/10 backdrop-blur-md border-white/20 shadow-2xl">
+          <CardHeader className="text-center">
+            <CardTitle className="text-3xl font-bold text-white mb-4">
+              Quiz Complete!
+            </CardTitle>
+            <div className="p-6 bg-white/10 rounded-xl border border-white/30">
+              <p className="text-white/80 text-lg mb-2">You scored</p>
+              <p className="text-5xl font-black text-white">
+                {score}/{currentQuiz.length}
+              </p>
+              <p className="text-2xl text-white/90 mt-2">
+                {percentage}%
+              </p>
+            </div>
+          </CardHeader>
+
+          <CardContent className="space-y-6">
+            <div className="space-y-4">
+              {currentQuiz.map((question, index) => {
+                const userAnswer = userAnswers.find(a => a.questionId === question.id);
+                const isCorrect = userAnswer?.selectedAnswer === question.correctAnswer;
+
+                return (
+                  <Card key={question.id} className="bg-white/5 border-white/20">
+                    <CardContent className="p-6">
+                      <h4 className="text-lg font-semibold text-white mb-4 leading-relaxed">
+                        Q{index + 1}: {question.question}
+                      </h4>
+
+                      <div className="space-y-2 mb-4">
+                        {(['A', 'B', 'C', 'D'] as const).map((key) => {
+                          const value = question.options[key];
+                          const isUserAnswer = userAnswer?.selectedAnswer === key;
+                          const isCorrectAnswer = question.correctAnswer === key;
+                          
+                          return (
+                            <div
+                              key={key}
+                              className={`flex items-center gap-3 p-3 rounded-lg border ${
+                                isCorrectAnswer 
+                                  ? 'bg-green-500/20 border-green-400/30' 
+                                  : isUserAnswer && !isCorrect 
+                                    ? 'bg-red-500/20 border-red-400/30' 
+                                    : 'bg-white/5 border-white/20'
+                              }`}
+                            >
+                              <span className="font-bold text-lg text-white">{key}.</span>
+                              <span className="flex-1 text-white">{value}</span>
+                              {isCorrectAnswer && <CheckCircle className="w-5 h-5 text-green-400" />}
+                              {isUserAnswer && !isCorrect && <XCircle className="w-5 h-5 text-red-400" />}
+                            </div>
+                          );
+                        })}
+                      </div>
+
+                      <div className="space-y-2 text-sm text-white">
+                        <div className={`font-medium ${isCorrect ? 'text-green-400' : 'text-red-400'}`}>
+                          <strong>Your answer:</strong> {userAnswer?.selectedAnswer || 'Not answered'}
+                        </div>
+                        <div className="text-green-400 font-medium">
+                          <strong>Correct answer:</strong> {question.correctAnswer}
+                        </div>
+                        {question.explanation && (
+                          <div className="bg-white/10 p-3 rounded-lg border-l-4 border-white mt-3">
+                            <strong className="text-white">Explanation:</strong> 
+                            <span className="text-white/90 ml-2">{question.explanation}</span>
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+
+            <div className="grid gap-3">
+              <Button 
+                onClick={retakeQuiz} 
+                size="lg" 
+                className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold"
+              >
+                🔄 Retake this quiz (same questions)
+              </Button>
+              <Button 
+                onClick={handleNewQuiz} 
+                size="lg" 
+                className="w-full bg-white text-purple-600 hover:bg-white/90 font-semibold"
+              >
+                🎲 Generate brand new quiz (fresh questions)
+              </Button>
+              <Button 
+                onClick={resetAll} 
+                variant="outline" 
+                size="lg" 
+                className="w-full bg-white/10 border-white/30 text-white hover:bg-white/20"
+              >
+                📄 Generate new quiz
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  return null
+}
