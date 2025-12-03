@@ -256,18 +256,18 @@ CRITICAL REQUIREMENTS:
 
       console.log(`🧠 Generating quiz from topic: ${topic}`);
       
-      // Enhanced randomization strategies for topic-based quizzes
+      // Enhanced randomization for variety while maintaining accuracy
       const variations = [
         "Focus on practical applications and real-world scenarios",
-        "Emphasize fundamental concepts and principles", 
-        "Include recent developments and current trends",
-        "Focus on problem-solving and analytical thinking",
-        "Emphasize cause-and-effect relationships",
-        "Include comparative analysis between different approaches",
-        "Focus on historical context and timeline",
-        "Emphasize key figures and their contributions",
-        "Include interconnections with other related topics",
-        "Focus on common misconceptions and clarifications"
+        "Emphasize fundamental concepts and key facts", 
+        "Include historical context and timeline",
+        "Focus on achievements and contributions",
+        "Emphasize lesser-known facts and details",
+        "Include comparative questions with related topics",
+        "Focus on impact and significance",
+        "Emphasize specific events and milestones",
+        "Include analytical and critical thinking questions",
+        "Focus on common knowledge and trivia"
       ];
       
       const randomVariation = variations[Math.floor(Math.random() * variations.length)];
@@ -275,10 +275,17 @@ CRITICAL REQUIREMENTS:
       
       console.log(`🎲 Topic variation: ${randomVariation}`);
       
-      const prompt = `Create exactly ${numQuestions} ${difficulty} difficulty ${quizType} questions about "${topic}".
+      const prompt = `You are a precise quiz generator for educational competitions. Create exactly ${numQuestions} ${difficulty} difficulty ${quizType} questions about the topic: "${topic}".
 
-Variation: ${randomVariation}
-Randomization Seed: ${timeSeed}
+CRITICAL INSTRUCTIONS:
+1. The topic is: "${topic}" - interpret this LITERALLY and ACCURATELY
+2. If "${topic}" sounds like a person's name (e.g., Gavaskar, Gavasker), it IS a person - create questions about that person
+3. DO NOT confuse names with medical/scientific terms (e.g., "Gavaskar/Gavasker" = Indian cricket legend Sunil Gavaskar, NOT gastroenterology)
+4. If the topic is ambiguous, choose the most famous/well-known interpretation
+5. ${randomVariation}
+6. Generate DIFFERENT questions each time - avoid repetition
+7. All questions must be factually accurate and directly related to "${topic}"
+8. Randomization seed: ${timeSeed}
 
 Return ONLY a valid JSON array with this EXACT format:
 [
@@ -301,9 +308,15 @@ CRITICAL: Return ONLY the JSON array, no additional text, no markdown formatting
       try {
         const response = await openai.chat.completions.create({
           model: "gpt-4o-mini",
-          messages: [{ role: "user", content: prompt }],
+          messages: [
+            { 
+              role: "system", 
+              content: "You are a precise educational quiz generator. Always interpret topics correctly and never confuse similar-sounding words. Create accurate, factual questions with variety. Each generation should produce different questions on the same topic for practice purposes." 
+            },
+            { role: "user", content: prompt }
+          ],
           max_tokens: 2000,
-          temperature: 0.8,
+          temperature: 0.8,  // Higher temperature for variety in questions
           top_p: 0.9,
         });
 
