@@ -7,6 +7,8 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import Layout from "./pages/Layout";
 import Home from "./pages/Home";
 import PastQuizzes from "./pages/PastQuizzes";
+import Competitions from "./pages/Competitions";
+import CompetitionDetails from "./pages/CompetitionDetails";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +40,8 @@ const App = () => (
                 <Route path="/" element={<Layout />}>
                   <Route index element={<Home />} />
                   <Route path="past-quizzes" element={<PastQuizzes />} />
+                  <Route path="competitions" element={<Competitions />} />
+                  <Route path="competitions/:id" element={<CompetitionDetails />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>

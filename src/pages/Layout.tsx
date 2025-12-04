@@ -1,7 +1,7 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
-import { Brain, BookOpen, LogOut, User, Sparkles } from 'lucide-react'
+import { Brain, BookOpen, LogOut, User, Sparkles, Trophy } from 'lucide-react'
 
 export default function Layout() {
   const { user, loading, logout, signIn } = useAuth() // Added signIn assuming it exists in AuthContext
@@ -83,6 +83,23 @@ export default function Layout() {
                     >
                       <BookOpen className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
                       <span className="hidden sm:inline font-medium ml-2">History</span>
+                    </Button>
+                  </Link>
+                  
+                  <Link to="/competitions">
+                    <Button
+                      variant={location.pathname === '/competitions' ? 'default' : 'ghost'}
+                      size="sm"
+                      className={`
+                        relative group transition-all duration-300 rounded-full
+                        ${location.pathname === '/competitions' 
+                          ? 'bg-white text-purple-600 shadow-glow hover:shadow-glow-lg' 
+                          : 'text-white/80 hover:text-white hover:bg-white/10'
+                        }
+                      `}
+                    >
+                      <Trophy className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
+                      <span className="hidden sm:inline font-medium ml-2">Competitions</span>
                     </Button>
                   </Link>
                 </nav>

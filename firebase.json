@@ -9,7 +9,7 @@
     {
       "source": "functions",
       "codebase": "default",
-      "runtime": "nodejs18",
+      "runtime": "nodejs20",
       "ignore": [
         "node_modules",
         ".git",
@@ -34,9 +34,7 @@
         "source": "**",
         "destination": "/index.html"
       }
-    ],
-    "target": "quizist",
-    "site": "quizist"
+    ]
   },
   "emulators": {
     "auth": {

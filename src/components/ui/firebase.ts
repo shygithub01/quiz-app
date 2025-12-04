@@ -14,7 +14,9 @@ import {
   Timestamp,
   QuerySnapshot,
   DocumentData,
-  getDoc
+  getDoc,
+  where,
+  increment
 } from 'firebase/firestore';
 import CryptoJS from 'crypto-js';
 
@@ -319,4 +321,237 @@ export {
   getUserQuizzes, 
   updateQuiz, 
   deleteQuiz
+};
+
+// ===== COMPETITION FUNCTIONS =====
+
+const getCompetitions = async (status?: 'upcoming' | 'active' | 'completed'): Promise<any[]> => {
+  try {
+    console.log('🏆 Fetching competitions, status filter:', status);
+    const competitionsRef = collection(db, 'competitions');
+    let q = query(competitionsRef, orderBy('startDate', 'desc'));
+    
+    if (status) {
+      q = query(competitionsRef, where('status', '==', status), orderBy('startDate', 'desc'));
+    }
+    
+    const querySnapshot = await getDocs(q);
+    const competitions = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      startDate: doc.data().startDate?.toDate(),
+      endDate: doc.data().endDate?.toDate(),
+      createdAt: doc.data().createdAt?.toDate()
+    }));
+    
+    console.log('✅ Fetched competitions:', competitions.length);
+    return competitions;
+  } catch (error) {
+    console.error('❌ Error fetching competitions:', error);
+    throw error;
+  }
+};
+
+const getCompetitionById = async (competitionId: string): Promise<any | null> => {
+  try {
+    console.log('🏆 Fetching competition:', competitionId);
+    const competitionRef = doc(db, 'competitions', competitionId);
+    const competitionDoc = await getDoc(competitionRef);
+    
+    if (!competitionDoc.exists()) {
+      return null;
+    }
+    
+    const data = competitionDoc.data();
+    return {
+      id: competitionDoc.id,
+      ...data,
+      startDate: data.startDate?.toDate(),
+      endDate: data.endDate?.toDate(),
+      createdAt: data.createdAt?.toDate()
+    };
+  } catch (error) {
+    console.error('❌ Error fetching competition:', error);
+    throw error;
+  }
+};
+
+const createCompetition = async (competitionData: any): Promise<string> => {
+  try {
+    console.log('🏆 Creating competition:', competitionData.title);
+    const competitionsRef = collection(db, 'competitions');
+    const docRef = await addDoc(competitionsRef, {
+      ...competitionData,
+      participantCount: 0,
+      createdAt: Timestamp.now(),
+      startDate: Timestamp.fromDate(new Date(competitionData.startDate)),
+      endDate: Timestamp.fromDate(new Date(competitionData.endDate))
+    });
+    console.log('✅ Competition created with ID:', docRef.id);
+    return docRef.id;
+  } catch (error) {
+    console.error('❌ Error creating competition:', error);
+    throw error;
+  }
+};
+
+// ===== LEADERBOARD FUNCTIONS =====
+
+const getLeaderboard = async (competitionId: string): Promise<any[]> => {
+  try {
+    console.log('📊 Fetching leaderboard for competition:', competitionId);
+    const leaderboardRef = collection(db, 'leaderboard');
+    const q = query(
+      leaderboardRef,
+      where('competitionId', '==', competitionId),
+      orderBy('rank', 'asc')
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const entries = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      completedAt: doc.data().completedAt?.toDate()
+    }));
+    
+    console.log('✅ Fetched leaderboard entries:', entries.length);
+    return entries;
+  } catch (error) {
+    console.error('❌ Error fetching leaderboard:', error);
+    throw error;
+  }
+};
+
+const submitCompetitionAttempt = async (
+  userId: string,
+  competitionId: string,
+  attemptData: {
+    score: number;
+    totalQuestions: number;
+    timeSpent: number;
+    attemptId: string;
+    userName: string;
+    userEmail: string;
+    school?: string;
+  }
+): Promise<void> => {
+  try {
+    console.log('🏆 Submitting competition attempt for user:', userId);
+    
+    // Add to leaderboard
+    const leaderboardRef = collection(db, 'leaderboard');
+    await addDoc(leaderboardRef, {
+      competitionId,
+      userId,
+      userName: attemptData.userName,
+      userEmail: attemptData.userEmail,
+      school: attemptData.school || null,
+      score: attemptData.score,
+      totalQuestions: attemptData.totalQuestions,
+      timeSpent: attemptData.timeSpent,
+      rank: 0, // Will be calculated
+      completedAt: Timestamp.now(),
+      attemptId: attemptData.attemptId
+    });
+    
+    // Recalculate all ranks for this competition
+    await recalculateRanks(competitionId);
+    
+    // Increment participant count
+    const competitionRef = doc(db, 'competitions', competitionId);
+    await updateDoc(competitionRef, {
+      participantCount: increment(1)
+    });
+    
+    console.log('✅ Competition attempt submitted');
+  } catch (error) {
+    console.error('❌ Error submitting competition attempt:', error);
+    throw error;
+  }
+};
+
+const recalculateRanks = async (competitionId: string): Promise<void> => {
+  try {
+    console.log('📊 Recalculating ranks for competition:', competitionId);
+    
+    // Fetch all entries for this competition
+    const leaderboardRef = collection(db, 'leaderboard');
+    const q = query(leaderboardRef, where('competitionId', '==', competitionId));
+    const querySnapshot = await getDocs(q);
+    
+    // Sort entries: by score (desc), then by time (asc), then by completedAt (asc)
+    const entries = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ref: doc.ref,
+      ...doc.data()
+    })).sort((a: any, b: any) => {
+      // Higher score is better
+      if (b.score !== a.score) return b.score - a.score;
+      // Lower time is better
+      if (a.timeSpent !== b.timeSpent) return a.timeSpent - b.timeSpent;
+      // Earlier completion is better
+      return a.completedAt.seconds - b.completedAt.seconds;
+    });
+    
+    // Update ranks
+    for (let i = 0; i < entries.length; i++) {
+      await updateDoc(entries[i].ref, { rank: i + 1 });
+    }
+    
+    console.log('✅ Ranks recalculated for', entries.length, 'entries');
+  } catch (error) {
+    console.error('❌ Error recalculating ranks:', error);
+    throw error;
+  }
+};
+
+// ===== TEST DATA FUNCTIONS =====
+
+const createTestCompetition = async (): Promise<string> => {
+  try {
+    console.log('🧪 Creating test competition...');
+    
+    const now = new Date();
+    const startDate = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000); // 2 days ago
+    const endDate = new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000); // 5 days from now
+    
+    const testCompetition = {
+      title: 'Winter Math Challenge 2025',
+      description: 'Test your math skills in this exciting competition! Solve problems across algebra, geometry, and calculus.',
+      status: 'active',
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      quizTemplateId: 'test-template-id', // You'll need to create a real template
+      rules: [
+        'Complete all questions within the time limit',
+        'No external resources allowed',
+        'Each question is worth equal points',
+        'Ties are broken by completion time'
+      ],
+      prizes: [
+        '1st Place: $500 + Trophy',
+        '2nd Place: $300 + Medal',
+        '3rd Place: $100 + Medal'
+      ]
+    };
+    
+    const competitionId = await createCompetition(testCompetition);
+    console.log('✅ Test competition created:', competitionId);
+    return competitionId;
+  } catch (error) {
+    console.error('❌ Error creating test competition:', error);
+    throw error;
+  }
+};
+
+// Export new functions
+export {
+  // ... existing exports
+  getCompetitions,
+  getCompetitionById,
+  createCompetition,
+  getLeaderboard,
+  submitCompetitionAttempt,
+  recalculateRanks,
+  createTestCompetition
 };
