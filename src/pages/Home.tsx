@@ -43,6 +43,8 @@ interface QuizState {
   quizId?: string;
   attemptId?: string;
   isReviewMode?: boolean;
+  startTime?: number; // timestamp when quiz started
+  currentTime?: number; // current timestamp for live timer
 }
 
 interface QuizHistoryItem {
@@ -81,6 +83,16 @@ export default function Home() {
   const [quizType, setQuizType] = useState('multiple-choice');
   const [numQuestions, setNumQuestions] = useState(DEFAULT_NUM_QUESTIONS);
   const [recentQuizzes, setRecentQuizzes] = useState<QuizHistoryItem[]>([]);
+  
+  // Timer effect - updates every second when quiz is active
+  useEffect(() => {
+    if (quizState.startTime && !quizState.showResults && quizState.questions.length > 0 && !quizState.isReviewMode) {
+      const interval = setInterval(() => {
+        setQuizState(prev => ({ ...prev, currentTime: Date.now() }));
+      }, 1000);
+      return () => clearInterval(interval);
+    }
+  }, [quizState.startTime, quizState.showResults, quizState.questions.length, quizState.isReviewMode]);
 
   // Effects
 
@@ -136,11 +148,17 @@ export default function Home() {
       }
 
       if (response.success && response.quiz) {
+        console.log('🎯 QUIZ GENERATION SUCCESS - About to set state');
+        const startTime = Date.now();
+        console.log('⏱️ Quiz started at:', new Date(startTime).toLocaleTimeString());
+        console.log('⏱️ startTime value:', startTime);
         setQuizState({
           ...initialQuizState,
           questions: response.quiz,
           quizId: response.quizId,
-          attemptId: response.attemptId
+          attemptId: response.attemptId,
+          startTime,
+          currentTime: startTime
         });
 
         // setShowFileUpload(false); // This line was removed from the new_code
@@ -169,6 +187,11 @@ export default function Home() {
         return userAnswer === prev.questions[index].correctAnswer ? score + 1 : score;
       }, 0);
 
+      // Calculate time spent if quiz is finishing
+      const timeSpent = isLastQuestion && prev.startTime 
+        ? Math.floor((Date.now() - prev.startTime) / 1000)
+        : undefined;
+
       const newState = {
         ...prev,
         userAnswers: newAnswers,
@@ -179,10 +202,12 @@ export default function Home() {
 
       // Save completion when quiz finishes
       if (isLastQuestion && user?.uid && prev.attemptId) {
+        console.log('⏱️ Quiz completed in', timeSpent, 'seconds');
         updateQuizCompletion(user.uid, prev.attemptId, {
           answers: newAnswers,
           score: newScore,
-          completedAt: new Date().toISOString()
+          completedAt: new Date().toISOString(),
+          timeSpent
         }).catch(error => {
           console.error('Failed to save quiz completion:', error);
         });
@@ -212,11 +237,14 @@ export default function Home() {
       } | null;
       
       if (quizData && quizData.questions) {
+        const startTime = Date.now();
         setQuizState({
           ...initialQuizState,
           questions: quizData.questions,
           quizId: quizData.quizTemplateId,
-          attemptId: attemptId
+          attemptId: attemptId,
+          startTime,
+          currentTime: startTime
         });
         
         toast({
@@ -505,38 +533,6 @@ export default function Home() {
       )}
     </div>
   );
-/*
-  const renderQuestion = () => {
-    const currentQuestion = quizState.questions[quizState.currentQuestionIndex];
-    const userAnswer = quizState.userAnswers[quizState.currentQuestionIndex];
-
-    return (
-      <Card variant="glass" className="animate-fade-in-up">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Book className="w-5 h-5" />
-            Question {quizState.currentQuestionIndex + 1} of {quizState.questions.length}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-6">
-          <p className="text-lg text-white">{currentQuestion.question}</p>
-          <div className="grid grid-cols-1 gap-3">
-            {currentQuestion.options.map((option, index) => (
-              <Button
-                key={index}
-                variant={userAnswer === option ? 'default' : 'ghost'}
-                className="w-full justify-start text-left"
-                onClick={() => handleAnswerSubmit(option)}
-              >
-                {option}
-              </Button>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-    );
-  };
-*/
 
   // Add this new function in Home.tsx
 const formatQuizDisplayName = (quiz: any) => {
@@ -562,10 +558,21 @@ const formatQuizDisplayName = (quiz: any) => {
   return (
     <Card variant="glass" className="animate-fade-in-up">
       <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Book className="w-5 h-5" />
-          Question {quizState.currentQuestionIndex + 1} of {quizState.questions.length}
-        </CardTitle>
+        <div className="flex items-center justify-between">
+          <CardTitle className="flex items-center gap-2">
+            <Book className="w-5 h-5" />
+            Question {quizState.currentQuestionIndex + 1} of {quizState.questions.length}
+          </CardTitle>
+          {/* Live Timer Display */}
+          {quizState.startTime && quizState.currentTime && !quizState.isReviewMode && (
+            <div className="flex items-center gap-2 bg-indigo-100 px-3 py-1 rounded-lg">
+              <Clock className="w-4 h-4 text-indigo-600" />
+              <span className="text-sm font-semibold text-indigo-900">
+                {Math.floor((quizState.currentTime - quizState.startTime) / 60000)}:{Math.floor(((quizState.currentTime - quizState.startTime) % 60000) / 1000).toString().padStart(2, '0')}
+              </span>
+            </div>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="space-y-6">
         <p className="text-lg text-white">{currentQuestion.question}</p>
@@ -646,6 +653,11 @@ const formatQuizDisplayName = (quiz: any) => {
         </CardTitle>
         <CardDescription>
           You scored {quizState.score} out of {quizState.questions.length}
+          {quizState.startTime && quizState.currentTime && (
+            <span className="ml-3 text-indigo-300">
+              • Time: {Math.floor((quizState.currentTime - quizState.startTime) / 60000)}:{Math.floor(((quizState.currentTime - quizState.startTime) % 60000) / 1000).toString().padStart(2, '0')}
+            </span>
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">

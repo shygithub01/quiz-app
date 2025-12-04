@@ -14,6 +14,7 @@ interface PastQuiz {
   questionCount: number;
   createdAt: string;
   completedAt?: string;
+  timeSpent?: number;
   settings?: {
     difficulty?: string;
     numQuestions?: number;
@@ -52,11 +53,13 @@ export default function PastQuizzes() {
           questionCount: attempt.questionCount,
           createdAt: attempt.startedAt,
           completedAt: attempt.completedAt,
+          timeSpent: attempt.timeSpent,
           settings: attempt.settings
         }));
         
         setPastQuizzes(quizzes);
         console.log('📊 Loaded quiz attempts:', quizzes.length);
+        console.log('⏱️ Sample quiz timeSpent:', quizzes[0]?.timeSpent);
       } catch (error) {
         console.error('Failed to load quiz attempts:', error);
       } finally {
@@ -146,6 +149,11 @@ export default function PastQuizzes() {
                           <p className="text-sm text-gray-600 mt-1">
                             Score: {quiz.score}/{quiz.questionCount} 
                             ({Math.round((quiz.score / quiz.questionCount) * 100)}%)
+                            {quiz.timeSpent && (
+                              <span className="ml-3 text-indigo-600">
+                                • Time: {Math.floor(quiz.timeSpent / 60)}:{(quiz.timeSpent % 60).toString().padStart(2, '0')}
+                              </span>
+                            )}
                           </p>
                         )}
                       </div>

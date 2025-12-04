@@ -111,6 +111,7 @@ interface QuizAttempt {
   score: number | null;
   completedAt: Timestamp | null;
   startedAt: Timestamp;
+  timeSpent?: number; // in seconds
 }
 
 const createAttempt = async (userId: string, quizTemplateId: string): Promise<string> => {
@@ -176,11 +177,13 @@ const getUserAttempts = async (userId: string): Promise<any[]> => {
         startedAt: attemptData.startedAt?.toDate ? attemptData.startedAt.toDate().toISOString() : attemptData.startedAt,
         settings: template?.settings || {},
         questions: template?.questions || [], // Include questions for retake
-        quizTemplateId: attemptData.quizTemplateId
+        quizTemplateId: attemptData.quizTemplateId,
+        timeSpent: attemptData.timeSpent || null
       });
     }
     
     console.log('✅ Fetched attempts:', attempts.length);
+    console.log('🕐 Sample attempt timeSpent:', attempts[0]?.timeSpent);
     return attempts;
   } catch (error) {
     console.error('❌ Error fetching user attempts:', error);

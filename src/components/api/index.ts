@@ -79,11 +79,8 @@ const convertQuizResponse = (serverQuiz: ServerQuestion[]): Question[] => {
   return serverQuiz.map(convertQuestionFormat);
 };
 
-// Firebase Functions URLs - Update these with your project ID
-const isDevelopment = import.meta.env.DEV;
-const FUNCTIONS_BASE_URL = isDevelopment 
-  ? 'http://localhost:5001/quizapp-42057/us-central1'
-  : 'https://us-central1-quizapp-42057.cloudfunctions.net';
+// Firebase Functions URLs - Always use production
+const FUNCTIONS_BASE_URL = 'https://us-central1-quizapp-42057.cloudfunctions.net';
 
 export const generateQuizFromDocument = async (
   params: GenerateQuizFromDocumentParams, 
@@ -253,13 +250,16 @@ export const updateQuizCompletion = async (
     answers: string[];
     score: number;
     completedAt: string;
+    timeSpent?: number;
   }
 ) => {
   try {
+    console.log('⏱️ Saving quiz completion with timeSpent:', completionData.timeSpent);
     await updateAttempt(userId, attemptId, {
       userAnswers: completionData.answers,
       score: completionData.score,
-      completedAt: Timestamp.fromDate(new Date(completionData.completedAt))
+      completedAt: Timestamp.fromDate(new Date(completionData.completedAt)),
+      timeSpent: completionData.timeSpent
     });
     
     return { success: true };
@@ -287,7 +287,6 @@ export const generateNewQuizFromDocument = async (
   params: GenerateQuizFromDocumentParams
 ): Promise<QuizResponse> => {
   try {
-    // Read the file content as text for debugging
     const fileContent = await params.file.text();
     
     console.log('📤 Sending document quiz request to:', `${FUNCTIONS_BASE_URL}/generateQuiz`);
@@ -393,7 +392,6 @@ export const generateNewQuizFromTopic = async (
 };
 
 export const saveQuizToHistory = async () => {
-  // This function is a placeholder for future implementation
   console.log('saveQuizToHistory called');
 };
 
