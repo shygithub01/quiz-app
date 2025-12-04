@@ -563,13 +563,16 @@ const formatQuizDisplayName = (quiz: any) => {
             <Book className="w-5 h-5" />
             Question {quizState.currentQuestionIndex + 1} of {quizState.questions.length}
           </CardTitle>
-          {/* Live Timer Display */}
+          {/* Live Timer Display - Bold & Beautiful */}
           {quizState.startTime && quizState.currentTime && !quizState.isReviewMode && (
-            <div className="flex items-center gap-2 bg-indigo-100 px-3 py-1 rounded-lg">
-              <Clock className="w-4 h-4 text-indigo-600" />
-              <span className="text-sm font-semibold text-indigo-900">
-                {Math.floor((quizState.currentTime - quizState.startTime) / 60000)}:{Math.floor(((quizState.currentTime - quizState.startTime) % 60000) / 1000).toString().padStart(2, '0')}
-              </span>
+            <div className="flex items-center gap-3 bg-gradient-to-r from-indigo-500 to-purple-600 px-6 py-3 rounded-xl shadow-lg animate-pulse-subtle">
+              <Clock className="w-6 h-6 text-white animate-pulse" />
+              <div className="flex flex-col">
+                <span className="text-xs text-white/80 font-medium uppercase tracking-wide">Time Elapsed</span>
+                <span className="text-2xl font-bold text-white tabular-nums">
+                  {Math.floor((quizState.currentTime - quizState.startTime) / 60000)}:{Math.floor(((quizState.currentTime - quizState.startTime) % 60000) / 1000).toString().padStart(2, '0')}
+                </span>
+              </div>
             </div>
           )}
         </div>

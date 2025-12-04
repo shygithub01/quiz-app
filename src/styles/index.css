@@ -486,3 +486,19 @@ select:focus {
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 150ms;
 }
+
+/* Timer animations */
+@keyframes pulse-subtle {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 10px 25px rgba(99, 102, 241, 0.3);
+  }
+  50% {
+    transform: scale(1.02);
+    box-shadow: 0 15px 35px rgba(99, 102, 241, 0.5);
+  }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s ease-in-out infinite;
+}
