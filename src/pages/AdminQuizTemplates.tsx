@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Brain, Plus, Trash2 } from 'lucide-react';
+import { Brain, Plus, Trash2, Sparkles } from 'lucide-react';
 import { saveQuizTemplate } from '@/components/ui/firebase';
+import { generateCompetitionTemplate } from '@/components/api';
 
 interface Question {
   question: string;
@@ -20,6 +21,46 @@ export default function AdminQuizTemplates() {
   const [questions, setQuestions] = useState<Question[]>([
     { question: '', options: ['', '', '', ''], correctAnswer: '', explanation: '' }
   ]);
+  const [generating, setGenerating] = useState(false);
+  const [subjectDistribution, setSubjectDistribution] = useState({
+    english: 13,
+    mathematics: 13,
+    science: 13,
+    socialStudies: 11,
+    healthWellness: 0
+  });
+
+  const handleGenerateWithAI = async () => {
+    try {
+      setGenerating(true);
+      
+      const result = await generateCompetitionTemplate({
+        subjects: subjectDistribution,
+        difficulty,
+        gradeLevels: ['9', '10', '11', '12']
+      });
+      
+      if (result.success && result.quiz) {
+        // Convert API format to form format
+        const generatedQuestions = result.quiz.map(q => ({
+          question: q.question,
+          options: q.options,
+          correctAnswer: q.correctAnswer,
+          explanation: q.explanation || ''
+        }));
+        
+        setQuestions(generatedQuestions);
+        setTemplateTitle(`Competition Template - ${new Date().toLocaleDateString()}`);
+        setSubject('Multi-Subject Competition');
+        alert(`Generated ${generatedQuestions.length} questions! Review and edit before saving.`);
+      }
+    } catch (error) {
+      console.error('Failed to generate questions:', error);
+      alert('Failed to generate questions. Please try again.');
+    } finally {
+      setGenerating(false);
+    }
+  };
 
   const addQuestion = () => {
     setQuestions([...questions, { 
@@ -116,6 +157,109 @@ export default function AdminQuizTemplates() {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* AI Generation Section */}
+          <Card className="border-2 border-indigo-200 bg-indigo-50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-indigo-900">
+                <Sparkles className="h-5 w-5" />
+                AI-Assisted Generation (Recommended)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-sm text-gray-700">
+                Generate 50 questions uniformly distributed across core subjects for scholarship competitions.
+              </p>
+              
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">English</label>
+                  <input
+                    type="number"
+                    value={subjectDistribution.english}
+                    onChange={(e) => setSubjectDistribution({...subjectDistribution, english: parseInt(e.target.value) || 0})}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    min="0"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Grades 9-12</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-1">Mathematics</label>
+                  <input
+                    type="number"
+                    value={subjectDistribution.mathematics}
+                    onChange={(e) => setSubjectDistribution({...subjectDistribution, mathematics: parseInt(e.target.value) || 0})}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    min="0"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Algebra II, Geometry, Pre-Calc</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-1">Science</label>
+                  <input
+                    type="number"
+                    value={subjectDistribution.science}
+                    onChange={(e) => setSubjectDistribution({...subjectDistribution, science: parseInt(e.target.value) || 0})}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    min="0"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Biology, Chemistry, Physics</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-1">Social Studies</label>
+                  <input
+                    type="number"
+                    value={subjectDistribution.socialStudies}
+                    onChange={(e) => setSubjectDistribution({...subjectDistribution, socialStudies: parseInt(e.target.value) || 0})}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    min="0"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">History, Government</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-1">Health & Wellness</label>
+                  <input
+                    type="number"
+                    value={subjectDistribution.healthWellness}
+                    onChange={(e) => setSubjectDistribution({...subjectDistribution, healthWellness: parseInt(e.target.value) || 0})}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    min="0"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">Grades 9-10</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-1">Total Questions</label>
+                  <div className="px-3 py-2 border rounded-lg bg-gray-100 font-bold text-lg">
+                    {Object.values(subjectDistribution).reduce((a, b) => a + b, 0)}
+                  </div>
+                </div>
+              </div>
+              
+              <Button
+                type="button"
+                onClick={handleGenerateWithAI}
+                disabled={generating}
+                className="w-full bg-indigo-600 hover:bg-indigo-700"
+              >
+                {generating ? (
+                  <>
+                    <Brain className="h-4 w-4 mr-2 animate-spin" />
+                    Generating Questions...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-4 w-4 mr-2" />
+                    Generate {Object.values(subjectDistribution).reduce((a, b) => a + b, 0)} Questions with AI
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
+
           {/* Template Info */}
           <Card>
             <CardHeader>

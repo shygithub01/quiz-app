@@ -404,3 +404,51 @@ export const updateQuizAttempt = async (userId: string, attemptId: string, updat
     throw error;
   }
 };
+
+// Generate multi-subject competition template
+export interface GenerateCompetitionTemplateParams {
+  subjects: {
+    english: number;
+    mathematics: number;
+    science: number;
+    socialStudies: number;
+    healthWellness?: number;
+  };
+  difficulty: string;
+  gradeLevels: string[];
+}
+
+export const generateCompetitionTemplate = async (
+  params: GenerateCompetitionTemplateParams
+): Promise<QuizResponse> => {
+  try {
+    console.log('🎓 Generating competition template with subjects:', params.subjects);
+    
+    const response = await fetch(`${FUNCTIONS_BASE_URL}/generateCompetitionQuiz`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(params),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Server error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    const convertedQuiz = convertQuizResponse(result.quiz);
+    
+    console.log('✅ Competition template generated:', convertedQuiz.length, 'questions');
+    
+    return {
+      quiz: convertedQuiz,
+      success: true
+    };
+
+  } catch (error) {
+    console.error('❌ Error generating competition template:', error);
+    throw new Error(error instanceof Error ? error.message : 'Failed to generate competition template');
+  }
+};

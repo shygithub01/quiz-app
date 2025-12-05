@@ -521,3 +521,157 @@ exports.healthCheck = onRequest({ region: 'us-central1' }, (req, res) => {
   });
 });
 
+// Generate competition quiz with multi-subject distribution
+exports.generateCompetitionQuiz = onRequest({ secrets: [openaiApiKey], region: 'us-central1' }, async (req, res) => {
+  await handleCors(req, res);
+  
+  try {
+    const openai = new OpenAI({ apiKey: getOpenAIKey() });
+    const { subjects, difficulty = 'medium', gradeLevels = ['9', '10', '11', '12'] } = req.body;
+    
+    if (!subjects) {
+      return res.status(400).json({ error: 'Subject distribution is required' });
+    }
+
+    console.log('🎓 Generating competition quiz with distribution:', subjects);
+    
+    const subjectPrompts = [];
+    
+    // English questions
+    if (subjects.english > 0) {
+      subjectPrompts.push({
+        subject: 'English',
+        count: subjects.english,
+        topics: `English Language Arts for grades ${gradeLevels.join(', ')}: grammar, literature analysis, reading comprehension, vocabulary, writing techniques`
+      });
+    }
+    
+    // Mathematics questions
+    if (subjects.mathematics > 0) {
+      subjectPrompts.push({
+        subject: 'Mathematics',
+        count: subjects.mathematics,
+        topics: 'Algebra II, Geometry, and Math Analysis/Pre-Calculus: equations, functions, trigonometry, geometric proofs, calculus concepts'
+      });
+    }
+    
+    // Science questions
+    if (subjects.science > 0) {
+      subjectPrompts.push({
+        subject: 'Science',
+        count: subjects.science,
+        topics: 'Biology, Chemistry, and Physics: cell biology, chemical reactions, atomic structure, forces and motion, energy'
+      });
+    }
+    
+    // Social Studies questions
+    if (subjects.socialStudies > 0) {
+      subjectPrompts.push({
+        subject: 'Social Studies',
+        count: subjects.socialStudies,
+        topics: 'Virginia & U.S. History, Virginia & U.S. Government, World History & Geography II: historical events, government structure, geography, civics'
+      });
+    }
+    
+    // Health & Wellness questions
+    if (subjects.healthWellness > 0) {
+      subjectPrompts.push({
+        subject: 'Health & Wellness',
+        count: subjects.healthWellness,
+        topics: 'Health and Wellness for grades 9-10: nutrition, physical fitness, mental health, personal safety'
+      });
+    }
+
+    const totalQuestions = Object.values(subjects).reduce((a, b) => a + b, 0);
+    
+    const prompt = `You are creating a scholarship competition quiz for high school students (grades ${gradeLevels.join('-')}).
+
+Generate EXACTLY ${totalQuestions} ${difficulty} difficulty multiple-choice questions with this EXACT distribution:
+
+${subjectPrompts.map(sp => `- ${sp.count} questions on ${sp.subject}: ${sp.topics}`).join('\n')}
+
+CRITICAL REQUIREMENTS:
+1. Questions must be appropriate for grades ${gradeLevels.join('-')}
+2. Mix difficulty within ${difficulty} level (some easier, some harder)
+3. Questions should test knowledge, not trick students
+4. All questions must be factually accurate
+5. Distribute questions evenly across the topics within each subject
+6. Number questions sequentially from 1 to ${totalQuestions}
+
+Return ONLY a valid JSON array with this EXACT format:
+[
+  {
+    "id": 1,
+    "question": "Question text here?",
+    "options": {
+      "A": "Option A text",
+      "B": "Option B text", 
+      "C": "Option C text",
+      "D": "Option D text"
+    },
+    "correctAnswer": "A",
+    "explanation": "Brief explanation of why this is correct"
+  }
+]
+
+CRITICAL: Return ONLY the JSON array, no additional text, no markdown formatting, no code blocks.`;
+
+    try {
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [
+          { 
+            role: "system", 
+            content: "You are an expert educational quiz generator for high school scholarship competitions. Create accurate, fair, and well-distributed questions across multiple subjects." 
+          },
+          { role: "user", content: prompt }
+        ],
+        max_tokens: 4000,
+        temperature: 0.7,
+      });
+
+      const content = response.choices[0].message.content.trim();
+      console.log('🤖 OpenAI competition quiz response received');
+      
+      let quizData;
+      try {
+        // Remove markdown code blocks if present
+        const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        quizData = JSON.parse(cleanContent);
+      } catch (parseError) {
+        console.error('JSON parsing error:', parseError);
+        console.error('Failed to parse content:', content);
+        throw new Error('Failed to parse AI response');
+      }
+      
+      if (!Array.isArray(quizData) || quizData.length === 0) {
+        throw new Error('Invalid quiz format received from OpenAI');
+      }
+
+      // Validate we have the correct number of questions
+      if (quizData.length !== totalQuestions) {
+        console.warn(`Expected ${totalQuestions} questions, got ${quizData.length}`);
+      }
+
+      console.log(`✅ Successfully generated ${quizData.length} competition questions`);
+      
+      res.json({ 
+        quiz: quizData,
+        success: true,
+        message: 'Competition quiz generated successfully!',
+        distribution: subjects
+      });
+
+    } catch (aiError) {
+      console.error('❌ AI generation error:', aiError);
+      res.status(500).json({ 
+        error: 'Failed to generate competition quiz',
+        success: false 
+      });
+    }
+  } catch (error) {
+    console.error('❌ General error:', error);
+    res.status(500).json({ error: "Failed to generate competition quiz." });
+  }
+});
+
