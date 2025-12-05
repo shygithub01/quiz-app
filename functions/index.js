@@ -516,7 +516,12 @@ exports.healthCheck = onRequest({ region: 'us-central1' }, (req, res) => {
 });
 
 // Generate competition quiz with multi-subject distribution
-exports.generateCompetitionQuiz = onRequest({ secrets: [openaiApiKey], region: 'us-central1' }, async (req, res) => {
+exports.generateCompetitionQuiz = onRequest({ 
+  secrets: [openaiApiKey], 
+  region: 'us-central1',
+  timeoutSeconds: 300, // 5 minutes timeout
+  memory: '512MiB'
+}, async (req, res) => {
   await handleCors(req, res);
   
   try {
