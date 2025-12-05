@@ -114,14 +114,18 @@ export default function Competitions() {
           <div className="grid md:grid-cols-2 gap-6">
             {filteredCompetitions.map((competition) => (
               <Card key={competition.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
+                <CardHeader className="pb-4">
+                  <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
-                      <CardTitle className="text-xl mb-2">{competition.title}</CardTitle>
-                      <CardDescription>{competition.description}</CardDescription>
+                      <CardTitle className="text-2xl font-bold text-gray-900 mb-3 leading-tight">
+                        {competition.title}
+                      </CardTitle>
                     </div>
                     {getStatusBadge(competition.status)}
                   </div>
+                  <CardDescription className="text-gray-600 text-base leading-relaxed">
+                    {competition.description}
+                  </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">

@@ -12,7 +12,7 @@ const CompetitionDetails: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasParticipated, setHasParticipated] = useState(false);
-  const [checkingParticipation, setCheckingParticipation] = useState(false);
+
   const [resetting, setResetting] = useState(false);
   const [userIsAdmin, setUserIsAdmin] = useState(false);
 
@@ -28,14 +28,12 @@ const CompetitionDetails: React.FC = () => {
           
           // Check if user has already participated and if user is admin
           if (user?.uid) {
-            setCheckingParticipation(true);
             const [participated, adminStatus] = await Promise.all([
               checkUserParticipation(user.uid, id),
               isAdmin(user.uid)
             ]);
             setHasParticipated(participated);
             setUserIsAdmin(adminStatus);
-            setCheckingParticipation(false);
           }
         } else {
           setError('Competition not found');
@@ -51,25 +49,7 @@ const CompetitionDetails: React.FC = () => {
     fetchCompetition();
   }, [id, user]);
 
-  const handleStartCompetition = () => {
-    if (!user) {
-      alert('Please sign in to participate');
-      return;
-    }
-    
-    if (competition?.status !== 'active') {
-      alert('This competition is not currently active');
-      return;
-    }
-    
-    if (hasParticipated) {
-      alert('You have already participated in this competition. Only one attempt is allowed.');
-      return;
-    }
-    
-    // Navigate to competition quiz page
-    navigate(`/competition-quiz/${id}`);
-  };
+
 
   const handleResetAttempt = async () => {
     if (!user || !id) return;
@@ -169,40 +149,11 @@ const CompetitionDetails: React.FC = () => {
             </span>
           </div>
           
-          <div className="flex flex-col gap-3">
-            {/* Main Action Buttons */}
-            <div className="flex gap-3">
-              <button
-                onClick={handleStartCompetition}
-                disabled={hasParticipated || checkingParticipation || competition.status !== 'active'}
-                className={`flex-1 px-6 py-3 rounded-lg font-medium ${
-                  competition.status !== 'active'
-                    ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
-                    : hasParticipated 
-                    ? 'bg-gray-400 text-gray-700 cursor-not-allowed' 
-                    : 'bg-blue-600 text-white hover:bg-blue-700'
-                }`}
-              >
-                {competition.status !== 'active' 
-                  ? `Competition ${competition.status}`
-                  : checkingParticipation 
-                  ? 'Checking...' 
-                  : hasParticipated 
-                  ? 'Already Participated' 
-                  : 'Start Competition'}
-              </button>
-              
-              <button
-                onClick={() => navigate(`/competitions/${id}/leaderboard`)}
-                className="flex-1 px-6 py-3 rounded-lg font-medium bg-gradient-to-r from-yellow-500 to-orange-500 text-white hover:from-yellow-600 hover:to-orange-600 transition-all"
-              >
-                🏆 View Leaderboard
-              </button>
-            </div>
-            
-            {/* Admin Buttons */}
-            {userIsAdmin && (
-              <div className="flex flex-col gap-2">
+          {/* Admin Only Buttons */}
+          {userIsAdmin && (
+            <div className="flex flex-col gap-3">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <h3 className="font-medium text-blue-900 mb-2">Admin Controls</h3>
                 <div className="flex gap-2">
                   <button
                     onClick={() => navigate(`/admin/competitions/${id}/participants`)}
@@ -225,15 +176,23 @@ const CompetitionDetails: React.FC = () => {
                   <button
                     onClick={handleResetAttempt}
                     disabled={resetting}
-                    className="px-4 py-2 text-sm rounded-lg border-2 border-orange-500 text-orange-600 hover:bg-orange-50 font-medium transition-colors"
+                    className="w-full mt-2 px-4 py-2 text-sm rounded-lg border-2 border-orange-500 text-orange-600 hover:bg-orange-50 font-medium transition-colors"
                     title="Admin: Reset your own attempt"
                   >
                     {resetting ? '🔄 Resetting...' : '🔄 Reset My Attempt'}
                   </button>
                 )}
               </div>
-            )}
-          </div>
+              
+              {hasParticipated && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center">
+                  <p className="text-green-800 font-medium">
+                    ✅ You have completed this competition. Check the leaderboard for your ranking.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
           {hasParticipated && (
             <p className="text-sm text-gray-600 mt-2">
               You have completed this competition. Check the leaderboard below for your ranking.
