@@ -311,14 +311,9 @@ export default function CompetitionQuiz() {
       {/* Question Card */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>
-              Question {currentQuestionIndex + 1} of {questions.length}
-            </CardTitle>
-            <div className="text-sm text-gray-600">
-              {userAnswers.filter(a => a).length}/{questions.length} answered
-            </div>
-          </div>
+          <CardTitle className="text-xl">
+            Question {currentQuestionIndex + 1} of {questions.length}
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           <p className="text-lg">{currentQuestion.question}</p>
@@ -339,45 +334,70 @@ export default function CompetitionQuiz() {
             ))}
           </div>
 
-          {/* Navigation */}
+          {/* Progress Bar */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-gray-600 font-medium">Progress</span>
+              <span className="text-blue-600 font-bold">
+                {userAnswers.filter(a => a).length}/{questions.length} answered
+              </span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+              <div 
+                className="bg-gradient-to-r from-blue-500 to-green-500 h-full transition-all duration-300 rounded-full"
+                style={{ width: `${(userAnswers.filter(a => a).length / questions.length) * 100}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Question Navigation Grid */}
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-gray-700">Jump to Question:</p>
+            <div className="grid grid-cols-10 gap-2">
+              {questions.map((_, index) => (
+                <button
+                  key={index}
+                  onClick={() => setCurrentQuestionIndex(index)}
+                  className={`relative h-10 rounded-lg text-sm font-medium transition-all ${
+                    index === currentQuestionIndex
+                      ? 'bg-blue-600 text-white shadow-lg scale-110 ring-2 ring-blue-300'
+                      : userAnswers[index]
+                      ? 'bg-green-500 text-white hover:bg-green-600'
+                      : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                  }`}
+                  title={userAnswers[index] ? `Question ${index + 1} - Answered` : `Question ${index + 1} - Not answered`}
+                >
+                  {index + 1}
+                  {userAnswers[index] && index !== currentQuestionIndex && (
+                    <CheckCircle className="absolute -top-1 -right-1 h-4 w-4 text-white bg-green-600 rounded-full" />
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Navigation Buttons */}
           <div className="flex items-center justify-between pt-4 border-t">
             <Button
               variant="outline"
               onClick={handlePrevious}
               disabled={currentQuestionIndex === 0}
+              className="min-w-[120px]"
             >
-              Previous
+              ← Previous
             </Button>
-
-            <div className="flex gap-2">
-              {questions.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => setCurrentQuestionIndex(index)}
-                  className={`w-8 h-8 rounded-full text-sm font-medium ${
-                    index === currentQuestionIndex
-                      ? 'bg-blue-600 text-white'
-                      : userAnswers[index]
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-gray-200 text-gray-600'
-                  }`}
-                >
-                  {index + 1}
-                </button>
-              ))}
-            </div>
 
             {currentQuestionIndex === questions.length - 1 ? (
               <Button
                 onClick={handleSubmit}
                 disabled={submitting}
-                className="bg-green-600 hover:bg-green-700"
+                className="bg-green-600 hover:bg-green-700 min-w-[180px]"
               >
-                {submitting ? 'Submitting...' : 'Submit Competition'}
+                {submitting ? 'Submitting...' : '✓ Submit Competition'}
               </Button>
             ) : (
-              <Button onClick={handleNext}>
-                Next
+              <Button onClick={handleNext} className="min-w-[120px]">
+                Next →
               </Button>
             )}
           </div>
