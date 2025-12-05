@@ -145,20 +145,23 @@ export default function Competitions() {
                   </div>
 
                   <div className="flex gap-2 pt-2">
-                    {competition.status === 'active' && (
-                      <Button 
-                        onClick={() => navigate(`/competitions/${competition.id}`)}
-                        className="flex-1"
-                      >
-                        Join Competition
-                      </Button>
-                    )}
                     <Button 
-                      variant="outline"
                       onClick={() => navigate(`/competitions/${competition.id}`)}
-                      className="flex-1"
+                      className={`flex-1 ${
+                        competition.status === 'active' 
+                          ? 'bg-blue-600 hover:bg-blue-700' 
+                          : 'bg-gray-400 cursor-not-allowed'
+                      }`}
+                      disabled={competition.status !== 'active'}
                     >
-                      View Details
+                      {competition.status === 'active' ? 'Join Competition' : `Competition ${competition.status}`}
+                    </Button>
+                    
+                    <Button 
+                      onClick={() => navigate(`/competitions/${competition.id}/leaderboard`)}
+                      className="flex-1 bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600 text-white"
+                    >
+                      🏆 Leaderboard
                     </Button>
                   </div>
                 </CardContent>
