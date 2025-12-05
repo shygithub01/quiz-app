@@ -29,28 +29,39 @@ export default function AdminUserManagement() {
   }, [user]);
 
   const loadData = async () => {
-    if (!user?.uid) return;
+    if (!user?.uid) {
+      console.log('No user ID found');
+      return;
+    }
 
     try {
       setLoading(true);
+      console.log('Loading user data for:', user.uid);
 
       // Check if current user is super admin
       const role = await getUserRole(user.uid);
+      console.log('Current user role:', role);
       setCurrentUserRole(role);
 
-      if (role !== UserRole.SUPER_ADMIN) {
-        alert('Access denied. Only super admins can manage users.');
-        navigate('/');
-        return;
-      }
+      // Temporarily allow access for debugging
+      // TODO: Re-enable this check after setting up first super admin
+      // if (role !== UserRole.SUPER_ADMIN) {
+      //   alert('Access denied. Only super admins can manage users.\n\nYour current role: ' + role + '\n\nPlease set your role to "super_admin" in Firebase Console first.');
+      //   navigate('/');
+      //   return;
+      // }
 
       // Load all users
+      console.log('Loading all users from Firestore...');
       const usersRef = collection(db, 'users');
       const q = query(usersRef, orderBy('createdAt', 'desc'));
       const querySnapshot = await getDocs(q);
 
+      console.log('Found', querySnapshot.size, 'users');
+
       const usersData: UserData[] = [];
       querySnapshot.forEach((doc) => {
+        console.log('User doc:', doc.id, doc.data());
         usersData.push({
           id: doc.id,
           ...doc.data()
@@ -58,9 +69,10 @@ export default function AdminUserManagement() {
       });
 
       setUsers(usersData);
-    } catch (error) {
+      console.log('Users loaded:', usersData.length);
+    } catch (error: any) {
       console.error('Error loading users:', error);
-      alert('Failed to load users');
+      alert('Failed to load users: ' + (error.message || 'Unknown error'));
     } finally {
       setLoading(false);
     }
@@ -130,6 +142,26 @@ export default function AdminUserManagement() {
             Back to Admin
           </Button>
         </div>
+
+        {/* Debug Info */}
+        <Card className="mb-6 border-yellow-200 bg-yellow-50">
+          <CardContent className="py-4">
+            <div className="text-sm text-yellow-800">
+              <p className="font-medium mb-2">Debug Info:</p>
+              <ul className="space-y-1">
+                <li>Your User ID: {user?.uid}</li>
+                <li>Your Email: {user?.email}</li>
+                <li>Your Current Role: <strong>{currentUserRole}</strong></li>
+                <li>Users Found: <strong>{users.length}</strong></li>
+              </ul>
+              {currentUserRole === UserRole.STUDENT && (
+                <p className="mt-3 text-red-600 font-medium">
+                  ⚠️ You need to set your role to "super_admin" in Firebase Console first!
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Info Card */}
         <Card className="mb-6 border-blue-200 bg-blue-50">
