@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getCompetitionById, checkUserParticipation } from '../components/ui/firebase';
+import { getCompetitionById, checkUserParticipation, resetUserAttempt } from '../components/ui/firebase';
 import Leaderboard from '../components/Leaderboard';
 import { Competition } from '../types';
 
@@ -14,6 +14,7 @@ const CompetitionDetails: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [hasParticipated, setHasParticipated] = useState(false);
   const [checkingParticipation, setCheckingParticipation] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     const fetchCompetition = async () => {
@@ -64,6 +65,40 @@ const CompetitionDetails: React.FC = () => {
     
     // Navigate to competition quiz page
     navigate(`/competition-quiz/${id}`);
+  };
+
+  const handleResetAttempt = async () => {
+    if (!user || !id) return;
+    
+    const confirmed = confirm(
+      '⚠️ Are you sure you want to reset your attempt?\n\n' +
+      'This will:\n' +
+      '• Delete your score from the leaderboard\n' +
+      '• Allow you to retake the competition\n' +
+      '• Remove your previous answers\n\n' +
+      'This action cannot be undone!'
+    );
+    
+    if (!confirmed) return;
+    
+    try {
+      setResetting(true);
+      const result = await resetUserAttempt(user.uid, id);
+      
+      if (result.success) {
+        alert('✅ Your attempt has been reset! You can now retake the competition.');
+        setHasParticipated(false);
+        // Refresh the page to update leaderboard
+        window.location.reload();
+      } else {
+        alert('⚠️ ' + result.message);
+      }
+    } catch (error) {
+      console.error('Error resetting attempt:', error);
+      alert('❌ Failed to reset attempt. Please try again.');
+    } finally {
+      setResetting(false);
+    }
   };
 
   const getStatusBadge = (status: string) => {
@@ -131,21 +166,34 @@ const CompetitionDetails: React.FC = () => {
           </div>
           
           {competition.status === 'active' && (
-            <button
-              onClick={handleStartCompetition}
-              disabled={hasParticipated || checkingParticipation}
-              className={`px-6 py-3 rounded-lg font-medium ${
-                hasParticipated 
-                  ? 'bg-gray-400 text-gray-700 cursor-not-allowed' 
-                  : 'bg-blue-600 text-white hover:bg-blue-700'
-              }`}
-            >
-              {checkingParticipation 
-                ? 'Checking...' 
-                : hasParticipated 
-                ? 'Already Participated' 
-                : 'Start Competition'}
-            </button>
+            <div className="flex flex-col gap-2">
+              <button
+                onClick={handleStartCompetition}
+                disabled={hasParticipated || checkingParticipation}
+                className={`px-6 py-3 rounded-lg font-medium ${
+                  hasParticipated 
+                    ? 'bg-gray-400 text-gray-700 cursor-not-allowed' 
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
+              >
+                {checkingParticipation 
+                  ? 'Checking...' 
+                  : hasParticipated 
+                  ? 'Already Participated' 
+                  : 'Start Competition'}
+              </button>
+              
+              {hasParticipated && (
+                <button
+                  onClick={handleResetAttempt}
+                  disabled={resetting}
+                  className="px-4 py-2 text-sm rounded-lg border-2 border-orange-500 text-orange-600 hover:bg-orange-50 font-medium transition-colors"
+                  title="Reset your attempt to retake this competition (for testing)"
+                >
+                  {resetting ? '🔄 Resetting...' : '🔄 Reset My Attempt'}
+                </button>
+              )}
+            </div>
           )}
           {hasParticipated && (
             <p className="text-sm text-gray-600 mt-2">

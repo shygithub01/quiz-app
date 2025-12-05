@@ -573,6 +573,51 @@ const createTestCompetition = async (): Promise<string> => {
   }
 };
 
+// ===== ADMIN FUNCTIONS =====
+
+const resetUserAttempt = async (userId: string, competitionId: string) => {
+  try {
+    console.log('🔄 Resetting attempt for user:', userId, 'competition:', competitionId);
+    
+    // Find and delete the leaderboard entry
+    const leaderboardRef = collection(db, 'leaderboard');
+    const q = query(
+      leaderboardRef,
+      where('userId', '==', userId),
+      where('competitionId', '==', competitionId)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    
+    if (querySnapshot.empty) {
+      console.log('⚠️ No attempt found to reset');
+      return { success: false, message: 'No attempt found for this user' };
+    }
+    
+    // Delete all matching entries (should only be one)
+    const deletePromises = querySnapshot.docs.map(doc => deleteDoc(doc.ref));
+    await Promise.all(deletePromises);
+    
+    // Update competition participant count
+    const competitionRef = doc(db, 'competitions', competitionId);
+    const competitionDoc = await getDoc(competitionRef);
+    
+    if (competitionDoc.exists()) {
+      const currentCount = competitionDoc.data().participantCount || 0;
+      await updateDoc(competitionRef, {
+        participantCount: Math.max(0, currentCount - 1)
+      });
+    }
+    
+    console.log('✅ Attempt reset successfully');
+    return { success: true, message: 'Attempt reset successfully' };
+    
+  } catch (error) {
+    console.error('❌ Error resetting attempt:', error);
+    throw error;
+  }
+};
+
 // Export new functions
 export {
   // ... existing exports
@@ -583,5 +628,6 @@ export {
   submitCompetitionAttempt,
   recalculateRanks,
   createTestCompetition,
-  checkUserParticipation
+  checkUserParticipation,
+  resetUserAttempt
 };
