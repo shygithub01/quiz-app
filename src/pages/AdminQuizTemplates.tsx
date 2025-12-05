@@ -31,14 +31,24 @@ export default function AdminQuizTemplates() {
   });
 
   const handleGenerateWithAI = async () => {
+    const totalQuestions = Object.values(subjectDistribution).reduce((a, b) => a + b, 0);
+    
+    if (totalQuestions === 0) {
+      alert('Please set at least one subject with questions to generate.');
+      return;
+    }
+    
     try {
       setGenerating(true);
+      console.log('🎓 Starting AI generation with:', subjectDistribution);
       
       const result = await generateCompetitionTemplate({
         subjects: subjectDistribution,
         difficulty,
         gradeLevels: ['9', '10', '11', '12']
       });
+      
+      console.log('✅ Generation result:', result);
       
       if (result.success && result.quiz) {
         // Convert API format to form format
@@ -49,14 +59,19 @@ export default function AdminQuizTemplates() {
           explanation: q.explanation || ''
         }));
         
+        console.log('✅ Converted questions:', generatedQuestions.length);
+        
         setQuestions(generatedQuestions);
         setTemplateTitle(`Competition Template - ${new Date().toLocaleDateString()}`);
         setSubject('Multi-Subject Competition');
-        alert(`Generated ${generatedQuestions.length} questions! Review and edit before saving.`);
+        alert(`✅ Generated ${generatedQuestions.length} questions!\n\nReview and edit before saving.`);
+      } else {
+        throw new Error(result.message || 'No questions generated');
       }
-    } catch (error) {
-      console.error('Failed to generate questions:', error);
-      alert('Failed to generate questions. Please try again.');
+    } catch (error: any) {
+      console.error('❌ Failed to generate questions:', error);
+      const errorMessage = error.message || 'Unknown error';
+      alert(`❌ Failed to generate questions.\n\nError: ${errorMessage}\n\nPlease check:\n1. Your internet connection\n2. Firebase Functions are deployed\n3. OpenAI API key is configured\n\nTry again or contact support.`);
     } finally {
       setGenerating(false);
     }
@@ -238,6 +253,18 @@ export default function AdminQuizTemplates() {
                   </div>
                 </div>
               </div>
+              
+              {generating && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
+                  <div className="flex items-center justify-center gap-3 mb-2">
+                    <Brain className="h-5 w-5 text-blue-600 animate-spin" />
+                    <span className="text-blue-900 font-medium">AI is generating your questions...</span>
+                  </div>
+                  <p className="text-sm text-blue-700">
+                    This may take 30-60 seconds. Please wait.
+                  </p>
+                </div>
+              )}
               
               <Button
                 type="button"

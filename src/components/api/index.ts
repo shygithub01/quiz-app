@@ -423,6 +423,7 @@ export const generateCompetitionTemplate = async (
 ): Promise<QuizResponse> => {
   try {
     console.log('🎓 Generating competition template with subjects:', params.subjects);
+    console.log('🌐 API URL:', `${FUNCTIONS_BASE_URL}/generateCompetitionQuiz`);
     
     const response = await fetch(`${FUNCTIONS_BASE_URL}/generateCompetitionQuiz`, {
       method: "POST",
@@ -432,12 +433,17 @@ export const generateCompetitionTemplate = async (
       body: JSON.stringify(params),
     });
 
+    console.log('📡 Response status:', response.status);
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      console.error('❌ Server error response:', errorData);
       throw new Error(errorData.error || `Server error: ${response.status}`);
     }
 
     const result = await response.json();
+    console.log('📦 Raw result:', result);
+    
     const convertedQuiz = convertQuizResponse(result.quiz);
     
     console.log('✅ Competition template generated:', convertedQuiz.length, 'questions');
@@ -449,6 +455,7 @@ export const generateCompetitionTemplate = async (
 
   } catch (error) {
     console.error('❌ Error generating competition template:', error);
+    console.error('❌ Error details:', error instanceof Error ? error.message : String(error));
     throw new Error(error instanceof Error ? error.message : 'Failed to generate competition template');
   }
 };
