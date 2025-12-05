@@ -1,8 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Brain, Plus, Trash2, Edit } from 'lucide-react';
+import { Brain, Plus, Trash2 } from 'lucide-react';
 import { saveQuizTemplate } from '@/components/ui/firebase';
 
 interface Question {
@@ -70,7 +70,7 @@ export default function AdminQuizTemplates() {
     try {
       const template = {
         title: templateTitle,
-        type: 'competition' as const,
+        type: 'topic' as 'document' | 'topic', // Use existing type
         subject,
         difficulty,
         questions: questions.map((q, idx) => ({

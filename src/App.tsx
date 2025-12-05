@@ -9,6 +9,7 @@ import Home from "./pages/Home";
 import PastQuizzes from "./pages/PastQuizzes";
 import Competitions from "./pages/Competitions";
 import CompetitionDetails from "./pages/CompetitionDetails";
+import CompetitionQuiz from "./pages/CompetitionQuiz";
 import AdminCompetitions from "./pages/AdminCompetitions";
 import AdminQuizTemplates from "./pages/AdminQuizTemplates";
 import NotFound from "./pages/NotFound";
@@ -44,6 +45,7 @@ const App = () => (
                   <Route path="past-quizzes" element={<PastQuizzes />} />
                   <Route path="competitions" element={<Competitions />} />
                   <Route path="competitions/:id" element={<CompetitionDetails />} />
+                  <Route path="competition-quiz/:id" element={<CompetitionQuiz />} />
                   <Route path="admin/competitions" element={<AdminCompetitions />} />
                   <Route path="admin/quiz-templates" element={<AdminQuizTemplates />} />
                 </Route>
