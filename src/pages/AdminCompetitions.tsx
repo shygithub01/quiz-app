@@ -1,9 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { createCompetition } from '@/components/ui/firebase';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '@/components/ui/firebase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Plus } from 'lucide-react';
 
 export default function AdminCompetitions() {
+  const navigate = useNavigate();
+  const [templates, setTemplates] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -14,6 +20,24 @@ export default function AdminCompetitions() {
     rules: '',
     prizes: ''
   });
+
+  useEffect(() => {
+    loadTemplates();
+  }, []);
+
+  const loadTemplates = async () => {
+    try {
+      const templatesRef = collection(db, 'quizTemplates');
+      const snapshot = await getDocs(templatesRef);
+      const templateList = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setTemplates(templateList);
+    } catch (error) {
+      console.error('Failed to load templates:', error);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,6 +72,13 @@ export default function AdminCompetitions() {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-3xl mx-auto">
+        <div className="flex gap-4 mb-6">
+          <Button onClick={() => navigate('/admin/quiz-templates')} className="flex-1">
+            <Plus className="h-4 w-4 mr-2" />
+            Create Quiz Template First
+          </Button>
+        </div>
+
         <Card>
           <CardHeader>
             <CardTitle>Create New Competition</CardTitle>
@@ -101,15 +132,25 @@ export default function AdminCompetitions() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Quiz Template ID</label>
-                <input
-                  type="text"
+                <label className="block text-sm font-medium mb-1">Quiz Template</label>
+                <select
                   required
                   value={formData.quizTemplateId}
                   onChange={(e) => setFormData({ ...formData, quizTemplateId: e.target.value })}
                   className="w-full px-3 py-2 border rounded-lg"
-                  placeholder="Enter quiz template ID"
-                />
+                >
+                  <option value="">Select a quiz template</option>
+                  {templates.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.title} ({template.questions?.length || 0} questions)
+                    </option>
+                  ))}
+                </select>
+                {templates.length === 0 && (
+                  <p className="text-sm text-gray-500 mt-1">
+                    No templates available. Create one first.
+                  </p>
+                )}
               </div>
 
               <div>

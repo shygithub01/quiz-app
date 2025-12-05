@@ -10,6 +10,7 @@ import PastQuizzes from "./pages/PastQuizzes";
 import Competitions from "./pages/Competitions";
 import CompetitionDetails from "./pages/CompetitionDetails";
 import AdminCompetitions from "./pages/AdminCompetitions";
+import AdminQuizTemplates from "./pages/AdminQuizTemplates";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -44,6 +45,7 @@ const App = () => (
                   <Route path="competitions" element={<Competitions />} />
                   <Route path="competitions/:id" element={<CompetitionDetails />} />
                   <Route path="admin/competitions" element={<AdminCompetitions />} />
+                  <Route path="admin/quiz-templates" element={<AdminQuizTemplates />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>

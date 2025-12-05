@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getCompetitionById } from '../components/ui/firebase';
+import { getCompetitionById, checkUserParticipation } from '../components/ui/firebase';
 import Leaderboard from '../components/Leaderboard';
 import { Competition } from '../types';
 
@@ -12,6 +12,8 @@ const CompetitionDetails: React.FC = () => {
   const [competition, setCompetition] = useState<Competition | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hasParticipated, setHasParticipated] = useState(false);
+  const [checkingParticipation, setCheckingParticipation] = useState(false);
 
   useEffect(() => {
     const fetchCompetition = async () => {
@@ -22,6 +24,14 @@ const CompetitionDetails: React.FC = () => {
         const data = await getCompetitionById(id);
         if (data) {
           setCompetition(data);
+          
+          // Check if user has already participated
+          if (user?.uid) {
+            setCheckingParticipation(true);
+            const participated = await checkUserParticipation(user.uid, id);
+            setHasParticipated(participated);
+            setCheckingParticipation(false);
+          }
         } else {
           setError('Competition not found');
         }
@@ -34,7 +44,7 @@ const CompetitionDetails: React.FC = () => {
     };
 
     fetchCompetition();
-  }, [id]);
+  }, [id, user]);
 
   const handleStartCompetition = () => {
     if (!user) {
@@ -47,8 +57,13 @@ const CompetitionDetails: React.FC = () => {
       return;
     }
     
-    // Navigate to quiz with competition mode
-    navigate(`/quiz?competitionId=${id}&templateId=${competition.quizTemplateId}`);
+    if (hasParticipated) {
+      alert('You have already participated in this competition. Only one attempt is allowed.');
+      return;
+    }
+    
+    // Navigate to competition quiz page
+    navigate(`/competition-quiz/${id}`);
   };
 
   const getStatusBadge = (status: string) => {
@@ -118,10 +133,24 @@ const CompetitionDetails: React.FC = () => {
           {competition.status === 'active' && (
             <button
               onClick={handleStartCompetition}
-              className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium"
+              disabled={hasParticipated || checkingParticipation}
+              className={`px-6 py-3 rounded-lg font-medium ${
+                hasParticipated 
+                  ? 'bg-gray-400 text-gray-700 cursor-not-allowed' 
+                  : 'bg-blue-600 text-white hover:bg-blue-700'
+              }`}
             >
-              Start Competition
+              {checkingParticipation 
+                ? 'Checking...' 
+                : hasParticipated 
+                ? 'Already Participated' 
+                : 'Start Competition'}
             </button>
+          )}
+          {hasParticipated && (
+            <p className="text-sm text-gray-600 mt-2">
+              You have completed this competition. Check the leaderboard below for your ranking.
+            </p>
           )}
         </div>
       </div>

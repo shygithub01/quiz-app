@@ -422,6 +422,29 @@ const getLeaderboard = async (competitionId: string): Promise<any[]> => {
   }
 };
 
+const checkUserParticipation = async (
+  userId: string,
+  competitionId: string
+): Promise<boolean> => {
+  try {
+    console.log('🔍 Checking participation for user:', userId, 'competition:', competitionId);
+    const leaderboardRef = collection(db, 'leaderboard');
+    const q = query(
+      leaderboardRef,
+      where('competitionId', '==', competitionId),
+      where('userId', '==', userId)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const hasParticipated = !querySnapshot.empty;
+    console.log('✅ Participation check:', hasParticipated ? 'Already participated' : 'Not participated');
+    return hasParticipated;
+  } catch (error) {
+    console.error('❌ Error checking participation:', error);
+    throw error;
+  }
+};
+
 const submitCompetitionAttempt = async (
   userId: string,
   competitionId: string,
@@ -437,6 +460,12 @@ const submitCompetitionAttempt = async (
 ): Promise<void> => {
   try {
     console.log('🏆 Submitting competition attempt for user:', userId);
+    
+    // Check if already participated
+    const hasParticipated = await checkUserParticipation(userId, competitionId);
+    if (hasParticipated) {
+      throw new Error('You have already participated in this competition');
+    }
     
     // Add to leaderboard
     const leaderboardRef = collection(db, 'leaderboard');
@@ -553,5 +582,6 @@ export {
   getLeaderboard,
   submitCompetitionAttempt,
   recalculateRanks,
-  createTestCompetition
+  createTestCompetition,
+  checkUserParticipation
 };
