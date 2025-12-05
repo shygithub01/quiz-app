@@ -583,51 +583,45 @@ exports.generateCompetitionQuiz = onRequest({
 
     const totalQuestions = Object.values(subjects).reduce((a, b) => a + b, 0);
     
-    const prompt = `You are creating a scholarship competition quiz for high school students (grades ${gradeLevels.join('-')}).
+    // Simplified prompt to avoid token limits
+    const subjectList = subjectPrompts.map(sp => `${sp.count} ${sp.subject} questions`).join(', ');
+    
+    const prompt = `Create ${totalQuestions} high school multiple-choice questions: ${subjectList}.
 
-Generate EXACTLY ${totalQuestions} ${difficulty} difficulty multiple-choice questions with this EXACT distribution:
-
-${subjectPrompts.map(sp => `- ${sp.count} questions on ${sp.subject}: ${sp.topics}`).join('\n')}
-
-CRITICAL REQUIREMENTS:
-1. Questions must be appropriate for grades ${gradeLevels.join('-')}
-2. Mix difficulty within ${difficulty} level (some easier, some harder)
-3. Questions should test knowledge, not trick students
-4. All questions must be factually accurate
-5. Distribute questions evenly across the topics within each subject
-6. Number questions sequentially from 1 to ${totalQuestions}
-
-Return ONLY a valid JSON array with this EXACT format:
+Return ONLY valid JSON array:
 [
   {
     "id": 1,
-    "question": "Question text here?",
-    "options": {
-      "A": "Option A text",
-      "B": "Option B text", 
-      "C": "Option C text",
-      "D": "Option D text"
-    },
+    "question": "Question text?",
+    "options": {"A": "Option A", "B": "Option B", "C": "Option C", "D": "Option D"},
     "correctAnswer": "A",
-    "explanation": "Brief explanation of why this is correct"
+    "explanation": "Brief explanation"
   }
 ]
 
-CRITICAL: Return ONLY the JSON array, no additional text, no markdown formatting, no code blocks.`;
+Requirements:
+- ${difficulty} difficulty
+- Grades ${gradeLevels.join('-')}
+- Factually accurate
+- No markdown, just JSON`;
 
     try {
+      console.log('🤖 Calling OpenAI with prompt length:', prompt.length);
+      
       const response = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         messages: [
           { 
             role: "system", 
-            content: "You are an expert educational quiz generator for high school scholarship competitions. Create accurate, fair, and well-distributed questions across multiple subjects." 
+            content: "You are a quiz generator. Return only valid JSON arrays." 
           },
           { role: "user", content: prompt }
         ],
-        max_tokens: 4000,
+        max_tokens: 8000, // Increased for 50 questions
         temperature: 0.7,
       });
+      
+      console.log('✅ OpenAI response received');
 
       const content = response.choices[0].message.content.trim();
       console.log('🤖 OpenAI competition quiz response received');
