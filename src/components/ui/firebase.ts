@@ -40,6 +40,21 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
+// ===== ADMIN CONFIGURATION =====
+
+// List of admin emails - add your admin emails here
+const ADMIN_EMAILS = [
+  'shyammohapatra@mac.myfiosgateway.com', // Add your admin email
+  'admin@quizist.ai', // Example admin email
+  // Add more admin emails as needed
+];
+
+// Check if a user is an admin
+const isAdmin = (userEmail: string | null | undefined): boolean => {
+  if (!userEmail) return false;
+  return ADMIN_EMAILS.includes(userEmail.toLowerCase());
+};
+
 // ===== UTILITY FUNCTIONS =====
 
 function generateQuestionHash(questions: any): string {
@@ -629,5 +644,6 @@ export {
   recalculateRanks,
   createTestCompetition,
   checkUserParticipation,
-  resetUserAttempt
+  resetUserAttempt,
+  isAdmin
 };

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getCompetitionById, checkUserParticipation, resetUserAttempt } from '../components/ui/firebase';
+import { getCompetitionById, checkUserParticipation, resetUserAttempt, isAdmin } from '../components/ui/firebase';
 import Leaderboard from '../components/Leaderboard';
 import { Competition } from '../types';
 
@@ -183,14 +183,14 @@ const CompetitionDetails: React.FC = () => {
                   : 'Start Competition'}
               </button>
               
-              {hasParticipated && (
+              {hasParticipated && isAdmin(user?.email) && (
                 <button
                   onClick={handleResetAttempt}
                   disabled={resetting}
                   className="px-4 py-2 text-sm rounded-lg border-2 border-orange-500 text-orange-600 hover:bg-orange-50 font-medium transition-colors"
-                  title="Reset your attempt to retake this competition (for testing)"
+                  title="Admin only: Reset attempt to retake this competition"
                 >
-                  {resetting ? '🔄 Resetting...' : '🔄 Reset My Attempt'}
+                  {resetting ? '🔄 Resetting...' : '🔄 Reset Attempt (Admin)'}
                 </button>
               )}
             </div>
