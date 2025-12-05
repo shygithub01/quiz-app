@@ -43,10 +43,13 @@ export default function AdminCompetitions() {
     e.preventDefault();
     
     try {
+      const prizesArray = formData.prizes.split('\n').filter(p => p.trim());
+      
       const competitionData = {
         ...formData,
         rules: formData.rules.split('\n').filter(r => r.trim()),
-        prizes: formData.prizes.split('\n').filter(p => p.trim())
+        prizes: prizesArray,
+        prizePool: 1000 // Default prize pool, can be calculated from prizes later
       };
       
       await createCompetition(competitionData);
