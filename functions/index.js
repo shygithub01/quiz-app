@@ -28,15 +28,9 @@ const upload = multer({
   }
 });
 
-// CORS configuration
+// CORS configuration - Allow all origins for now
 const corsHandler = cors({
-  origin: [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "https://quizapp-42057.web.app",
-    "https://quizist.ai",
-    "https://www.quizist.ai"
-  ],
+  origin: true, // Allow all origins
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"]
