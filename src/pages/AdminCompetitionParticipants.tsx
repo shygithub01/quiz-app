@@ -150,9 +150,18 @@ export default function AdminCompetitionParticipants() {
               </h1>
               <p className="text-gray-600 mt-2">{competition?.title}</p>
             </div>
-            <div className="flex items-center gap-2 text-gray-600">
-              <Users className="h-5 w-5" />
-              <span className="font-medium">{participants.length} Participants</span>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 text-gray-600">
+                <Users className="h-5 w-5" />
+                <span className="font-medium">{participants.length} Participants</span>
+              </div>
+              <Button
+                variant="outline"
+                onClick={() => navigate(`/admin/competitions/${competitionId}/edit`)}
+                className="text-green-600 hover:text-green-700 hover:bg-green-50 border-green-300"
+              >
+                ✏️ Edit Competition
+              </Button>
             </div>
           </div>
         </div>

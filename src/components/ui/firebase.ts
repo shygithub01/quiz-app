@@ -693,12 +693,57 @@ const resetUserAttempt = async (userId: string, competitionId: string) => {
   }
 };
 
+// ===== COMPETITION UPDATE FUNCTIONS =====
+
+const updateCompetition = async (competitionId: string, updateData: any) => {
+  try {
+    console.log('🔄 Updating competition:', competitionId);
+    
+    const competitionRef = doc(db, 'competitions', competitionId);
+    
+    // Add updatedAt timestamp
+    const dataToUpdate = {
+      ...updateData,
+      updatedAt: Timestamp.now()
+    };
+    
+    await updateDoc(competitionRef, dataToUpdate);
+    console.log('✅ Competition updated successfully');
+    
+    return { success: true, message: 'Competition updated successfully' };
+  } catch (error) {
+    console.error('❌ Error updating competition:', error);
+    throw error;
+  }
+};
+
+const deleteCompetition = async (competitionId: string) => {
+  try {
+    console.log('🗑️ Deleting competition:', competitionId);
+    
+    // Delete the competition document
+    const competitionRef = doc(db, 'competitions', competitionId);
+    await deleteDoc(competitionRef);
+    
+    // Note: We might want to also delete related leaderboard entries
+    // But for now, we'll keep them for historical data
+    
+    console.log('✅ Competition deleted successfully');
+    return { success: true, message: 'Competition deleted successfully' };
+  } catch (error) {
+    console.error('❌ Error deleting competition:', error);
+    throw error;
+  }
+};
+
 // Export new functions
 export {
   // ... existing exports
   getCompetitions,
   getCompetitionById,
   createCompetition,
+  updateCompetition,
+  deleteCompetition,
   getLeaderboard,
   submitCompetitionAttempt,
   recalculateRanks,
