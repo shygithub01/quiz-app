@@ -1,17 +1,34 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
-import { Brain, BookOpen, LogOut, User, Sparkles, Trophy } from 'lucide-react'
+import { Brain, BookOpen, LogOut, User, Sparkles, Trophy, Shield, Users } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { isAdmin } from '@/components/ui/firebase'
 
 export default function Layout() {
   const { user, loading, logout, signIn } = useAuth() // Added signIn assuming it exists in AuthContext
   const isSignedIn = !!user
   const location = useLocation()
+  const [userIsAdmin, setUserIsAdmin] = useState(false)
+
+  // Check if user is admin
+  useEffect(() => {
+    const checkAdmin = async () => {
+      if (user?.uid) {
+        const adminStatus = await isAdmin(user.uid);
+        setUserIsAdmin(adminStatus);
+      } else {
+        setUserIsAdmin(false);
+      }
+    };
+    checkAdmin();
+  }, [user]);
 
   // Debug logging
   console.log('🏗️ Layout - User:', user ? `${user.email} (${user.uid})` : 'No user')
   console.log('🏗️ Layout - Loading:', loading)
   console.log('🏗️ Layout - IsSignedIn:', isSignedIn)
+  console.log('🏗️ Layout - IsAdmin:', userIsAdmin)
   console.log('🏗️ Layout - Current Path:', location.pathname)
 
   const handleSignOut = async () => {
@@ -102,6 +119,47 @@ export default function Layout() {
                       <span className="hidden sm:inline font-medium ml-2">Competitions</span>
                     </Button>
                   </Link>
+                  
+                  {/* Admin Navigation - Only visible to admins */}
+                  {userIsAdmin && (
+                    <>
+                      <Link to="/admin/competitions">
+                        <Button
+                          variant={location.pathname.startsWith('/admin/competitions') ? 'default' : 'ghost'}
+                          size="sm"
+                          className={`
+                            relative group transition-all duration-300 rounded-full
+                            ${location.pathname.startsWith('/admin/competitions')
+                              ? 'bg-white text-purple-600 shadow-glow hover:shadow-glow-lg' 
+                              : 'text-white/80 hover:text-white hover:bg-white/10'
+                            }
+                          `}
+                          title="Admin: Create Competitions"
+                        >
+                          <Shield className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
+                          <span className="hidden sm:inline font-medium ml-2">Admin</span>
+                        </Button>
+                      </Link>
+                      
+                      <Link to="/admin/users">
+                        <Button
+                          variant={location.pathname === '/admin/users' ? 'default' : 'ghost'}
+                          size="sm"
+                          className={`
+                            relative group transition-all duration-300 rounded-full
+                            ${location.pathname === '/admin/users'
+                              ? 'bg-white text-purple-600 shadow-glow hover:shadow-glow-lg' 
+                              : 'text-white/80 hover:text-white hover:bg-white/10'
+                            }
+                          `}
+                          title="Super Admin: Manage Users"
+                        >
+                          <Users className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
+                          <span className="hidden sm:inline font-medium ml-2">Users</span>
+                        </Button>
+                      </Link>
+                    </>
+                  )}
                 </nav>
               )}
 
