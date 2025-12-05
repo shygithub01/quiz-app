@@ -7,7 +7,7 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged
 } from 'firebase/auth'
-import { auth } from '@/components/ui/firebase'
+import { auth, initializeUserProfile } from '@/components/ui/firebase'
 
 interface AuthContextType {
   user: User | null
@@ -25,8 +25,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     console.log('🔥 AuthContext - Setting up auth listener')
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       console.log('🔥 AuthContext - Auth state changed:', user ? `${user.email} (${user.uid})` : 'No user')
+      
+      // Initialize user profile in database if user signs in
+      if (user) {
+        try {
+          await initializeUserProfile(
+            user.uid, 
+            user.email || '', 
+            user.displayName || 'Anonymous'
+          );
+        } catch (error) {
+          console.error('Error initializing user profile:', error);
+        }
+      }
+      
       setUser(user)
       setLoading(false)
     })

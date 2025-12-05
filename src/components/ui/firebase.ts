@@ -16,7 +16,8 @@ import {
   DocumentData,
   getDoc,
   where,
-  increment
+  increment,
+  setDoc
 } from 'firebase/firestore';
 import CryptoJS from 'crypto-js';
 
@@ -40,19 +41,78 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 
-// ===== ADMIN CONFIGURATION =====
+// ===== USER ROLE MANAGEMENT =====
 
-// List of admin emails - add your admin emails here
-const ADMIN_EMAILS = [
-  'shyammohapatra@mac.myfiosgateway.com', // Add your admin email
-  'admin@quizist.ai', // Example admin email
-  // Add more admin emails as needed
-];
+// User roles enum
+export enum UserRole {
+  STUDENT = 'student',
+  TEACHER = 'teacher',
+  ADMIN = 'admin',
+  SUPER_ADMIN = 'super_admin'
+}
 
-// Check if a user is an admin
-const isAdmin = (userEmail: string | null | undefined): boolean => {
-  if (!userEmail) return false;
-  return ADMIN_EMAILS.includes(userEmail.toLowerCase());
+// Get user role from database
+const getUserRole = async (userId: string): Promise<UserRole> => {
+  try {
+    const userDoc = await getDoc(doc(db, 'users', userId));
+    if (userDoc.exists()) {
+      return userDoc.data().role || UserRole.STUDENT;
+    }
+    return UserRole.STUDENT;
+  } catch (error) {
+    console.error('Error getting user role:', error);
+    return UserRole.STUDENT;
+  }
+};
+
+// Check if a user is an admin (admin or super_admin)
+const isAdmin = async (userId: string | null | undefined): Promise<boolean> => {
+  if (!userId) return false;
+  try {
+    const role = await getUserRole(userId);
+    return role === UserRole.ADMIN || role === UserRole.SUPER_ADMIN;
+  } catch (error) {
+    console.error('Error checking admin status:', error);
+    return false;
+  }
+};
+
+// Set user role (super admin only)
+const setUserRole = async (userId: string, role: UserRole, currentUserRole: UserRole) => {
+  if (currentUserRole !== UserRole.SUPER_ADMIN) {
+    throw new Error('Only super admins can change user roles');
+  }
+  
+  try {
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, { role });
+    console.log(`✅ User ${userId} role updated to ${role}`);
+  } catch (error) {
+    console.error('Error setting user role:', error);
+    throw error;
+  }
+};
+
+// Initialize user profile with default role
+const initializeUserProfile = async (userId: string, email: string, displayName: string) => {
+  try {
+    const userRef = doc(db, 'users', userId);
+    const userDoc = await getDoc(userRef);
+    
+    if (!userDoc.exists()) {
+      // Create new user profile with default student role using setDoc
+      await setDoc(userRef, {
+        email,
+        displayName,
+        role: UserRole.STUDENT,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now()
+      });
+      console.log('✅ User profile initialized');
+    }
+  } catch (error) {
+    console.error('Error initializing user profile:', error);
+  }
 };
 
 // ===== UTILITY FUNCTIONS =====
@@ -645,5 +705,8 @@ export {
   createTestCompetition,
   checkUserParticipation,
   resetUserAttempt,
-  isAdmin
+  isAdmin,
+  getUserRole,
+  setUserRole,
+  initializeUserProfile
 };

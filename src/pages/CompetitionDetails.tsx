@@ -15,6 +15,7 @@ const CompetitionDetails: React.FC = () => {
   const [hasParticipated, setHasParticipated] = useState(false);
   const [checkingParticipation, setCheckingParticipation] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [userIsAdmin, setUserIsAdmin] = useState(false);
 
   useEffect(() => {
     const fetchCompetition = async () => {
@@ -26,11 +27,15 @@ const CompetitionDetails: React.FC = () => {
         if (data) {
           setCompetition(data);
           
-          // Check if user has already participated
+          // Check if user has already participated and if user is admin
           if (user?.uid) {
             setCheckingParticipation(true);
-            const participated = await checkUserParticipation(user.uid, id);
+            const [participated, adminStatus] = await Promise.all([
+              checkUserParticipation(user.uid, id),
+              isAdmin(user.uid)
+            ]);
             setHasParticipated(participated);
+            setUserIsAdmin(adminStatus);
             setCheckingParticipation(false);
           }
         } else {
@@ -183,7 +188,7 @@ const CompetitionDetails: React.FC = () => {
                   : 'Start Competition'}
               </button>
               
-              {hasParticipated && isAdmin(user?.email) && (
+              {hasParticipated && userIsAdmin && (
                 <button
                   onClick={handleResetAttempt}
                   disabled={resetting}

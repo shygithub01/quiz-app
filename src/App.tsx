@@ -11,6 +11,7 @@ import Competitions from "./pages/Competitions";
 import CompetitionDetails from "./pages/CompetitionDetails";
 import CompetitionQuiz from "./pages/CompetitionQuiz";
 import AdminCompetitions from "./pages/AdminCompetitions";
+import AdminUserManagement from "./pages/AdminUserManagement";
 import AdminQuizTemplates from "./pages/AdminQuizTemplates";
 import NotFound from "./pages/NotFound";
 
@@ -47,6 +48,7 @@ const App = () => (
                   <Route path="competitions/:id" element={<CompetitionDetails />} />
                   <Route path="competition-quiz/:id" element={<CompetitionQuiz />} />
                   <Route path="admin/competitions" element={<AdminCompetitions />} />
+                  <Route path="admin/users" element={<AdminUserManagement />} />
                   <Route path="admin/quiz-templates" element={<AdminQuizTemplates />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
