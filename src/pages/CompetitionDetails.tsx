@@ -170,8 +170,8 @@ const CompetitionDetails: React.FC = () => {
             </span>
           </div>
           
-          {competition.status === 'active' && (
-            <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2">
+            {competition.status === 'active' && (
               <button
                 onClick={handleStartCompetition}
                 disabled={hasParticipated || checkingParticipation}
@@ -187,19 +187,31 @@ const CompetitionDetails: React.FC = () => {
                   ? 'Already Participated' 
                   : 'Start Competition'}
               </button>
-              
-              {hasParticipated && userIsAdmin && (
+            )}
+            
+            {userIsAdmin && (
+              <div className="flex gap-2">
                 <button
-                  onClick={handleResetAttempt}
-                  disabled={resetting}
-                  className="px-4 py-2 text-sm rounded-lg border-2 border-orange-500 text-orange-600 hover:bg-orange-50 font-medium transition-colors"
-                  title="Admin only: Reset attempt to retake this competition"
+                  onClick={() => navigate(`/admin/competitions/${id}/participants`)}
+                  className="flex-1 px-4 py-2 text-sm rounded-lg border-2 border-blue-500 text-blue-600 hover:bg-blue-50 font-medium transition-colors"
+                  title="Admin: Manage all participants"
                 >
-                  {resetting ? '🔄 Resetting...' : '🔄 Reset Attempt (Admin)'}
+                  👥 Manage Participants
                 </button>
-              )}
-            </div>
-          )}
+                
+                {hasParticipated && (
+                  <button
+                    onClick={handleResetAttempt}
+                    disabled={resetting}
+                    className="flex-1 px-4 py-2 text-sm rounded-lg border-2 border-orange-500 text-orange-600 hover:bg-orange-50 font-medium transition-colors"
+                    title="Admin: Reset your own attempt"
+                  >
+                    {resetting ? '🔄 Resetting...' : '🔄 Reset My Attempt'}
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
           {hasParticipated && (
             <p className="text-sm text-gray-600 mt-2">
               You have completed this competition. Check the leaderboard below for your ranking.
