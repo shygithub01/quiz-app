@@ -172,23 +172,25 @@ const CompetitionDetails: React.FC = () => {
           <div className="flex flex-col gap-3">
             {/* Main Action Buttons */}
             <div className="flex gap-3">
-              {competition.status === 'active' && (
-                <button
-                  onClick={handleStartCompetition}
-                  disabled={hasParticipated || checkingParticipation}
-                  className={`flex-1 px-6 py-3 rounded-lg font-medium ${
-                    hasParticipated 
-                      ? 'bg-gray-400 text-gray-700 cursor-not-allowed' 
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
-                  }`}
-                >
-                  {checkingParticipation 
-                    ? 'Checking...' 
+              <button
+                onClick={handleStartCompetition}
+                disabled={hasParticipated || checkingParticipation || competition.status !== 'active'}
+                className={`flex-1 px-6 py-3 rounded-lg font-medium ${
+                  competition.status !== 'active'
+                    ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
                     : hasParticipated 
-                    ? 'Already Participated' 
-                    : 'Start Competition'}
-                </button>
-              )}
+                    ? 'bg-gray-400 text-gray-700 cursor-not-allowed' 
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
+                }`}
+              >
+                {competition.status !== 'active' 
+                  ? `Competition ${competition.status}`
+                  : checkingParticipation 
+                  ? 'Checking...' 
+                  : hasParticipated 
+                  ? 'Already Participated' 
+                  : 'Start Competition'}
+              </button>
               
               <button
                 onClick={() => navigate(`/competitions/${id}/leaderboard`)}
