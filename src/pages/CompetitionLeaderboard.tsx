@@ -120,20 +120,29 @@ export default function CompetitionLeaderboard() {
           </Button>
 
           <div className="text-center">
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              🏆 Leaderboard
-            </h1>
-            <p className="text-xl text-gray-600 mb-4">{competition?.title}</p>
-            
-            {/* Competition Stats */}
-            <div className="flex justify-center gap-8 text-sm text-gray-600">
-              <div className="flex items-center gap-2">
-                <Target className="h-4 w-4" />
-                <span>{leaderboard.length} Participants</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Trophy className="h-4 w-4" />
-                <span>50 Questions</span>
+            <div className="bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg p-6 mb-6">
+              <h1 className="text-4xl font-bold mb-3">
+                🏆 Competition Leaderboard
+              </h1>
+              <p className="text-2xl font-semibold text-amber-100 mb-4">{competition?.title}</p>
+              
+              {/* Competition Stats */}
+              <div className="flex justify-center gap-8 text-amber-100">
+                <div className="flex items-center gap-2">
+                  <Target className="h-5 w-5" />
+                  <span className="font-medium">{leaderboard.length} Participants</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Trophy className="h-5 w-5" />
+                  <span className="font-medium">50 Questions</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`px-3 py-1 rounded-full text-sm font-bold ${
+                    competition?.status === 'active' ? 'bg-green-500 text-white' : 'bg-gray-500 text-white'
+                  }`}>
+                    {competition?.status?.toUpperCase()}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
