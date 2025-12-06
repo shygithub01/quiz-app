@@ -132,12 +132,14 @@ const CompetitionDetails: React.FC = () => {
     <div className="max-w-6xl mx-auto px-4 py-8">
       {/* Header */}
       <div className="mb-6">
-        <button
-          onClick={() => navigate('/competitions')}
-          className="text-blue-600 hover:text-blue-800 mb-4 flex items-center"
-        >
-          ← Back to Competitions
-        </button>
+        <div className="mb-6">
+          <button
+            onClick={() => navigate('/competitions')}
+            className="px-6 py-3 rounded-lg font-medium bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+          >
+            ← Back to Competitions
+          </button>
+        </div>
         
         {/* Competition Title and Status */}
         <div className="text-center mb-8">

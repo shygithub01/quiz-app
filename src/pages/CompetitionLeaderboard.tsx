@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { getCompetitionById, getLeaderboard } from '@/components/ui/firebase';
 import { ArrowLeft, Trophy, Medal, Award, Clock, Target } from 'lucide-react';
 
@@ -110,14 +109,15 @@ export default function CompetitionLeaderboard() {
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="mb-6">
-          <Button
-            variant="outline"
-            onClick={() => navigate(`/competitions/${competitionId}`)}
-            className="mb-4"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Competition
-          </Button>
+          <div className="mb-6">
+            <button
+              onClick={() => navigate(`/competitions/${competitionId}`)}
+              className="px-6 py-3 rounded-lg font-medium bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Competition
+            </button>
+          </div>
 
           <div className="text-center">
             <div className="bg-gradient-to-r from-amber-500 to-orange-600 text-white rounded-lg p-6 mb-6">
@@ -226,12 +226,12 @@ export default function CompetitionLeaderboard() {
 
         {/* Back to Competition Button */}
         <div className="mt-6 text-center">
-          <Button
+          <button
             onClick={() => navigate(`/competitions/${competitionId}`)}
-            className="px-8 py-3"
+            className="px-8 py-3 rounded-lg font-medium bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all"
           >
             Back to Competition Details
-          </Button>
+          </button>
         </div>
       </div>
     </div>
