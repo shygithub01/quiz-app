@@ -214,7 +214,7 @@ const CompetitionDetails: React.FC = () => {
         <div className="bg-white rounded-lg shadow p-6">
           <div className="text-sm text-gray-600 mb-1">Type</div>
           <div className="font-medium flex items-center gap-2">
-            {competition.competitionType === 'scholarship' ? (
+            {(competition.competitionType || 'scholarship') === 'scholarship' ? (
               <>
                 <span>🏆</span>
                 <span>Scholarship</span>
