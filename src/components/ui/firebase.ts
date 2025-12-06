@@ -411,13 +411,16 @@ const getCompetitions = async (status?: 'upcoming' | 'active' | 'completed'): Pr
     }
     
     const querySnapshot = await getDocs(q);
-    const competitions = querySnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data(),
-      startDate: doc.data().startDate?.toDate(),
-      endDate: doc.data().endDate?.toDate(),
-      createdAt: doc.data().createdAt?.toDate()
-    }));
+    const competitions = querySnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        startDate: data.startDate?.toDate ? data.startDate.toDate() : new Date(data.startDate),
+        endDate: data.endDate?.toDate ? data.endDate.toDate() : new Date(data.endDate),
+        createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt)
+      };
+    });
     
     console.log('✅ Fetched competitions:', competitions.length);
     return competitions;
@@ -441,9 +444,9 @@ const getCompetitionById = async (competitionId: string): Promise<any | null> =>
     return {
       id: competitionDoc.id,
       ...data,
-      startDate: data.startDate?.toDate(),
-      endDate: data.endDate?.toDate(),
-      createdAt: data.createdAt?.toDate()
+      startDate: data.startDate?.toDate ? data.startDate.toDate() : new Date(data.startDate),
+      endDate: data.endDate?.toDate ? data.endDate.toDate() : new Date(data.endDate),
+      createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt)
     };
   } catch (error) {
     console.error('❌ Error fetching competition:', error);
