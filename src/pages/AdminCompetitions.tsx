@@ -16,6 +16,7 @@ export default function AdminCompetitions() {
     startDate: '',
     endDate: '',
     quizTemplateId: '',
+    competitionType: 'scholarship' as 'scholarship' | 'practice',
     status: 'upcoming' as 'upcoming' | 'active' | 'completed',
     rules: '',
     prizes: ''
@@ -48,8 +49,9 @@ export default function AdminCompetitions() {
       const competitionData = {
         ...formData,
         rules: formData.rules.split('\n').filter(r => r.trim()),
-        prizes: prizesArray,
-        prizePool: 1000 // Default prize pool, can be calculated from prizes later
+        prizes: formData.competitionType === 'scholarship' ? prizesArray : [],
+        prizePool: formData.competitionType === 'scholarship' ? 1000 : 0,
+        competitionType: formData.competitionType
       };
       
       await createCompetition(competitionData);
@@ -62,6 +64,7 @@ export default function AdminCompetitions() {
         startDate: '',
         endDate: '',
         quizTemplateId: '',
+        competitionType: 'scholarship',
         status: 'upcoming',
         rules: '',
         prizes: ''
@@ -156,17 +159,31 @@ export default function AdminCompetitions() {
                 )}
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-1">Status</label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
-                  className="w-full px-3 py-2 border rounded-lg"
-                >
-                  <option value="upcoming">Upcoming</option>
-                  <option value="active">Active</option>
-                  <option value="completed">Completed</option>
-                </select>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Competition Type</label>
+                  <select
+                    value={formData.competitionType}
+                    onChange={(e) => setFormData({ ...formData, competitionType: e.target.value as any })}
+                    className="w-full px-3 py-2 border rounded-lg"
+                  >
+                    <option value="scholarship">🏆 Scholarship Competition (One Attempt)</option>
+                    <option value="practice">📚 Practice Session (Multiple Attempts)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-1">Status</label>
+                  <select
+                    value={formData.status}
+                    onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                    className="w-full px-3 py-2 border rounded-lg"
+                  >
+                    <option value="upcoming">Upcoming</option>
+                    <option value="active">Active</option>
+                    <option value="completed">Completed</option>
+                  </select>
+                </div>
               </div>
 
               <div>
@@ -180,16 +197,28 @@ export default function AdminCompetitions() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-1">Prizes (one per line)</label>
-                <textarea
-                  value={formData.prizes}
-                  onChange={(e) => setFormData({ ...formData, prizes: e.target.value })}
-                  className="w-full px-3 py-2 border rounded-lg"
-                  rows={3}
-                  placeholder="1st Place: $500 + Trophy&#10;2nd Place: $300 + Medal&#10;3rd Place: $100 + Medal"
-                />
-              </div>
+              {formData.competitionType === 'scholarship' ? (
+                <div>
+                  <label className="block text-sm font-medium mb-1">Prizes (one per line)</label>
+                  <textarea
+                    value={formData.prizes}
+                    onChange={(e) => setFormData({ ...formData, prizes: e.target.value })}
+                    className="w-full px-3 py-2 border rounded-lg"
+                    rows={3}
+                    placeholder="1st Place: $500 + Trophy&#10;2nd Place: $300 + Medal&#10;3rd Place: $100 + Medal"
+                  />
+                </div>
+              ) : (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <h3 className="font-medium text-blue-900 mb-2">📚 Practice Session Benefits</h3>
+                  <ul className="text-sm text-blue-800 space-y-1">
+                    <li>• Multiple attempts allowed</li>
+                    <li>• Detailed explanations for each question</li>
+                    <li>• Progress tracking and improvement analytics</li>
+                    <li>• Perfect preparation for scholarship competitions</li>
+                  </ul>
+                </div>
+              )}
 
               <Button type="submit" className="w-full">
                 Create Competition

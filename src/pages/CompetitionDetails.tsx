@@ -196,8 +196,38 @@ const CompetitionDetails: React.FC = () => {
         )}
       </div>
 
+      {/* Competition Type Banner */}
+      {competition.competitionType === 'practice' && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">📚</span>
+            <div>
+              <h3 className="font-bold text-blue-900">Practice Session</h3>
+              <p className="text-blue-800">Take this as many times as you want to improve your skills!</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Competition Info */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="bg-white rounded-lg shadow p-6">
+          <div className="text-sm text-gray-600 mb-1">Type</div>
+          <div className="font-medium flex items-center gap-2">
+            {competition.competitionType === 'scholarship' ? (
+              <>
+                <span>🏆</span>
+                <span>Scholarship</span>
+              </>
+            ) : (
+              <>
+                <span>📚</span>
+                <span>Practice</span>
+              </>
+            )}
+          </div>
+        </div>
+
         <div className="bg-white rounded-lg shadow p-6">
           <div className="text-sm text-gray-600 mb-1">Start Date</div>
           <div className="font-medium">{formatDate(competition.startDate)}</div>
