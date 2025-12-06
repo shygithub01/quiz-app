@@ -154,21 +154,9 @@ const CompetitionDetails: React.FC = () => {
         {/* Participation Status */}
         {hasParticipated && (
           <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center mb-6">
-            <p className="text-green-800 font-medium mb-3">
+            <p className="text-green-800 font-medium">
               ✅ You have completed this competition. Check the leaderboard for your ranking.
             </p>
-            
-            {/* Student Reset for Practice Only */}
-            {(competition.competitionType || 'scholarship') === 'practice' && (
-              <button
-                onClick={handleResetAttempt}
-                disabled={resetting}
-                className="px-6 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium transition-colors"
-                title="Reset your attempt to practice again"
-              >
-                {resetting ? '🔄 Resetting...' : '🔄 Practice Again'}
-              </button>
-            )}
           </div>
         )}
 
