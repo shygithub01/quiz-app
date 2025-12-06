@@ -154,9 +154,39 @@ const CompetitionDetails: React.FC = () => {
         {/* Participation Status */}
         {hasParticipated && (
           <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center mb-6">
-            <p className="text-green-800 font-medium">
+            <p className="text-green-800 font-medium mb-3">
               ✅ You have completed this competition. Check the leaderboard for your ranking.
             </p>
+            
+            {/* Student Reset for Practice Only */}
+            {(competition.competitionType || 'scholarship') === 'practice' && (
+              <button
+                onClick={handleResetAttempt}
+                disabled={resetting}
+                className="px-6 py-2 text-sm rounded-lg bg-blue-600 text-white hover:bg-blue-700 font-medium transition-colors"
+                title="Reset your attempt to practice again"
+              >
+                {resetting ? '🔄 Resetting...' : '🔄 Practice Again'}
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Student Reset for Practice Competitions */}
+        {hasParticipated && (competition.competitionType || 'scholarship') === 'practice' && !userIsAdmin && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
+            <h3 className="font-medium text-green-900 mb-2 text-center">Practice Session Complete!</h3>
+            <p className="text-green-800 text-center mb-4">Want to practice more? You can retake this session anytime.</p>
+            <div className="flex justify-center">
+              <button
+                onClick={handleResetAttempt}
+                disabled={resetting}
+                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg hover:from-blue-600 hover:to-indigo-600 transition-all shadow-lg hover:shadow-xl"
+                title="Retake this practice session"
+              >
+                {resetting ? '🔄 Preparing...' : '🔄 Retake Practice Session'}
+              </button>
+            </div>
           </div>
         )}
 

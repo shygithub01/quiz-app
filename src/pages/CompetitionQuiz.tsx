@@ -54,20 +54,22 @@ export default function CompetitionQuiz() {
       try {
         setLoading(true);
 
-        // Check if already participated
-        const hasParticipated = await checkUserParticipation(user.uid, competitionId);
-        if (hasParticipated) {
-          setError('You have already participated in this competition');
-          setLoading(false);
-          return;
-        }
-
-        // Load competition
+        // Load competition first to check type
         const comp = await getCompetitionById(competitionId);
         if (!comp) {
           setError('Competition not found');
           setLoading(false);
           return;
+        }
+
+        // Check if already participated (only for scholarship competitions)
+        if ((comp.competitionType || 'scholarship') === 'scholarship') {
+          const hasParticipated = await checkUserParticipation(user.uid, competitionId);
+          if (hasParticipated) {
+            setError('You have already participated in this scholarship competition. Only one attempt is allowed.');
+            setLoading(false);
+            return;
+          }
         }
 
         if (comp.status !== 'active') {
@@ -293,7 +295,11 @@ export default function CompetitionQuiz() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold mb-2">{competition?.title}</h1>
-            <p className="text-blue-100">Competition Mode - One Attempt Only</p>
+            <p className="text-blue-100">
+              {(competition?.competitionType || 'scholarship') === 'scholarship' 
+                ? 'Scholarship Competition - One Attempt Only' 
+                : 'Practice Session - Multiple Attempts Allowed'}
+            </p>
           </div>
           {/* Timer */}
           <div className="flex items-center gap-3 bg-white/20 px-6 py-3 rounded-xl backdrop-blur-sm">
