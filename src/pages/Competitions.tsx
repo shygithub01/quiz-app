@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { getCompetitions } from '@/components/ui/firebase';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trophy, Calendar, Users, DollarSign } from 'lucide-react';
+import { Trophy, Calendar, Users, DollarSign, BookOpen } from 'lucide-react';
 
 interface Competition {
   id: string;
@@ -12,6 +12,7 @@ interface Competition {
   startDate: Date;
   endDate: Date;
   status: 'upcoming' | 'active' | 'completed';
+  competitionType?: 'scholarship' | 'practice';
   prizePool: number;
   participantCount: number;
 }
@@ -129,12 +130,24 @@ export default function Competitions() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
-                    <div className="flex items-center gap-2 text-sm text-gray-600">
-                      <DollarSign className="h-4 w-4 text-green-600" />
-                      <span className="font-semibold text-green-600">
-                        ${competition.prizePool.toLocaleString()}
-                      </span>
-                    </div>
+                    {/* Show prize only for scholarship competitions */}
+                    {(competition.competitionType || 'scholarship') === 'scholarship' && competition.prizePool > 0 && (
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
+                        <DollarSign className="h-4 w-4 text-green-600" />
+                        <span className="font-semibold text-green-600">
+                          ${competition.prizePool.toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                    
+                    {/* Show practice indicator for practice competitions */}
+                    {(competition.competitionType || 'scholarship') === 'practice' && (
+                      <div className="flex items-center gap-2 text-sm text-blue-600">
+                        <BookOpen className="h-4 w-4" />
+                        <span className="font-semibold">Practice Session</span>
+                      </div>
+                    )}
+                    
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <Users className="h-4 w-4" />
                       <span>{competition.participantCount} participants</span>

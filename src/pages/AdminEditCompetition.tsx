@@ -106,7 +106,10 @@ export default function AdminEditCompetition() {
         status: formData.status,
         competitionType: formData.competitionType,
         rules: formData.rules.split('\n').filter(r => r.trim()),
-        prizes: formData.prizes.split('\n').filter(p => p.trim())
+        // Clear prizes for practice competitions, keep them for scholarship competitions
+        prizes: formData.competitionType === 'scholarship' 
+          ? formData.prizes.split('\n').filter(p => p.trim())
+          : []
       };
 
       await updateCompetition(competitionId, updateData);
