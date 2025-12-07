@@ -373,10 +373,12 @@ export default function CompetitionQuiz() {
                   }`}
                   title={userAnswers[index] ? `Question ${index + 1} - Answered` : `Question ${index + 1} - Not answered`}
                 >
-                  {index + 1}
-                  {userAnswers[index] && index !== currentQuestionIndex && (
-                    <CheckCircle className="absolute -top-1 -right-1 h-4 w-4 text-white bg-green-600 rounded-full" />
-                  )}
+                  <>
+                    <span>{index + 1}</span>
+                    {userAnswers[index] && index !== currentQuestionIndex && (
+                      <CheckCircle className="absolute -top-1 -right-1 h-4 w-4 text-white bg-green-600 rounded-full" />
+                    )}
+                  </>
                 </button>
               ))}
             </div>
