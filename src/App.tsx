@@ -50,7 +50,7 @@ const App = () => (
                   <Route path="competitions" element={<Competitions />} />
                   <Route path="competitions/:id" element={<CompetitionDetails />} />
                   <Route path="competitions/:id/leaderboard" element={<CompetitionLeaderboard />} />
-                  <Route path="competition-quiz/:id" element={<CompetitionQuiz />} />
+                  <Route path="competitions/:id/quiz" element={<CompetitionQuiz />} />
                   <Route path="admin/competitions" element={<AdminCompetitions />} />
                   <Route path="admin/competitions/:id/participants" element={<AdminCompetitionParticipants />} />
                   <Route path="admin/competitions/:id/edit" element={<AdminEditCompetition />} />
