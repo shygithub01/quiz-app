@@ -373,12 +373,12 @@ export default function CompetitionQuiz() {
                   }`}
                   title={userAnswers[index] ? `Question ${index + 1} - Answered` : `Question ${index + 1} - Not answered`}
                 >
-                  <div className="relative w-full h-full flex items-center justify-center">
+                  <span className="relative inline-block">
                     {index + 1}
                     {userAnswers[index] && index !== currentQuestionIndex && (
                       <CheckCircle className="absolute -top-1 -right-1 h-4 w-4 text-white bg-green-600 rounded-full" />
                     )}
-                  </div>
+                  </span>
                 </button>
               ))}
             </div>
@@ -395,19 +395,21 @@ export default function CompetitionQuiz() {
               ← Previous
             </Button>
 
-            {currentQuestionIndex === questions.length - 1 ? (
-              <Button
-                onClick={handleSubmit}
-                disabled={submitting}
-                className="bg-green-600 hover:bg-green-700 min-w-[180px]"
-              >
-                {submitting ? 'Submitting...' : '✓ Submit Competition'}
-              </Button>
-            ) : (
-              <Button onClick={handleNext} className="min-w-[120px]">
-                Next →
-              </Button>
-            )}
+            <div>
+              {currentQuestionIndex === questions.length - 1 ? (
+                <Button
+                  onClick={handleSubmit}
+                  disabled={submitting}
+                  className="bg-green-600 hover:bg-green-700 min-w-[180px]"
+                >
+                  {submitting ? 'Submitting...' : '✓ Submit Competition'}
+                </Button>
+              ) : (
+                <Button onClick={handleNext} className="min-w-[120px]">
+                  Next →
+                </Button>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
