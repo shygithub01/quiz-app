@@ -16,6 +16,9 @@ import AdminUserManagement from "./pages/AdminUserManagement";
 import AdminCompetitionParticipants from "./pages/AdminCompetitionParticipants";
 import AdminEditCompetition from "./pages/AdminEditCompetition";
 import AdminQuizTemplates from "./pages/AdminQuizTemplates";
+import Schools from "./pages/Schools";
+import ScholarshipHome from "./pages/ScholarshipHome";
+import ScholarshipRegister from "./pages/ScholarshipRegister";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -56,6 +59,9 @@ const App = () => (
                   <Route path="admin/competitions/:id/edit" element={<AdminEditCompetition />} />
                   <Route path="admin/users" element={<AdminUserManagement />} />
                   <Route path="admin/quiz-templates" element={<AdminQuizTemplates />} />
+                  <Route path="schools" element={<Schools />} />
+                  <Route path="scholarship" element={<ScholarshipHome />} />
+                  <Route path="scholarship/register" element={<ScholarshipRegister />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>

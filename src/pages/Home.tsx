@@ -711,10 +711,36 @@ const formatQuizDisplayName = (quiz: any) => {
         <Card variant="glass" className="text-center p-8">
           <CardContent className="space-y-4">
             <Brain className="w-12 h-12 mx-auto text-white/60" />
-            <CardTitle>Welcome to AI Quiz Generator</CardTitle>
+            <CardTitle>Welcome to Quizist.AI</CardTitle>
             <CardDescription>
-              Please sign in to create and take quizzes
+              AI-Powered Merit Scholarship Platform - Where Knowledge Earns Scholarships
             </CardDescription>
+            <div className="mt-6 space-y-4">
+              <div className="p-4 bg-gradient-to-r from-green-900/20 to-emerald-900/20 rounded-lg border border-green-400/30">
+                <p className="text-green-100 text-sm mb-3">
+                  🎓 <strong>For Students:</strong> Win real money scholarships with our merit-based competitions
+                </p>
+                <Button 
+                  onClick={() => window.open('/scholarship', '_blank')}
+                  className="bg-green-600 hover:bg-green-700 text-white w-full"
+                >
+                  View Scholarship Opportunities
+                </Button>
+              </div>
+              
+              <div className="p-4 bg-purple-900/20 rounded-lg">
+                <p className="text-purple-100 text-sm mb-3">
+                  🏫 <strong>For Schools:</strong> Transform your scholarship program with fair, AI-powered competitions
+                </p>
+                <Button 
+                  onClick={() => window.open('/schools', '_blank')}
+                  variant="outline" 
+                  className="border-purple-300 text-purple-100 hover:bg-purple-800 w-full"
+                >
+                  Learn More for Schools
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
       ) : quizState.questions.length === 0 ? (
