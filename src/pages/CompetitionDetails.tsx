@@ -262,6 +262,42 @@ const CompetitionDetails: React.FC = () => {
         </div>
       </div>
 
+      {/* Action Buttons */}
+      <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
+        {/* Start Competition Button */}
+        {competition.status === 'active' && !hasParticipated && (
+          <button
+            onClick={() => navigate(`/competitions/${id}/quiz`)}
+            className="px-8 py-4 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg hover:from-blue-600 hover:to-indigo-600 transition-all shadow-lg hover:shadow-xl font-medium text-lg"
+          >
+            🚀 Start Competition
+          </button>
+        )}
+        
+        {/* Competition Status Button (when not active or already participated) */}
+        {(competition.status !== 'active' || hasParticipated) && (
+          <button
+            disabled
+            className="px-8 py-4 bg-gray-300 text-gray-600 rounded-lg font-medium text-lg cursor-not-allowed"
+          >
+            {hasParticipated 
+              ? '✅ Already Participated' 
+              : competition.status === 'upcoming' 
+                ? '📅 Competition Upcoming' 
+                : '🏁 Competition Completed'
+            }
+          </button>
+        )}
+
+        {/* View Leaderboard Button */}
+        <button
+          onClick={() => navigate(`/competitions/${id}/leaderboard`)}
+          className="px-8 py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg hover:from-amber-600 hover:to-orange-600 transition-all shadow-lg hover:shadow-xl font-medium text-lg"
+        >
+          🏆 View Leaderboard
+        </button>
+      </div>
+
       {/* Description */}
       <div className="bg-white rounded-lg shadow p-6 mb-8">
         <h2 className="text-xl font-bold mb-4">About</h2>
