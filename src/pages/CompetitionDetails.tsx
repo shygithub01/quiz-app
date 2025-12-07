@@ -352,14 +352,7 @@ const CompetitionDetails: React.FC = () => {
             <div className="text-sm text-purple-800">Status</div>
           </div>
         </div>
-        <div className="mt-4 text-center">
-          <button
-            onClick={() => navigate(`/competitions/${id}/leaderboard`)}
-            className="px-6 py-2 bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-lg hover:from-yellow-600 hover:to-orange-600 transition-all font-medium"
-          >
-            🏆 View Full Leaderboard
-          </button>
-        </div>
+
       </div>
     </div>
   );
