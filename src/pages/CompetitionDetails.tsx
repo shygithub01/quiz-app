@@ -151,21 +151,18 @@ const CompetitionDetails: React.FC = () => {
           </span>
         </div>
 
-        {/* Participation Status */}
-        {hasParticipated && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center mb-6">
-            <p className="text-green-800 font-medium">
-              ✅ You have completed this competition. Check the leaderboard for your ranking.
-            </p>
-          </div>
-        )}
-
-        {/* Reset for Practice Competitions (Students and Admins) */}
+        {/* Participation Status - Combined for Practice Competitions */}
         {hasParticipated && (competition.competitionType || 'scholarship') === 'practice' && (
           <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
             <h3 className="font-medium text-green-900 mb-2 text-center">Practice Session Complete!</h3>
             <p className="text-green-800 text-center mb-4">Want to practice more? You can retake this session anytime.</p>
-            <div className="flex justify-center">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              <button
+                disabled
+                className="px-6 py-3 bg-gray-300 text-gray-600 rounded-lg font-medium cursor-not-allowed"
+              >
+                ✅ Already Participated
+              </button>
               <button
                 onClick={handleResetAttempt}
                 disabled={resetting}
@@ -175,6 +172,15 @@ const CompetitionDetails: React.FC = () => {
                 {resetting ? '🔄 Preparing...' : '🔄 Retake Practice Session'}
               </button>
             </div>
+          </div>
+        )}
+
+        {/* Participation Status - For Scholarship Competitions */}
+        {hasParticipated && (competition.competitionType || 'scholarship') === 'scholarship' && (
+          <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center mb-6">
+            <p className="text-green-800 font-medium">
+              ✅ You have completed this competition. Check the leaderboard for your ranking.
+            </p>
           </div>
         )}
 
@@ -276,13 +282,13 @@ const CompetitionDetails: React.FC = () => {
           </button>
         )}
         
-        {/* Competition Status Button (when not active or already participated) */}
-        {(competition.status !== 'active' || hasParticipated) && (
+        {/* Competition Status Button (when not active or already participated in scholarship) */}
+        {(competition.status !== 'active' || (hasParticipated && (competition.competitionType || 'scholarship') === 'scholarship')) && (
           <button
             disabled
             className="px-8 py-4 bg-gray-300 text-gray-600 rounded-lg font-medium text-lg cursor-not-allowed"
           >
-            {hasParticipated 
+            {hasParticipated && (competition.competitionType || 'scholarship') === 'scholarship'
               ? '✅ Already Participated' 
               : competition.status === 'upcoming' 
                 ? '📅 Competition Upcoming' 
