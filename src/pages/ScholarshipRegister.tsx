@@ -47,6 +47,14 @@ export default function ScholarshipRegister() {
     }
   }, [user, navigate]);
 
+  // Auto-redirect after sign-in
+  useEffect(() => {
+    if (user && step === 1 && registrationData.county === '') {
+      // User just signed in, start the registration process
+      // No need to redirect, just ensure they're on step 1
+    }
+  }, [user, step, registrationData.county]);
+
   const henricoSchools = [
     'Deep Run High School',
     'Freeman High School',
@@ -110,11 +118,11 @@ export default function ScholarshipRegister() {
   const handleSubmit = async () => {
     if (isEligible) {
       // Register for competition
-      alert('🎉 Registration successful! You\'re registered for the March 15th competition. Check your email for details.');
+      alert('🎉 Registration Complete! Welcome to the Henrico Merit Scholarship Program!\n\n✅ You\'re registered for March 15th competition\n💰 Competing for $300 in prizes\n📧 Check your email for competition details\n📚 Practice mode now available');
       navigate('/competitions');
     } else {
       // Add to waitlist
-      alert('📧 Added to waitlist! We\'ll notify you when scholarships become available in your area.');
+      alert('📧 Waitlist Registration Complete!\n\n✅ You\'ll be notified when scholarships launch in your area\n🚀 Expected timeline: ' + counties.find(c => c.value === registrationData.county)?.comingSoon + '\n📬 We\'ll email you as soon as registration opens');
       navigate('/scholarship');
     }
   };
@@ -387,7 +395,58 @@ export default function ScholarshipRegister() {
   );
 
   if (!user) {
-    return <div>Loading...</div>;
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-2xl mx-auto px-4">
+          <Card className="text-center p-8">
+            <CardContent className="space-y-6">
+              <div className="w-16 h-16 bg-gradient-to-br from-purple-500 to-indigo-600 rounded-full flex items-center justify-center mx-auto">
+                <User className="h-8 w-8 text-white" />
+              </div>
+              
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                  Complete Your Scholarship Registration
+                </h2>
+                <p className="text-gray-600">
+                  Sign in with Google to register for the Henrico Merit Scholarship Program
+                </p>
+              </div>
+
+              <div className="bg-gradient-to-r from-green-50 to-emerald-50 p-6 rounded-lg border border-green-200">
+                <h3 className="font-semibold text-green-800 mb-2">What happens next:</h3>
+                <div className="text-sm text-green-700 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4" />
+                    <span>Sign in securely with your Google account</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4" />
+                    <span>Complete eligibility information (2 minutes)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4" />
+                    <span>Get registered for March 15th competition</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4" />
+                    <span>Compete for $300 in prizes!</span>
+                  </div>
+                </div>
+              </div>
+
+              <Button
+                onClick={() => navigate('/scholarship')}
+                className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold px-8 py-3"
+              >
+                <ArrowLeft className="mr-2 h-5 w-5" />
+                Back to Sign In
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -395,11 +454,16 @@ export default function ScholarshipRegister() {
       <div className="max-w-4xl mx-auto px-4">
         {/* Header */}
         <div className="text-center mb-8">
+          <div className="inline-flex items-center gap-2 bg-green-100 text-green-800 px-4 py-2 rounded-full mb-4">
+            <CheckCircle className="h-4 w-4" />
+            <span className="font-medium">Signed in as {user.displayName || user.email}</span>
+          </div>
+          
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Scholarship Registration
+            Complete Your Scholarship Registration
           </h1>
           <p className="text-gray-600">
-            Complete your registration for the Henrico Merit Scholarship Program
+            Just a few quick questions to get you registered for the March 15th competition
           </p>
           
           {/* Progress Bar */}

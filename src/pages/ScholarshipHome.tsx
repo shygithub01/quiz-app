@@ -46,11 +46,16 @@ export default function ScholarshipHome() {
     return () => clearInterval(timer);
   }, []);
 
-  const handleSignUp = () => {
+  const handleSignUp = async () => {
     if (user) {
       navigate('/scholarship/register');
     } else {
-      signIn();
+      try {
+        await signIn();
+        // After successful sign-in, user will be redirected automatically
+      } catch (error) {
+        console.error('Sign-in failed:', error);
+      }
     }
   };
 
@@ -136,12 +141,12 @@ export default function ScholarshipHome() {
               onClick={handleSignUp}
               className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold text-xl px-12 py-6 rounded-full shadow-2xl hover:shadow-green-500/25 transition-all duration-300 transform hover:scale-105"
             >
-              {user ? 'Register for Competition' : 'Sign In & Register FREE'}
+              {user ? 'Complete Registration' : 'Register for Scholarship FREE'}
               <ArrowRight className="ml-2 h-6 w-6" />
             </Button>
 
             <p className="text-purple-200 text-sm mt-4">
-              ✅ Free Registration • ✅ Henrico County Students Only • ✅ Grades 9-12 + College
+              ✅ One-Click Registration • ✅ Secure Google Sign-In • ✅ Henrico County Students
             </p>
           </div>
         </div>
@@ -323,7 +328,7 @@ export default function ScholarshipHome() {
             onClick={handleSignUp}
             className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold text-xl px-12 py-6 rounded-full shadow-2xl hover:shadow-green-500/25 transition-all duration-300 transform hover:scale-105"
           >
-            {user ? 'Complete Registration' : 'Sign In with Google - FREE'}
+            {user ? 'Complete Registration' : 'Register Now - FREE'}
             <ArrowRight className="ml-2 h-6 w-6" />
           </Button>
 
