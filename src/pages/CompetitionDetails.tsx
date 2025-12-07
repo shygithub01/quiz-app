@@ -160,8 +160,8 @@ const CompetitionDetails: React.FC = () => {
           </div>
         )}
 
-        {/* Student Reset for Practice Competitions */}
-        {hasParticipated && (competition.competitionType || 'scholarship') === 'practice' && !userIsAdmin && (
+        {/* Reset for Practice Competitions (Students and Admins) */}
+        {hasParticipated && (competition.competitionType || 'scholarship') === 'practice' && (
           <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
             <h3 className="font-medium text-green-900 mb-2 text-center">Practice Session Complete!</h3>
             <p className="text-green-800 text-center mb-4">Want to practice more? You can retake this session anytime.</p>
@@ -261,6 +261,8 @@ const CompetitionDetails: React.FC = () => {
           <div className="font-medium text-2xl">{competition.participantCount || 0}</div>
         </div>
       </div>
+
+
 
       {/* Action Buttons */}
       <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
