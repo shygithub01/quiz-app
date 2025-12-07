@@ -297,13 +297,7 @@ const CompetitionDetails: React.FC = () => {
           </button>
         )}
 
-        {/* View Leaderboard Button */}
-        <button
-          onClick={() => navigate(`/competitions/${id}/leaderboard`)}
-          className="px-8 py-4 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-lg hover:from-amber-600 hover:to-orange-600 transition-all shadow-lg hover:shadow-xl font-medium text-lg"
-        >
-          🏆 View Leaderboard
-        </button>
+
       </div>
 
       {/* Description */}
