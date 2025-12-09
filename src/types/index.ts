@@ -53,12 +53,13 @@ export interface Competition {
   startDate: Date;
   endDate: Date;
   status: 'upcoming' | 'active' | 'completed';
-  competitionType: 'scholarship' | 'practice';
+  competitionType?: 'scholarship' | 'practice';
   prizePool?: number;
   prizes?: string[]; // Array of prize descriptions
   rules?: string[]; // Array of rules
   maxAttempts?: number;
   participantCount: number;
+  questionCount?: number; // Number of questions in the competition
   createdAt?: Date;
   createdBy?: string;
 }
