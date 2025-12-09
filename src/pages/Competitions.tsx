@@ -13,7 +13,7 @@ interface Competition {
   startDate: Date;
   endDate: Date;
   status: 'upcoming' | 'active' | 'completed';
-  competitionType?: 'scholarship' | 'practice';
+  isPractice?: boolean;
   prizePool: number;
   participantCount: number;
   hasParticipated?: boolean;
@@ -146,7 +146,7 @@ export default function Competitions() {
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     {/* Show prize only for scholarship competitions */}
-                    {(competition.competitionType || 'scholarship') === 'scholarship' && competition.prizePool > 0 && (
+                    {!competition.isPractice && competition.prizePool > 0 && (
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <DollarSign className="h-4 w-4 text-green-600" />
                         <span className="font-semibold text-green-600">
@@ -156,7 +156,7 @@ export default function Competitions() {
                     )}
                     
                     {/* Show practice indicator for practice competitions */}
-                    {(competition.competitionType || 'scholarship') === 'practice' && (
+                    {competition.isPractice && (
                       <div className="flex items-center gap-2 text-sm text-blue-600">
                         <BookOpen className="h-4 w-4" />
                         <span className="font-semibold">Practice Session</span>
@@ -178,7 +178,7 @@ export default function Competitions() {
 
                   <div className="flex gap-3 pt-2">
                     {/* PRACTICE COMPETITIONS */}
-                    {competition.competitionType === 'practice' && (
+                    {competition.isPractice && (
                       <>
                         {/* Show Join or Retake button based on participation */}
                         {!competition.hasParticipated ? (
@@ -201,7 +201,7 @@ export default function Competitions() {
                     )}
                     
                     {/* SCHOLARSHIP COMPETITIONS */}
-                    {(competition.competitionType === 'scholarship' || !competition.competitionType) && (
+                    {!competition.isPractice && (
                       <>
                         {/* Show Join or Already Participated based on participation */}
                         {!competition.hasParticipated ? (

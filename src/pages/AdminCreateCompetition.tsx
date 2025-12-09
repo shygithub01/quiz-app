@@ -146,7 +146,7 @@ export default function AdminCreateCompetition() {
         title: competitionTitle,
         description,
         status: competitionType === 'practice' ? 'active' : 'upcoming',
-        competitionType: competitionType, // 'practice' or 'competition'
+        isPractice: competitionType === 'practice', // true for practice, false for scholarship
         startDate: Timestamp.fromDate(start),
         endDate: Timestamp.fromDate(end),
         quizTemplateId: templateId,
@@ -171,8 +171,7 @@ export default function AdminCreateCompetition() {
         subjects: Object.entries(subjectDistribution)
           .filter(([_, count]) => count > 0)
           .map(([subject, count]) => `${subject}: ${count} questions`)
-          .join(', '),
-        isPractice: competitionType === 'practice'
+          .join(', ')
       };
 
       const competitionId = await createCompetition(competitionData);

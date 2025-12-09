@@ -152,7 +152,7 @@ const CompetitionDetails: React.FC = () => {
         </div>
 
         {/* Participation Status - Combined for Practice Competitions */}
-        {hasParticipated && (competition.competitionType || 'scholarship') === 'practice' && (
+        {hasParticipated && competition.isPractice && (
           <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
             <h3 className="font-medium text-green-900 mb-2 text-center">Practice Session Complete!</h3>
             <p className="text-green-800 text-center mb-4">Want to practice more? You can retake this session anytime.</p>
@@ -176,7 +176,7 @@ const CompetitionDetails: React.FC = () => {
         )}
 
         {/* Participation Status - For Scholarship Competitions */}
-        {hasParticipated && (competition.competitionType || 'scholarship') === 'scholarship' && (
+        {hasParticipated && !competition.isPractice && (
           <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-center mb-6">
             <p className="text-green-800 font-medium">
               ✅ You have completed this competition. Check the leaderboard for your ranking.
@@ -221,7 +221,7 @@ const CompetitionDetails: React.FC = () => {
       </div>
 
       {/* Competition Type Banner */}
-      {competition.competitionType === 'practice' && (
+      {competition.isPractice && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
           <div className="flex items-center gap-3">
             <span className="text-2xl">📚</span>
@@ -238,15 +238,15 @@ const CompetitionDetails: React.FC = () => {
         <div className="bg-white rounded-lg shadow p-6">
           <div className="text-sm text-gray-600 mb-1">Type</div>
           <div className="font-medium flex items-center gap-2">
-            {(competition.competitionType || 'scholarship') === 'scholarship' ? (
-              <>
-                <span>🏆</span>
-                <span>Scholarship</span>
-              </>
-            ) : (
+            {competition.isPractice ? (
               <>
                 <span>📚</span>
                 <span>Practice</span>
+              </>
+            ) : (
+              <>
+                <span>🏆</span>
+                <span>Scholarship</span>
               </>
             )}
           </div>
@@ -284,12 +284,12 @@ const CompetitionDetails: React.FC = () => {
         
         {/* Competition Status Button (when not active or already participated in scholarship) */}
         {/* For practice tests, don't show this button if participated (retake button is shown above) */}
-        {(competition.status !== 'active' || (hasParticipated && (competition.competitionType || 'scholarship') === 'scholarship')) && (
+        {(competition.status !== 'active' || (hasParticipated && !competition.isPractice)) && (
           <button
             disabled
             className="px-8 py-4 bg-gray-300 text-gray-600 rounded-lg font-medium text-lg cursor-not-allowed"
           >
-            {hasParticipated && (competition.competitionType || 'scholarship') === 'scholarship'
+            {hasParticipated && !competition.isPractice
               ? '✅ Already Participated' 
               : competition.status === 'upcoming' 
                 ? '📅 Competition Upcoming' 
