@@ -24,7 +24,7 @@ export default function AdminEditCompetition() {
     startDate: '',
     endDate: '',
     status: 'upcoming',
-    competitionType: 'scholarship',
+    isPractice: false,
     rules: '',
     prizes: ''
   });
@@ -67,7 +67,7 @@ export default function AdminEditCompetition() {
         startDate: startDate.toISOString().slice(0, 16), // Format for datetime-local
         endDate: endDate.toISOString().slice(0, 16),
         status: comp.status || 'upcoming',
-        competitionType: comp.competitionType || 'scholarship',
+        isPractice: comp.isPractice || false,
         rules: Array.isArray(comp.rules) ? comp.rules.join('\n') : (comp.rules || ''),
         prizes: Array.isArray(comp.prizes) ? comp.prizes.join('\n') : (comp.prizes || '')
       });
@@ -104,10 +104,10 @@ export default function AdminEditCompetition() {
         startDate: new Date(formData.startDate).toISOString(),
         endDate: new Date(formData.endDate).toISOString(),
         status: formData.status,
-        competitionType: formData.competitionType,
+        isPractice: formData.isPractice,
         rules: formData.rules.split('\n').filter(r => r.trim()),
         // Clear prizes for practice competitions, keep them for scholarship competitions
-        prizes: formData.competitionType === 'scholarship' 
+        prizes: !formData.isPractice
           ? formData.prizes.split('\n').filter(p => p.trim())
           : []
       };
@@ -263,9 +263,9 @@ export default function AdminEditCompetition() {
                   Competition Type *
                 </label>
                 <select
-                  name="competitionType"
-                  value={formData.competitionType}
-                  onChange={handleInputChange}
+                  name="isPractice"
+                  value={formData.isPractice ? 'practice' : 'scholarship'}
+                  onChange={(e) => setFormData({...formData, isPractice: e.target.value === 'practice'})}
                   required
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
@@ -273,9 +273,9 @@ export default function AdminEditCompetition() {
                   <option value="practice">📚 Practice Session (Multiple Attempts)</option>
                 </select>
                 <p className="text-sm text-gray-600 mt-1">
-                  {formData.competitionType === 'scholarship' 
-                    ? 'Students can only take this once. Suitable for official competitions with prizes.'
-                    : 'Students can retake this multiple times. Perfect for practice and skill building.'
+                  {formData.isPractice
+                    ? 'Students can retake this multiple times. Perfect for practice and skill building.'
+                    : 'Students can only take this once. Suitable for official competitions with prizes.'
                   }
                 </p>
               </div>
@@ -296,7 +296,7 @@ export default function AdminEditCompetition() {
               </div>
 
               {/* Prizes - Only for Scholarship Competitions */}
-              {formData.competitionType === 'scholarship' && (
+              {!formData.isPractice && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Prizes (one per line)
@@ -313,7 +313,7 @@ export default function AdminEditCompetition() {
               )}
 
               {/* Practice Benefits - Only for Practice Competitions */}
-              {formData.competitionType === 'practice' && (
+              {formData.isPractice && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <h3 className="font-medium text-blue-900 mb-2">Practice Session Benefits</h3>
                   <ul className="text-sm text-blue-800 space-y-1">

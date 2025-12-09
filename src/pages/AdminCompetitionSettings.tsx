@@ -56,9 +56,9 @@ export default function AdminCompetitionSettings() {
       const competitions = await getCompetitions();
       setAllCompetitions(competitions);
       
-      // Filter scholarship competitions
+      // Filter scholarship competitions (not practice)
       const scholarships = competitions.filter(
-        (c: any) => c.competitionType === 'competition' || c.competitionType === 'scholarship'
+        (c: any) => !c.isPractice
       );
       setScholarshipCompetitions(scholarships);
       
@@ -275,7 +275,7 @@ export default function AdminCompetitionSettings() {
                           <div className="text-sm text-gray-500 truncate max-w-xs">{comp.description}</div>
                         </td>
                         <td className="px-4 py-3">
-                          {getTypeBadge(comp.competitionType || comp.isPractice ? 'practice' : 'competition')}
+                          {getTypeBadge(comp.isPractice ? 'practice' : 'competition')}
                         </td>
                         <td className="px-4 py-3">
                           {getStatusBadge(comp.status)}

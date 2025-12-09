@@ -16,7 +16,7 @@ export default function AdminCompetitions() {
     startDate: '',
     endDate: '',
     quizTemplateId: '',
-    competitionType: 'scholarship' as 'scholarship' | 'practice',
+    isPractice: false,
     status: 'upcoming' as 'upcoming' | 'active' | 'completed',
     rules: '',
     prizes: ''
@@ -49,9 +49,9 @@ export default function AdminCompetitions() {
       const competitionData = {
         ...formData,
         rules: formData.rules.split('\n').filter(r => r.trim()),
-        prizes: formData.competitionType === 'scholarship' ? prizesArray : [],
-        prizePool: formData.competitionType === 'scholarship' ? 1000 : 0,
-        competitionType: formData.competitionType
+        prizes: !formData.isPractice ? prizesArray : [],
+        prizePool: !formData.isPractice ? 1000 : 0,
+        isPractice: formData.isPractice
       };
       
       await createCompetition(competitionData);
@@ -64,7 +64,7 @@ export default function AdminCompetitions() {
         startDate: '',
         endDate: '',
         quizTemplateId: '',
-        competitionType: 'scholarship',
+        isPractice: false,
         status: 'upcoming',
         rules: '',
         prizes: ''
@@ -163,8 +163,8 @@ export default function AdminCompetitions() {
                 <div>
                   <label className="block text-sm font-medium mb-1">Competition Type</label>
                   <select
-                    value={formData.competitionType}
-                    onChange={(e) => setFormData({ ...formData, competitionType: e.target.value as any })}
+                    value={formData.isPractice ? 'practice' : 'scholarship'}
+                    onChange={(e) => setFormData({ ...formData, isPractice: e.target.value === 'practice' })}
                     className="w-full px-3 py-2 border rounded-lg"
                   >
                     <option value="scholarship">🏆 Scholarship Competition (One Attempt)</option>
@@ -197,7 +197,7 @@ export default function AdminCompetitions() {
                 />
               </div>
 
-              {formData.competitionType === 'scholarship' ? (
+              {!formData.isPractice ? (
                 <div>
                   <label className="block text-sm font-medium mb-1">Prizes (one per line)</label>
                   <textarea
