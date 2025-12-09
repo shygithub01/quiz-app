@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getCompetitionById, checkUserParticipation, resetUserAttempt, isAdmin } from '../components/ui/firebase';
+import { getCompetitionById, checkUserParticipation, resetUserAttempt, isAdmin, getQuizTemplate } from '../components/ui/firebase';
 import { Competition } from '../types';
 
 const CompetitionDetails: React.FC = () => {
@@ -12,6 +12,7 @@ const CompetitionDetails: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasParticipated, setHasParticipated] = useState(false);
+  const [questionCount, setQuestionCount] = useState<number>(0);
 
   const [resetting, setResetting] = useState(false);
   const [userIsAdmin, setUserIsAdmin] = useState(false);
@@ -25,6 +26,14 @@ const CompetitionDetails: React.FC = () => {
         const data = await getCompetitionById(id);
         if (data) {
           setCompetition(data);
+          
+          // Fetch question count from quiz template
+          if (data.quizTemplateId) {
+            const template = await getQuizTemplate(data.quizTemplateId);
+            if (template?.questions) {
+              setQuestionCount(template.questions.length);
+            }
+          }
           
           // Check if user has already participated and if user is admin
           if (user?.uid) {
@@ -345,7 +354,7 @@ const CompetitionDetails: React.FC = () => {
             <div className="text-sm text-blue-800">Total Participants</div>
           </div>
           <div className="p-4 bg-green-50 rounded-lg">
-            <div className="text-2xl font-bold text-green-600">{competition.questionCount || 0}</div>
+            <div className="text-2xl font-bold text-green-600">{questionCount}</div>
             <div className="text-sm text-green-800">Questions</div>
           </div>
           <div className="p-4 bg-purple-50 rounded-lg">
