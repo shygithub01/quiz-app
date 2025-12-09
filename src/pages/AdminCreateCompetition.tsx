@@ -152,6 +152,7 @@ export default function AdminCreateCompetition() {
         quizTemplateId: templateId,
         prizePool,
         duration: `${duration} minutes`,
+        questionCount: totalQuestions, // Add actual question count
         eligibleCounty,
         rules: [
           competitionType === 'practice' 

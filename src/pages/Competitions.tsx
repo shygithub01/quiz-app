@@ -164,7 +164,7 @@ export default function Competitions() {
                   <div className="flex gap-3 pt-2">
                     <Button 
                       onClick={() => navigate(`/competitions/${competition.id}`)}
-                      className={`flex-1 font-medium transition-all ${
+                      className={`${(competition.competitionType || 'scholarship') === 'practice' ? 'flex-1' : 'flex-1'} font-medium transition-all ${
                         competition.status === 'active' 
                           ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl' 
                           : 'bg-gradient-to-r from-gray-400 to-gray-500 text-gray-200 cursor-not-allowed'
@@ -174,12 +174,15 @@ export default function Competitions() {
                       {competition.status === 'active' ? '🚀 Join Competition' : `📅 ${competition.status.charAt(0).toUpperCase() + competition.status.slice(1)}`}
                     </Button>
                     
-                    <Button 
-                      onClick={() => navigate(`/competitions/${competition.id}/leaderboard`)}
-                      className="flex-1 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-medium shadow-lg hover:shadow-xl transition-all"
-                    >
-                      🏆 Leaderboard
-                    </Button>
+                    {/* Only show leaderboard for scholarship competitions */}
+                    {(competition.competitionType || 'scholarship') === 'scholarship' && (
+                      <Button 
+                        onClick={() => navigate(`/competitions/${competition.id}/leaderboard`)}
+                        className="flex-1 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-medium shadow-lg hover:shadow-xl transition-all"
+                      >
+                        🏆 Leaderboard
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>

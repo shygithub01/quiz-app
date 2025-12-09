@@ -283,6 +283,7 @@ const CompetitionDetails: React.FC = () => {
         )}
         
         {/* Competition Status Button (when not active or already participated in scholarship) */}
+        {/* For practice tests, don't show this button if participated (retake button is shown above) */}
         {(competition.status !== 'active' || (hasParticipated && (competition.competitionType || 'scholarship') === 'scholarship')) && (
           <button
             disabled
@@ -344,7 +345,7 @@ const CompetitionDetails: React.FC = () => {
             <div className="text-sm text-blue-800">Total Participants</div>
           </div>
           <div className="p-4 bg-green-50 rounded-lg">
-            <div className="text-2xl font-bold text-green-600">50</div>
+            <div className="text-2xl font-bold text-green-600">{competition.questionCount || 0}</div>
             <div className="text-sm text-green-800">Questions</div>
           </div>
           <div className="p-4 bg-purple-50 rounded-lg">
