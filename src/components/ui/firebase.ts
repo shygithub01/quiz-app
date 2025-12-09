@@ -550,9 +550,23 @@ const submitCompetitionAttempt = async (
       }
     }
     
-    // Add to leaderboard (only for scholarship competitions)
-    // Practice tests don't go on leaderboard
-    if (!attemptData.isPractice) {
+    if (attemptData.isPractice) {
+      // Save practice attempts to practiceAttempts collection
+      const practiceAttemptsRef = collection(db, 'practiceAttempts');
+      await addDoc(practiceAttemptsRef, {
+        competitionId,
+        userId,
+        userName: attemptData.userName,
+        userEmail: attemptData.userEmail,
+        score: attemptData.score,
+        totalQuestions: attemptData.totalQuestions,
+        timeSpent: attemptData.timeSpent,
+        completedAt: Timestamp.now(),
+        attemptId: attemptData.attemptId
+      });
+      console.log('✅ Practice attempt saved');
+    } else {
+      // Add to leaderboard (only for scholarship competitions)
       const leaderboardRef = collection(db, 'leaderboard');
       await addDoc(leaderboardRef, {
         competitionId,
@@ -1098,9 +1112,37 @@ const getFeaturedCompetition = async (): Promise<any | null> => {
   }
 };
 
+// Get practice attempts for a user and competition
+const getPracticeAttempts = async (userId: string, competitionId: string): Promise<any[]> => {
+  try {
+    console.log('📊 Fetching practice attempts for user:', userId, 'competition:', competitionId);
+    const practiceAttemptsRef = collection(db, 'practiceAttempts');
+    const q = query(
+      practiceAttemptsRef,
+      where('userId', '==', userId),
+      where('competitionId', '==', competitionId),
+      orderBy('completedAt', 'desc')
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const attempts = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      completedAt: doc.data().completedAt?.toDate()
+    }));
+    
+    console.log('✅ Fetched practice attempts:', attempts.length);
+    return attempts;
+  } catch (error) {
+    console.error('❌ Error fetching practice attempts:', error);
+    return [];
+  }
+};
+
 export {
   // ... existing exports
   getAppSettings,
   setFeaturedCompetition,
-  getFeaturedCompetition
+  getFeaturedCompetition,
+  getPracticeAttempts
 };

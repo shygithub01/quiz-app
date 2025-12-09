@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getCompetitionById, checkUserParticipation, resetUserAttempt, isAdmin, getQuizTemplate } from '../components/ui/firebase';
+import { getCompetitionById, checkUserParticipation, resetUserAttempt, isAdmin, getQuizTemplate, getPracticeAttempts } from '../components/ui/firebase';
 import { Competition } from '../types';
 
 const CompetitionDetails: React.FC = () => {
@@ -13,6 +13,7 @@ const CompetitionDetails: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [hasParticipated, setHasParticipated] = useState(false);
   const [questionCount, setQuestionCount] = useState<number>(0);
+  const [practiceAttempts, setPracticeAttempts] = useState<any[]>([]);
 
   const [resetting, setResetting] = useState(false);
   const [userIsAdmin, setUserIsAdmin] = useState(false);
@@ -43,6 +44,12 @@ const CompetitionDetails: React.FC = () => {
             ]);
             setHasParticipated(participated);
             setUserIsAdmin(adminStatus);
+            
+            // Fetch practice attempts if this is a practice competition
+            if (data.isPractice) {
+              const attempts = await getPracticeAttempts(user.uid, id);
+              setPracticeAttempts(attempts);
+            }
           }
         } else {
           setError('Competition not found');
@@ -334,6 +341,59 @@ const CompetitionDetails: React.FC = () => {
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {/* Practice History - Only for practice competitions */}
+      {competition.isPractice && practiceAttempts.length > 0 && (
+        <div className="bg-white rounded-lg shadow p-6 mb-8">
+          <h2 className="text-xl font-bold mb-4">📊 Your Practice History</h2>
+          <p className="text-gray-600 mb-4">Track your progress across multiple attempts</p>
+          <div className="space-y-3">
+            {practiceAttempts.map((attempt, index) => (
+              <div key={attempt.id} className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="font-semibold text-gray-700">
+                        Attempt {practiceAttempts.length - index}
+                      </span>
+                      <span className="text-sm text-gray-500">
+                        {new Date(attempt.completedAt).toLocaleDateString('en-US', {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm">
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-600">Score:</span>
+                        <span className={`font-bold ${
+                          attempt.score === attempt.totalQuestions 
+                            ? 'text-green-600' 
+                            : attempt.score >= attempt.totalQuestions * 0.7 
+                              ? 'text-blue-600' 
+                              : 'text-orange-600'
+                        }`}>
+                          {attempt.score}/{attempt.totalQuestions} ({Math.round((attempt.score / attempt.totalQuestions) * 100)}%)
+                        </span>
+                        {attempt.score === attempt.totalQuestions && <span>✅</span>}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-600">Time:</span>
+                        <span className="font-medium text-indigo-600">
+                          {Math.floor(attempt.timeSpent / 60)}m {attempt.timeSpent % 60}s
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

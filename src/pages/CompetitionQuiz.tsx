@@ -220,11 +220,23 @@ export default function CompetitionQuiz() {
               </p>
             </div>
 
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-blue-800 text-center">
-                Your score has been submitted to the leaderboard!
-              </p>
-            </div>
+            {/* Only show leaderboard message for scholarship competitions */}
+            {!competition?.isPractice && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-blue-800 text-center">
+                  Your score has been submitted to the leaderboard!
+                </p>
+              </div>
+            )}
+
+            {/* Show practice message for practice tests */}
+            {competition?.isPractice && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <p className="text-green-800 text-center">
+                  Great practice! You can retake this as many times as you want to improve.
+                </p>
+              </div>
+            )}
 
             {/* Show answers */}
             <div className="space-y-4">
@@ -268,19 +280,40 @@ export default function CompetitionQuiz() {
             </div>
 
             <div className="flex gap-4">
-              <Button 
-                onClick={() => navigate(`/competitions/${competitionId}`)}
-                className="flex-1"
-              >
-                View Leaderboard
-              </Button>
-              <Button 
-                variant="outline"
-                onClick={() => navigate('/competitions')}
-                className="flex-1"
-              >
-                Browse Competitions
-              </Button>
+              {/* Show different buttons based on competition type */}
+              {competition?.isPractice ? (
+                <>
+                  <Button 
+                    onClick={() => navigate(`/competitions/${competitionId}/quiz`)}
+                    className="flex-1"
+                  >
+                    🔄 Practice Again
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => navigate('/competitions')}
+                    className="flex-1"
+                  >
+                    Browse Competitions
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button 
+                    onClick={() => navigate(`/competitions/${competitionId}/leaderboard`)}
+                    className="flex-1"
+                  >
+                    View Leaderboard
+                  </Button>
+                  <Button 
+                    variant="outline"
+                    onClick={() => navigate('/competitions')}
+                    className="flex-1"
+                  >
+                    Browse Competitions
+                  </Button>
+                </>
+              )}
             </div>
           </CardContent>
         </Card>
