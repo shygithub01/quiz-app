@@ -1,0 +1,334 @@
+// src/components/api/index.ts
+// Main API functions for quiz generation
+
+export interface GenerateQuizFromDocumentParams {
+  file: File;
+  numQuestions?: number;
+  difficulty?: string;
+  quizType?: string;
+}
+
+export interface GenerateQuizFromTopicParams {
+  topic: string;
+  difficulty: string;
+  quizType: string;
+  numQuestions: number;
+}
+
+// Server response format (from local-api-server.js)
+interface ServerQuestion {
+  id: number;
+  question: string;
+  options: {
+    A: string;
+    B: string;
+    C: string;
+    D: string;
+  };
+  correctAnswer: string;
+  explanation: string;
+}
+
+// Frontend expected format (for Home.tsx)
+export interface Question {
+  id: number;
+  question: string;
+  options: string[];  // Array format expected by Home.tsx
+  correctAnswer: string;
+  explanation: string;
+}
+
+export interface QuizResponse {
+  quiz: Question[];
+  success: boolean;
+  message?: string;
+  error?: string;
+  quizId?: string;
+  attemptId?: string;
+}
+
+/**
+ * Convert server question format to frontend format
+ */
+const convertQuestionFormat = (serverQuestion: ServerQuestion): Question => {
+  // Convert options object to array
+  const optionsArray = [
+    serverQuestion.options.A,
+    serverQuestion.options.B,
+    serverQuestion.options.C,
+    serverQuestion.options.D
+  ];
+
+  // Convert correctAnswer from letter to actual answer text
+  const correctAnswerText = serverQuestion.options[serverQuestion.correctAnswer as keyof typeof serverQuestion.options];
+
+  return {
+    id: serverQuestion.id,
+    question: serverQuestion.question,
+    options: optionsArray,
+    correctAnswer: correctAnswerText, // Now contains the actual answer text
+    explanation: serverQuestion.explanation
+  };
+};
+
+/**
+ * Convert server response to frontend format
+ */
+const convertQuizResponse = (serverQuiz: ServerQuestion[]): Question[] => {
+  return serverQuiz.map(convertQuestionFormat);
+};
+
+// API Base URL - Points to your local server
+const API_BASE_URL = 'http://localhost:3001';
+export const generateQuizFromDocument = async (
+  params: GenerateQuizFromDocumentParams, 
+  userId?: string
+): Promise<QuizResponse> => {
+  try {
+    const formData = new FormData();
+    formData.append("file", params.file);
+    
+    if (params.numQuestions) {
+      formData.append("numQuestions", params.numQuestions.toString());
+    }
+    if (params.difficulty) {
+      formData.append("difficulty", params.difficulty);
+    }
+    if (params.quizType) {
+      formData.append("quizType", params.quizType);
+    }
+
+    console.log('📤 Sending document quiz request to:', `${API_BASE_URL}/api/generate-quiz`);
+    
+    const response = await fetch(`${API_BASE_URL}/api/generate-quiz`, {
+      method: "POST",
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Server error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log('✅ Document quiz generated successfully');
+    
+    // Convert server format to frontend format
+    const convertedQuiz = convertQuizResponse(result.quiz);
+    
+    return {
+      ...result,
+      quiz: convertedQuiz, // Use converted format
+      success: true
+    };
+
+  } catch (error) {
+    console.error('❌ Error generating quiz from document:', error);
+    throw new Error(error instanceof Error ? error.message : 'Failed to generate quiz from document');
+  }
+};
+
+/**
+ * Generate quiz from topic
+ */
+export const generateQuizFromTopic = async (
+  params: GenerateQuizFromTopicParams, 
+  userId?: string
+): Promise<QuizResponse> => {
+  try {
+    console.log('📤 Sending topic quiz request:', params);
+    
+    const response = await fetch(`${API_BASE_URL}/api/generate-quiz-from-topic`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(params),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || `Server error: ${response.status}`);
+    }
+
+    const result = await response.json();
+    console.log('✅ Topic quiz generated successfully');
+    
+    // Convert server format to frontend format
+    const convertedQuiz = convertQuizResponse(result.quiz);
+    
+    return {
+      ...result,
+      quiz: convertedQuiz, // Use converted format
+      success: true
+    };
+
+  } catch (error) {
+    console.error('❌ Error generating quiz from topic:', error);
+    throw new Error(error instanceof Error ? error.message : 'Failed to generate quiz from topic');
+  }
+};
+
+/**
+ * Get quiz history
+ */
+export const getQuizHistory = async (userId?: string) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/quiz-history`);
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch quiz history');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('❌ Error fetching quiz history:', error);
+    throw error;
+  }
+};
+
+/**
+ * Get specific quiz by ID
+ */
+export const getQuizById = async (quizId: string, userId?: string) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/quiz-history/${encodeURIComponent(quizId)}`);
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch quiz data');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('❌ Error fetching quiz by ID:', error);
+    throw error;
+  }
+};
+
+/**
+ * Save quiz to history
+ */
+export const saveQuizToHistory = async (quizData: any) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/quiz-history`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(quizData),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to save quiz history');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('❌ Error saving quiz to history:', error);
+    throw error;
+  }
+};
+
+/**
+ * Update quiz with completion data (score, answers, etc.)
+ */
+export const updateQuizCompletion = async (quizId: string, completionData: {
+  answers: string[];
+  score: number;
+  completedAt: string;
+}) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/quiz-history/${encodeURIComponent(quizId)}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(completionData),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to update quiz completion');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('❌ Error updating quiz completion:', error);
+    throw error;
+  }
+};
+
+/**
+ * Delete quiz from history
+ */
+export const deleteQuizFromHistory = async (quizId: string, userId?: string) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/quiz-history/${encodeURIComponent(quizId)}`, {
+      method: 'DELETE'
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to delete quiz');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('❌ Error deleting quiz from history:', error);
+    throw error;
+  }
+};
+
+/**
+ * Generate new quiz (force new generation, don't reuse existing)
+ */
+export const generateNewQuizFromDocument = async (
+  params: GenerateQuizFromDocumentParams, 
+  userId?: string
+): Promise<QuizResponse> => {
+  const formData = new FormData();
+  formData.append("file", params.file);
+  formData.append("forceNew", "true"); // Force new generation
+  
+  if (params.numQuestions) {
+    formData.append("numQuestions", params.numQuestions.toString());
+  }
+  if (params.difficulty) {
+    formData.append("difficulty", params.difficulty);
+  }
+  if (params.quizType) {
+    formData.append("quizType", params.quizType);
+  }
+
+  const response = await fetch(`${API_BASE_URL}/api/generate-quiz`, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || `Server error: ${response.status}`);
+  }
+
+  return await response.json();
+};
+
+export const generateNewQuizFromTopic = async (
+  params: GenerateQuizFromTopicParams, 
+  userId?: string
+): Promise<QuizResponse> => {
+  const response = await fetch(`${API_BASE_URL}/api/generate-quiz-from-topic`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      ...params,
+      forceNew: true // Force new generation
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || `Server error: ${response.status}`);
+  }
+
+  return await response.json();
+};
+
+// Re-export all functions for backward compatibility
+export * from './index';

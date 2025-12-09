@@ -1,7 +1,7 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
-import { Brain, BookOpen, LogOut, User, Sparkles, Trophy, Shield, Users } from 'lucide-react'
+import { Brain, BookOpen, LogOut, User, Sparkles, Trophy, Users, Settings } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { isAdmin } from '@/components/ui/firebase'
 
@@ -123,21 +123,39 @@ export default function Layout() {
                   {/* Admin Navigation - Only visible to admins */}
                   {userIsAdmin && (
                     <>
-                      <Link to="/admin/competitions">
+                      <Link to="/admin/create-competition">
                         <Button
-                          variant={location.pathname.startsWith('/admin/competitions') ? 'default' : 'ghost'}
+                          variant={location.pathname === '/admin/create-competition' ? 'default' : 'ghost'}
                           size="sm"
                           className={`
                             relative group transition-all duration-300 rounded-full
-                            ${location.pathname.startsWith('/admin/competitions')
+                            ${location.pathname === '/admin/create-competition'
                               ? 'bg-white text-purple-600 shadow-glow hover:shadow-glow-lg' 
                               : 'text-white/80 hover:text-white hover:bg-white/10'
                             }
                           `}
-                          title="Admin: Create Competitions"
+                          title="Admin: Generate Questions & Create Competition"
                         >
-                          <Shield className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
-                          <span className="hidden sm:inline font-medium ml-2">Admin</span>
+                          <Sparkles className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
+                          <span className="hidden sm:inline font-medium ml-2">New Competition</span>
+                        </Button>
+                      </Link>
+                      
+                      <Link to="/admin/competition-settings">
+                        <Button
+                          variant={location.pathname === '/admin/competition-settings' ? 'default' : 'ghost'}
+                          size="sm"
+                          className={`
+                            relative group transition-all duration-300 rounded-full
+                            ${location.pathname === '/admin/competition-settings'
+                              ? 'bg-white text-purple-600 shadow-glow hover:shadow-glow-lg' 
+                              : 'text-white/80 hover:text-white hover:bg-white/10'
+                            }
+                          `}
+                          title="Admin: Competition Settings"
+                        >
+                          <Settings className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
+                          <span className="hidden sm:inline font-medium ml-2">Settings</span>
                         </Button>
                       </Link>
                       

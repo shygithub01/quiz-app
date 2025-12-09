@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Fix Competition Date</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+    button {
+      background: #4CAF50;
+      color: white;
+      padding: 15px 30px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 16px;
+      margin: 10px 5px;
+    }
+    button:hover {
+      background: #45a049;
+    }
+    button.danger {
+      background: #f44336;
+    }
+    button.danger:hover {
+      background: #da190b;
+    }
+    #output {
+      background: #1e1e1e;
+      color: #00ff00;
+      padding: 20px;
+      border-radius: 5px;
+      font-family: 'Courier New', monospace;
+      white-space: pre-wrap;
+      margin-top: 20px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .warning {
+      background: #fff3cd;
+      border: 1px solid #ffc107;
+      padding: 15px;
+      border-radius: 5px;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🔧 Fix Competition Date</h1>
+    <p>This tool will update the existing competition settings to include the year in the shortDate field.</p>
+    
+    <div class="warning">
+      <strong>⚠️ Important:</strong> Make sure you're signed in as admin (mohapatra.shyam@gmail.com) before running this.
+    </div>
+
+    <button onclick="checkCurrent()">1. Check Current Settings</button>
+    <button onclick="fixDate()">2. Fix Date (Add Year)</button>
+    <button onclick="fixTimes()">3. Fix Time Format</button>
+    <button class="danger" onclick="deleteAndRecreate()">4. Delete & Recreate (Nuclear Option)</button>
+
+    <div id="output">Click a button to start...</div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+    import { getFirestore, collection, getDocs, doc, updateDoc, deleteDoc, addDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+    import { getAuth } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+    // Firebase config
+    const firebaseConfig = {
+      apiKey: "AIzaSyBioJd35ralykl-pcarRuXactqw6xetT48",
+      authDomain: "quizapp-42057.firebaseapp.com",
+      projectId: "quizapp-42057",
+      storageBucket: "quizapp-42057.firebasestorage.app",
+      messagingSenderId: "229082406145",
+      appId: "G-SG3XGF5XGL"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
+
+    function log(message) {
+      const output = document.getElementById('output');
+      output.textContent += message + '\n';
+      output.scrollTop = output.scrollHeight;
+      console.log(message);
+    }
+
+    window.checkCurrent = async function() {
+      document.getElementById('output').textContent = '';
+      log('🔍 Checking current competition settings...\n');
+      
+      try {
+        const user = auth.currentUser;
+        if (!user) {
+          log('❌ ERROR: Not signed in! Please sign in first.');
+          return;
+        }
+        log(`✅ Signed in as: ${user.email}\n`);
+
+        const settingsRef = collection(db, 'competitionSettings');
+        const snapshot = await getDocs(settingsRef);
+        
+        log(`📊 Found ${snapshot.size} competition settings\n`);
+        
+        snapshot.forEach((doc) => {
+          const data = doc.data();
+          log(`--- Competition ID: ${doc.id} ---`);
+          log(`Name: ${data.name}`);
+          log(`Date: ${data.date}`);
+          log(`Short Date: ${data.shortDate} ${data.shortDate?.includes('2026') ? '✅' : '❌ MISSING YEAR'}`);
+          log(`Test Open: ${data.testOpenTime}`);
+          log(`Test Close: ${data.testCloseTime}`);
+          log(`Is Active: ${data.isActive}`);
+          log(`Registration Open: ${data.registrationOpen}`);
+          log(`Publish Details: ${data.publishDetails}\n`);
+        });
+      } catch (error) {
+        log(`❌ ERROR: ${error.message}`);
+        console.error(error);
+      }
+    };
+
+    window.fixDate = async function() {
+      if (!confirm('This will update the shortDate field to include the year. Continue?')) {
+        return;
+      }
+
+      document.getElementById('output').textContent = '';
+      log('🔧 Fixing date field...\n');
+      
+      try {
+        const user = auth.currentUser;
+        if (!user) {
+          log('❌ ERROR: Not signed in!');
+          return;
+        }
+
+        const settingsRef = collection(db, 'competitionSettings');
+        const snapshot = await getDocs(settingsRef);
+        
+        for (const docSnap of snapshot.docs) {
+          const data = docSnap.data();
+          log(`Updating ${docSnap.id}...`);
+          
+          await updateDoc(doc(db, 'competitionSettings', docSnap.id), {
+            shortDate: 'March 15, 2026',
+            updatedAt: new Date().toISOString()
+          });
+          
+          log(`✅ Updated shortDate to "March 15, 2026"`);
+        }
+        
+        log('\n✅ All dates fixed! Refresh your app to see changes.');
+      } catch (error) {
+        log(`❌ ERROR: ${error.message}`);
+        console.error(error);
+      }
+    };
+
+    window.fixTimes = async function() {
+      if (!confirm('This will update time fields to include AM/PM. Continue?')) {
+        return;
+      }
+
+      document.getElementById('output').textContent = '';
+      log('🔧 Fixing time format...\n');
+      
+      try {
+        const user = auth.currentUser;
+        if (!user) {
+          log('❌ ERROR: Not signed in!');
+          return;
+        }
+
+        const settingsRef = collection(db, 'competitionSettings');
+        const snapshot = await getDocs(settingsRef);
+        
+        for (const docSnap of snapshot.docs) {
+          log(`Updating ${docSnap.id}...`);
+          
+          await updateDoc(doc(db, 'competitionSettings', docSnap.id), {
+            testOpenTime: '10:00 AM',
+            testCloseTime: '11:00 AM',
+            updatedAt: new Date().toISOString()
+          });
+          
+          log(`✅ Updated times to "10:00 AM" and "11:00 AM"`);
+        }
+        
+        log('\n✅ All times fixed! Refresh your app to see changes.');
+      } catch (error) {
+        log(`❌ ERROR: ${error.message}`);
+        console.error(error);
+      }
+    };
+
+    window.deleteAndRecreate = async function() {
+      if (!confirm('⚠️ WARNING: This will DELETE all competition settings and create fresh ones. Are you SURE?')) {
+        return;
+      }
+      if (!confirm('Really sure? This cannot be undone!')) {
+        return;
+      }
+
+      document.getElementById('output').textContent = '';
+      log('🗑️ Deleting all competition settings...\n');
+      
+      try {
+        const user = auth.currentUser;
+        if (!user) {
+          log('❌ ERROR: Not signed in!');
+          return;
+        }
+
+        const settingsRef = collection(db, 'competitionSettings');
+        const snapshot = await getDocs(settingsRef);
+        
+        log(`Found ${snapshot.size} settings to delete...`);
+        
+        for (const docSnap of snapshot.docs) {
+          await deleteDoc(doc(db, 'competitionSettings', docSnap.id));
+          log(`✅ Deleted ${docSnap.id}`);
+        }
+        
+        log('\n🎯 Creating new competition settings...');
+        
+        const newSettings = {
+          name: 'Henrico Merit Scholarship Competition',
+          date: '2026-03-15',
+          time: '10:00',
+          dateTime: 'March 15, 2026 at 10:00 AM',
+          shortDate: 'March 15, 2026',
+          prizePool: '$300',
+          duration: '60 minutes',
+          questionCount: 50,
+          subjects: 'Math, Science, English, Social Studies',
+          eligibleCounty: 'henrico',
+          isActive: true,
+          registrationOpen: true,
+          registrationDeadline: '2026-03-14',
+          testOpenTime: '10:00 AM',
+          testCloseTime: '11:00 AM',
+          rules: [
+            'Complete all questions within the time limit',
+            'No external resources or help allowed',
+            'Each question is worth equal points',
+            'Ties are broken by completion time',
+            'Must be a current student in eligible county'
+          ],
+          instructions: [
+            'Sign in 15 minutes before test start time',
+            'Ensure stable internet connection',
+            'Use a computer or tablet (not phone)',
+            'Find a quiet space without distractions',
+            'Have scratch paper and pencil ready'
+          ],
+          eligibilityRequirements: [
+            'Current student in Henrico County',
+            'Grades 9-12 only',
+            'Must have parent/guardian consent if under 18',
+            'One attempt per student',
+            'Must complete registration by deadline'
+          ],
+          prizeBreakdown: [
+            '1st Place: $150 + Certificate',
+            '2nd Place: $100 + Certificate',
+            '3rd Place: $50 + Certificate',
+            'Top 10: Recognition certificates'
+          ],
+          contactInfo: 'For questions: scholarship@quizist.ai or call (804) 263-5062',
+          publishDetails: true,
+          autoCloseRegistration: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        };
+        
+        const docRef = await addDoc(settingsRef, newSettings);
+        log(`✅ Created new competition with ID: ${docRef.id}`);
+        log('\n✅ Done! Refresh your app to see the new settings.');
+        
+      } catch (error) {
+        log(`❌ ERROR: ${error.message}`);
+        console.error(error);
+      }
+    };
+  </script>
+</body>
+</html>

@@ -371,6 +371,8 @@ const deleteQuiz = async (userId: string, quizId: string) => {
 
 // ===== EXPORTS =====
 
+
+
 export { 
   // Firebase instances
   app, 
@@ -461,9 +463,8 @@ const createCompetition = async (competitionData: any): Promise<string> => {
     const docRef = await addDoc(competitionsRef, {
       ...competitionData,
       participantCount: 0,
-      createdAt: Timestamp.now(),
-      startDate: Timestamp.fromDate(new Date(competitionData.startDate)),
-      endDate: Timestamp.fromDate(new Date(competitionData.endDate))
+      createdAt: Timestamp.now()
+      // startDate and endDate are already Timestamps, don't convert again
     });
     console.log('✅ Competition created with ID:', docRef.id);
     return docRef.id;
@@ -739,7 +740,262 @@ const deleteCompetition = async (competitionId: string) => {
   }
 };
 
+// ===== COMPETITION SETTINGS FUNCTIONS =====
+
+interface CompetitionSettings {
+  id?: string;
+  name: string;
+  date: string;
+  time: string;
+  dateTime: string;
+  shortDate: string;
+  prizePool: string;
+  duration: string;
+  questionCount: number;
+  subjects: string;
+  eligibleCounty: string;
+  isActive: boolean;
+  registrationOpen: boolean;
+  registrationDeadline: string;
+  testOpenTime: string;
+  testCloseTime: string;
+  rules: string[];
+  instructions: string[];
+  eligibilityRequirements: string[];
+  prizeBreakdown: string[];
+  contactInfo: string;
+  publishDetails: boolean;
+  autoCloseRegistration: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+const getActiveCompetitionSettings = async (): Promise<CompetitionSettings | null> => {
+  try {
+    console.log('🏆 Fetching active competition settings...');
+    const settingsRef = collection(db, 'competitionSettings');
+    
+    // Simple query - get all and filter in memory to avoid index requirements
+    const querySnapshot = await getDocs(settingsRef);
+    
+    if (!querySnapshot.empty) {
+      // Find active competition
+      const activeDocs = querySnapshot.docs.filter(doc => doc.data().isActive === true);
+      
+      if (activeDocs.length > 0) {
+        // Sort by createdAt in memory
+        const sorted = activeDocs.sort((a, b) => {
+          const aTime = a.data().createdAt || '';
+          const bTime = b.data().createdAt || '';
+          return bTime.localeCompare(aTime);
+        });
+        
+        const doc = sorted[0];
+        const settings = { id: doc.id, ...doc.data() } as CompetitionSettings;
+        console.log('✅ Active competition found:', settings);
+        return settings;
+      }
+    }
+    
+    console.log('⚠️ No active competition found, creating default...');
+    // Create default competition if none exists
+    const defaultSettings = await createDefaultCompetition();
+    return defaultSettings;
+  } catch (error) {
+    console.error('❌ Error fetching competition settings:', error);
+    console.error('❌ Full error:', error);
+    return null;
+  }
+};
+
+const createDefaultCompetition = async (): Promise<CompetitionSettings> => {
+  try {
+    console.log('🎯 Creating default competition...');
+    const defaultCompetition = {
+      name: 'Henrico Merit Scholarship Competition',
+      date: '2026-03-15',
+      time: '10:00',
+      dateTime: 'March 15, 2026 at 10:00 AM',
+      shortDate: 'March 15, 2026',
+      prizePool: '$300',
+      duration: '60 minutes',
+      questionCount: 50,
+      subjects: 'Math, Science, English, Social Studies',
+      eligibleCounty: 'henrico',
+      isActive: true,
+      registrationOpen: true,
+      registrationDeadline: '2026-03-14',
+      testOpenTime: '10:00 AM',
+      testCloseTime: '11:00 AM',
+      rules: [
+        'Complete all questions within the time limit',
+        'No external resources or help allowed',
+        'Each question is worth equal points',
+        'Ties are broken by completion time',
+        'Must be a current student in eligible county'
+      ],
+      instructions: [
+        'Sign in 15 minutes before test start time',
+        'Ensure stable internet connection',
+        'Use a computer or tablet (not phone)',
+        'Find a quiet space without distractions',
+        'Have scratch paper and pencil ready'
+      ],
+      eligibilityRequirements: [
+        'Current student in Henrico County',
+        'Grades 9-12 only',
+        'Must have parent/guardian consent if under 18',
+        'One attempt per student',
+        'Must complete registration by deadline'
+      ],
+      prizeBreakdown: [
+        '1st Place: $150 + Certificate',
+        '2nd Place: $100 + Certificate', 
+        '3rd Place: $50 + Certificate',
+        'Top 10: Recognition certificates'
+      ],
+      contactInfo: 'For questions: scholarship@quizist.ai or call (555) 123-4567',
+      publishDetails: true,
+      autoCloseRegistration: false
+    };
+
+    const competitionId = await saveCompetitionSettings(defaultCompetition);
+    return { id: competitionId, ...defaultCompetition } as CompetitionSettings;
+  } catch (error) {
+    console.error('❌ Error creating default competition:', error);
+    throw error;
+  }
+};
+
+const saveCompetitionSettings = async (settings: Omit<CompetitionSettings, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
+  try {
+    console.log('💾 Saving competition settings:', settings);
+    
+    // First, deactivate all existing competitions
+    const existingRef = collection(db, 'competitionSettings');
+    const existingQuery = query(existingRef, where('isActive', '==', true));
+    const existingSnapshot = await getDocs(existingQuery);
+    
+    const deactivatePromises = existingSnapshot.docs.map(doc => 
+      updateDoc(doc.ref, { isActive: false, updatedAt: new Date().toISOString() })
+    );
+    await Promise.all(deactivatePromises);
+    
+    // Create new active competition
+    const settingsRef = collection(db, 'competitionSettings');
+    const docRef = await addDoc(settingsRef, {
+      ...settings,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    });
+    
+    console.log('✅ Competition settings saved with ID:', docRef.id);
+    return docRef.id;
+  } catch (error) {
+    console.error('❌ Error saving competition settings:', error);
+    throw error;
+  }
+};
+
+const updateCompetitionSettings = async (id: string, updates: Partial<CompetitionSettings>): Promise<void> => {
+  try {
+    console.log('🔄 Updating competition settings:', id, updates);
+    const settingsRef = doc(db, 'competitionSettings', id);
+    await updateDoc(settingsRef, {
+      ...updates,
+      updatedAt: new Date().toISOString()
+    });
+    console.log('✅ Competition settings updated');
+  } catch (error) {
+    console.error('❌ Error updating competition settings:', error);
+    throw error;
+  }
+};
+
+const getAllCompetitionSettings = async (): Promise<CompetitionSettings[]> => {
+  try {
+    console.log('📋 Fetching all competition settings...');
+    const settingsRef = collection(db, 'competitionSettings');
+    const querySnapshot = await getDocs(settingsRef);
+    
+    // Sort in memory to avoid index requirement
+    const settings = querySnapshot.docs
+      .map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }))
+      .sort((a: any, b: any) => {
+        const aTime = a.createdAt || '';
+        const bTime = b.createdAt || '';
+        return bTime.localeCompare(aTime);
+      }) as CompetitionSettings[];
+    
+    console.log('✅ Fetched competition settings:', settings.length);
+    return settings;
+  } catch (error) {
+    console.error('❌ Error fetching all competition settings:', error);
+    return [];
+  }
+};
+
+// ===== SCHOLARSHIP REGISTRATION FUNCTIONS =====
+
+const checkScholarshipRegistration = async (userId: string) => {
+  try {
+    console.log('🎓 Checking scholarship registration for user:', userId);
+    const userDoc = await getDoc(doc(db, 'scholarshipRegistrations', userId));
+    const registration = userDoc.exists() ? userDoc.data() : null;
+    console.log('✅ Registration check result:', registration ? 'Found' : 'Not found');
+    if (registration) {
+      console.log('📋 Registration data:', registration);
+    }
+    return registration;
+  } catch (error) {
+    console.error('❌ Error checking scholarship registration:', error);
+    console.error('❌ Error details:', error);
+    return null;
+  }
+};
+
+// Temporary debug function to list all registrations (admin only)
+const debugListAllRegistrations = async () => {
+  try {
+    console.log('🔍 DEBUG: Listing all scholarship registrations...');
+    const registrationsRef = collection(db, 'scholarshipRegistrations');
+    const querySnapshot = await getDocs(registrationsRef);
+    
+    console.log('📊 Total registrations found:', querySnapshot.size);
+    querySnapshot.forEach((doc) => {
+      console.log('📋 Registration ID:', doc.id, 'Data:', doc.data());
+    });
+  } catch (error) {
+    console.error('❌ Error listing registrations:', error);
+  }
+};
+
+const saveScholarshipRegistration = async (userId: string, registrationData: any) => {
+  try {
+    console.log('💾 Saving scholarship registration for user:', userId);
+    await setDoc(doc(db, 'scholarshipRegistrations', userId), {
+      ...registrationData,
+      registeredAt: new Date().toISOString(),
+      userId
+    });
+    console.log('✅ Scholarship registration saved successfully');
+    return { success: true };
+  } catch (error) {
+    console.error('❌ Error saving scholarship registration:', error);
+    return { success: false, error };
+  }
+};
+
 // Export new functions
+// Make debug function available globally in development
+if (typeof window !== 'undefined' && import.meta.env.DEV) {
+  (window as any).debugListAllRegistrations = debugListAllRegistrations;
+  (window as any).checkScholarshipRegistration = checkScholarshipRegistration;
+}
+
 export {
   // ... existing exports
   getCompetitions,
@@ -756,5 +1012,88 @@ export {
   isAdmin,
   getUserRole,
   setUserRole,
-  initializeUserProfile
+  initializeUserProfile,
+  checkScholarshipRegistration,
+  saveScholarshipRegistration,
+  debugListAllRegistrations,
+  getActiveCompetitionSettings,
+  saveCompetitionSettings,
+  updateCompetitionSettings,
+  getAllCompetitionSettings,
+  createDefaultCompetition
+};
+
+// ===== APP SETTINGS FUNCTIONS =====
+
+interface AppSettings {
+  featuredCompetitionId: string | null;
+  updatedAt: string;
+}
+
+const APP_SETTINGS_DOC_ID = 'main';
+
+const getAppSettings = async (): Promise<AppSettings | null> => {
+  try {
+    console.log('⚙️ Fetching app settings...');
+    const settingsDoc = await getDoc(doc(db, 'appSettings', APP_SETTINGS_DOC_ID));
+    
+    if (settingsDoc.exists()) {
+      const settings = settingsDoc.data() as AppSettings;
+      console.log('✅ App settings loaded:', settings);
+      return settings;
+    }
+    
+    console.log('⚠️ No app settings found, creating default...');
+    // Create default settings
+    const defaultSettings: AppSettings = {
+      featuredCompetitionId: null,
+      updatedAt: new Date().toISOString()
+    };
+    
+    await setDoc(doc(db, 'appSettings', APP_SETTINGS_DOC_ID), defaultSettings);
+    return defaultSettings;
+  } catch (error) {
+    console.error('❌ Error fetching app settings:', error);
+    return null;
+  }
+};
+
+const setFeaturedCompetition = async (competitionId: string | null): Promise<void> => {
+  try {
+    console.log('⭐ Setting featured competition:', competitionId);
+    await setDoc(doc(db, 'appSettings', APP_SETTINGS_DOC_ID), {
+      featuredCompetitionId: competitionId,
+      updatedAt: new Date().toISOString()
+    });
+    console.log('✅ Featured competition updated');
+  } catch (error) {
+    console.error('❌ Error setting featured competition:', error);
+    throw error;
+  }
+};
+
+const getFeaturedCompetition = async (): Promise<any | null> => {
+  try {
+    console.log('⭐ Fetching featured competition...');
+    const settings = await getAppSettings();
+    
+    if (!settings || !settings.featuredCompetitionId) {
+      console.log('⚠️ No featured competition set');
+      return null;
+    }
+    
+    const competition = await getCompetitionById(settings.featuredCompetitionId);
+    console.log('✅ Featured competition loaded:', competition?.title);
+    return competition;
+  } catch (error) {
+    console.error('❌ Error fetching featured competition:', error);
+    return null;
+  }
+};
+
+export {
+  // ... existing exports
+  getAppSettings,
+  setFeaturedCompetition,
+  getFeaturedCompetition
 };

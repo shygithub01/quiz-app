@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import Layout from "./pages/Layout";
 import Home from "./pages/Home";
@@ -11,11 +11,14 @@ import Competitions from "./pages/Competitions";
 import CompetitionDetails from "./pages/CompetitionDetails";
 import CompetitionLeaderboard from "./pages/CompetitionLeaderboard";
 import CompetitionQuiz from "./pages/CompetitionQuiz";
-import AdminCompetitions from "./pages/AdminCompetitions";
 import AdminUserManagement from "./pages/AdminUserManagement";
 import AdminCompetitionParticipants from "./pages/AdminCompetitionParticipants";
 import AdminEditCompetition from "./pages/AdminEditCompetition";
 import AdminQuizTemplates from "./pages/AdminQuizTemplates";
+import AdminCompetitionSettings from "./pages/AdminCompetitionSettings";
+import AdminDebugCompetition from "./pages/AdminDebugCompetition";
+import AdminRestore from "./pages/AdminRestore";
+import AdminCreateCompetition from "./pages/AdminCreateCompetition";
 import Schools from "./pages/Schools";
 import ScholarshipHome from "./pages/ScholarshipHome";
 import ScholarshipRegister from "./pages/ScholarshipRegister";
@@ -54,11 +57,16 @@ const App = () => (
                   <Route path="competitions/:id" element={<CompetitionDetails />} />
                   <Route path="competitions/:id/leaderboard" element={<CompetitionLeaderboard />} />
                   <Route path="competitions/:id/quiz" element={<CompetitionQuiz />} />
-                  <Route path="admin/competitions" element={<AdminCompetitions />} />
+                  {/* Redirect old admin/competitions to settings */}
+                  <Route path="admin/competitions" element={<Navigate to="/admin/competition-settings" replace />} />
                   <Route path="admin/competitions/:id/participants" element={<AdminCompetitionParticipants />} />
                   <Route path="admin/competitions/:id/edit" element={<AdminEditCompetition />} />
                   <Route path="admin/users" element={<AdminUserManagement />} />
                   <Route path="admin/quiz-templates" element={<AdminQuizTemplates />} />
+                  <Route path="admin/competition-settings" element={<AdminCompetitionSettings />} />
+                  <Route path="admin/debug-competition" element={<AdminDebugCompetition />} />
+                  <Route path="admin/restore" element={<AdminRestore />} />
+                  <Route path="admin/create-competition" element={<AdminCreateCompetition />} />
                   <Route path="schools" element={<Schools />} />
                   <Route path="scholarship" element={<ScholarshipHome />} />
                   <Route path="scholarship/register" element={<ScholarshipRegister />} />

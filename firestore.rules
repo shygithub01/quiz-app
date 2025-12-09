@@ -6,7 +6,7 @@ service cloud.firestore {
     // Users collection - users can read/write their own data, authenticated users can read all
     match /users/{userId} {
       allow read: if request.auth != null; // Any authenticated user can read user profiles
-      allow write: if request.auth != null && request.auth.uid == userId; // Users can only write their own profile
+      allow write: if request.auth != null; // Allow authenticated users to write (for restoration)
     }
     
     // Quiz templates - anyone can read, only authenticated users can write
@@ -28,6 +28,23 @@ service cloud.firestore {
     
     // Leaderboard - anyone can read, system can write
     match /leaderboard/{entryId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    
+    // Scholarship registrations - users can read/write their own registration
+    match /scholarshipRegistrations/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Competition settings - anyone can read, only authenticated users can write
+    match /competitionSettings/{settingId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    
+    // App settings - anyone can read, only authenticated users can write
+    match /appSettings/{settingId} {
       allow read: if true;
       allow write: if request.auth != null;
     }
