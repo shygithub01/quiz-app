@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getCompetitions } from '@/components/ui/firebase';
+import { getCompetitions, checkUserParticipation } from '@/components/ui/firebase';
+import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Trophy, Calendar, Users, DollarSign, BookOpen } from 'lucide-react';
@@ -15,23 +16,37 @@ interface Competition {
   competitionType?: 'scholarship' | 'practice';
   prizePool: number;
   participantCount: number;
+  hasParticipated?: boolean;
 }
 
 export default function Competitions() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [competitions, setCompetitions] = useState<Competition[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'active' | 'upcoming' | 'completed'>('all');
 
   useEffect(() => {
     loadCompetitions();
-  }, []);
+  }, [user]);
 
   const loadCompetitions = async () => {
     try {
       setLoading(true);
       const data = await getCompetitions();
-      setCompetitions(data);
+      
+      // Check participation for each competition if user is logged in
+      if (user?.uid) {
+        const competitionsWithParticipation = await Promise.all(
+          data.map(async (comp) => {
+            const hasParticipated = await checkUserParticipation(user.uid, comp.id);
+            return { ...comp, hasParticipated };
+          })
+        );
+        setCompetitions(competitionsWithParticipation);
+      } else {
+        setCompetitions(data);
+      }
     } catch (error) {
       console.error('Failed to load competitions:', error);
     } finally {
@@ -162,26 +177,58 @@ export default function Competitions() {
                   </div>
 
                   <div className="flex gap-3 pt-2">
-                    <Button 
-                      onClick={() => navigate(`/competitions/${competition.id}`)}
-                      className={`${(competition.competitionType || 'scholarship') === 'practice' ? 'flex-1' : 'flex-1'} font-medium transition-all ${
-                        competition.status === 'active' 
-                          ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl' 
-                          : 'bg-gradient-to-r from-gray-400 to-gray-500 text-gray-200 cursor-not-allowed'
-                      }`}
-                      disabled={competition.status !== 'active'}
-                    >
-                      {competition.status === 'active' ? '🚀 Join Competition' : `📅 ${competition.status.charAt(0).toUpperCase() + competition.status.slice(1)}`}
-                    </Button>
+                    {/* PRACTICE COMPETITIONS */}
+                    {competition.competitionType === 'practice' && (
+                      <>
+                        {/* Show Join or Retake button based on participation */}
+                        {!competition.hasParticipated ? (
+                          <Button 
+                            onClick={() => navigate(`/competitions/${competition.id}`)}
+                            className="flex-1 font-medium transition-all bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl"
+                            disabled={competition.status !== 'active'}
+                          >
+                            {competition.status === 'active' ? '🚀 Join Competition' : `📅 ${competition.status.charAt(0).toUpperCase() + competition.status.slice(1)}`}
+                          </Button>
+                        ) : (
+                          <Button 
+                            onClick={() => navigate(`/competitions/${competition.id}`)}
+                            className="flex-1 font-medium transition-all bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl"
+                          >
+                            🔄 Retake Practice
+                          </Button>
+                        )}
+                      </>
+                    )}
                     
-                    {/* Only show leaderboard for scholarship competitions */}
-                    {(competition.competitionType || 'scholarship') === 'scholarship' && (
-                      <Button 
-                        onClick={() => navigate(`/competitions/${competition.id}/leaderboard`)}
-                        className="flex-1 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-medium shadow-lg hover:shadow-xl transition-all"
-                      >
-                        🏆 Leaderboard
-                      </Button>
+                    {/* SCHOLARSHIP COMPETITIONS */}
+                    {(competition.competitionType === 'scholarship' || !competition.competitionType) && (
+                      <>
+                        {/* Show Join or Already Participated based on participation */}
+                        {!competition.hasParticipated ? (
+                          <Button 
+                            onClick={() => navigate(`/competitions/${competition.id}`)}
+                            className="flex-1 font-medium transition-all bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl"
+                            disabled={competition.status !== 'active'}
+                          >
+                            {competition.status === 'active' ? '🚀 Join Competition' : `📅 ${competition.status.charAt(0).toUpperCase() + competition.status.slice(1)}`}
+                          </Button>
+                        ) : (
+                          <Button 
+                            disabled
+                            className="flex-1 font-medium bg-gray-300 text-gray-600 cursor-not-allowed"
+                          >
+                            ✅ Already Participated
+                          </Button>
+                        )}
+                        
+                        {/* Always show leaderboard for scholarship competitions */}
+                        <Button 
+                          onClick={() => navigate(`/competitions/${competition.id}/leaderboard`)}
+                          className="flex-1 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-medium shadow-lg hover:shadow-xl transition-all"
+                        >
+                          🏆 Leaderboard
+                        </Button>
+                      </>
                     )}
                   </div>
                 </CardContent>
