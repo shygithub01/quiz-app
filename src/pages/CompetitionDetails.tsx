@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getCompetitionById, checkUserParticipation, resetUserAttempt, isAdmin, getQuizTemplate, getPracticeAttempts } from '../components/ui/firebase';
+import { getCompetitionById, checkUserParticipation, checkPracticeParticipation, resetUserAttempt, isAdmin, getQuizTemplate, getPracticeAttempts } from '../components/ui/firebase';
 import { Competition } from '../types';
 
 const CompetitionDetails: React.FC = () => {
@@ -38,10 +38,14 @@ const CompetitionDetails: React.FC = () => {
           
           // Check if user has already participated and if user is admin
           if (user?.uid) {
-            const [participated, adminStatus] = await Promise.all([
-              checkUserParticipation(user.uid, id),
-              isAdmin(user.uid)
-            ]);
+            // For practice tests, check practiceAttempts collection
+            // For scholarship competitions, check leaderboard collection
+            const participated = data.isPractice 
+              ? await checkPracticeParticipation(user.uid, id)
+              : await checkUserParticipation(user.uid, id);
+            
+            const adminStatus = await isAdmin(user.uid);
+            
             setHasParticipated(participated);
             setUserIsAdmin(adminStatus);
             
