@@ -510,7 +510,11 @@ export default function ScholarshipHome() {
             <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
               <h3 className="text-xl font-bold text-white mb-2">Chesterfield County</h3>
               <p className="text-purple-200 mb-4">Summer 2025</p>
-              <Button variant="outline" className="border-purple-300 text-purple-100 hover:bg-purple-800">
+              <Button 
+                disabled 
+                variant="outline" 
+                className="border-purple-300 text-purple-100 opacity-50 cursor-not-allowed"
+              >
                 Join Waitlist
               </Button>
             </div>
@@ -518,7 +522,11 @@ export default function ScholarshipHome() {
             <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
               <h3 className="text-xl font-bold text-white mb-2">Richmond Metro</h3>
               <p className="text-purple-200 mb-4">Fall 2025</p>
-              <Button variant="outline" className="border-purple-300 text-purple-100 hover:bg-purple-800">
+              <Button 
+                disabled 
+                variant="outline" 
+                className="border-purple-300 text-purple-100 opacity-50 cursor-not-allowed"
+              >
                 Join Waitlist
               </Button>
             </div>
@@ -526,7 +534,11 @@ export default function ScholarshipHome() {
             <div className="bg-white/10 backdrop-blur-sm rounded-lg p-6 border border-white/20">
               <h3 className="text-xl font-bold text-white mb-2">Statewide Virginia</h3>
               <p className="text-purple-200 mb-4">2026</p>
-              <Button variant="outline" className="border-purple-300 text-purple-100 hover:bg-purple-800">
+              <Button 
+                disabled 
+                variant="outline" 
+                className="border-purple-300 text-purple-100 opacity-50 cursor-not-allowed"
+              >
                 Join Waitlist
               </Button>
             </div>
