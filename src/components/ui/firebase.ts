@@ -1139,10 +1139,32 @@ const getPracticeAttempts = async (userId: string, competitionId: string): Promi
   }
 };
 
+// Check if user has taken a practice test
+const checkPracticeParticipation = async (userId: string, competitionId: string): Promise<boolean> => {
+  try {
+    console.log('🔍 Checking practice participation for user:', userId, 'competition:', competitionId);
+    const practiceAttemptsRef = collection(db, 'practiceAttempts');
+    const q = query(
+      practiceAttemptsRef,
+      where('userId', '==', userId),
+      where('competitionId', '==', competitionId)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    const hasParticipated = !querySnapshot.empty;
+    console.log('✅ Practice participation check:', hasParticipated ? 'Has attempts' : 'No attempts');
+    return hasParticipated;
+  } catch (error) {
+    console.error('❌ Error checking practice participation:', error);
+    return false;
+  }
+};
+
 export {
   // ... existing exports
   getAppSettings,
   setFeaturedCompetition,
   getFeaturedCompetition,
-  getPracticeAttempts
+  getPracticeAttempts,
+  checkPracticeParticipation
 };

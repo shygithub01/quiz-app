@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getCompetitions, checkUserParticipation } from '@/components/ui/firebase';
+import { getCompetitions, checkUserParticipation, checkPracticeParticipation } from '@/components/ui/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -39,7 +39,11 @@ export default function Competitions() {
       if (user?.uid) {
         const competitionsWithParticipation = await Promise.all(
           data.map(async (comp) => {
-            const hasParticipated = await checkUserParticipation(user.uid, comp.id);
+            // For practice tests, check practiceAttempts collection
+            // For scholarship competitions, check leaderboard collection
+            const hasParticipated = comp.isPractice 
+              ? await checkPracticeParticipation(user.uid, comp.id)
+              : await checkUserParticipation(user.uid, comp.id);
             return { ...comp, hasParticipated };
           })
         );
