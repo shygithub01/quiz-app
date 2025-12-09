@@ -397,7 +397,47 @@ export {
   saveQuizToFirestore, 
   getUserQuizzes, 
   updateQuiz, 
-  deleteQuiz
+  deleteQuiz,
+  
+  // Competition functions
+  getCompetitions,
+  getCompetitionById,
+  createCompetition,
+  updateCompetition,
+  deleteCompetition,
+  getLeaderboard,
+  submitCompetitionAttempt,
+  recalculateRanks,
+  createTestCompetition,
+  checkUserParticipation,
+  checkPracticeParticipation,
+  resetUserAttempt,
+  
+  // User/Admin functions
+  isAdmin,
+  getUserRole,
+  setUserRole,
+  initializeUserProfile,
+  
+  // Scholarship functions
+  checkScholarshipRegistration,
+  saveScholarshipRegistration,
+  debugListAllRegistrations,
+  
+  // Competition Settings functions
+  getActiveCompetitionSettings,
+  saveCompetitionSettings,
+  updateCompetitionSettings,
+  getAllCompetitionSettings,
+  createDefaultCompetition,
+  
+  // App Settings functions
+  getAppSettings,
+  setFeaturedCompetition,
+  getFeaturedCompetition,
+  
+  // Practice Attempts functions
+  getPracticeAttempts
 };
 
 // ===== COMPETITION FUNCTIONS =====
@@ -1017,32 +1057,7 @@ if (typeof window !== 'undefined' && import.meta.env.DEV) {
   (window as any).checkScholarshipRegistration = checkScholarshipRegistration;
 }
 
-export {
-  // ... existing exports
-  getCompetitions,
-  getCompetitionById,
-  createCompetition,
-  updateCompetition,
-  deleteCompetition,
-  getLeaderboard,
-  submitCompetitionAttempt,
-  recalculateRanks,
-  createTestCompetition,
-  checkUserParticipation,
-  resetUserAttempt,
-  isAdmin,
-  getUserRole,
-  setUserRole,
-  initializeUserProfile,
-  checkScholarshipRegistration,
-  saveScholarshipRegistration,
-  debugListAllRegistrations,
-  getActiveCompetitionSettings,
-  saveCompetitionSettings,
-  updateCompetitionSettings,
-  getAllCompetitionSettings,
-  createDefaultCompetition
-};
+
 
 // ===== APP SETTINGS FUNCTIONS =====
 
@@ -1160,11 +1175,4 @@ const checkPracticeParticipation = async (userId: string, competitionId: string)
   }
 };
 
-export {
-  // ... existing exports
-  getAppSettings,
-  setFeaturedCompetition,
-  getFeaturedCompetition,
-  getPracticeAttempts,
-  checkPracticeParticipation
-};
+
