@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getCompetitions, checkUserParticipation, checkPracticeParticipation } from '@/components/ui/firebase';
+import { getCompetitions, checkUserParticipation, checkPracticeParticipation, getPracticeParticipantCount } from '@/components/ui/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -35,22 +35,30 @@ export default function Competitions() {
       setLoading(true);
       const data = await getCompetitions();
       
-      // Check participation for each competition if user is logged in
-      if (user?.uid) {
-        const competitionsWithParticipation = await Promise.all(
-          data.map(async (comp) => {
+      // Check participation and get correct participant counts
+      const competitionsWithData = await Promise.all(
+        data.map(async (comp) => {
+          // For practice tests, get unique participant count from practiceAttempts
+          // For scholarship competitions, use the participantCount from competition document
+          const participantCount = comp.isPractice 
+            ? await getPracticeParticipantCount(comp.id)
+            : comp.participantCount || 0;
+          
+          // Check participation for each competition if user is logged in
+          let hasParticipated = false;
+          if (user?.uid) {
             // For practice tests, check practiceAttempts collection
             // For scholarship competitions, check leaderboard collection
-            const hasParticipated = comp.isPractice 
+            hasParticipated = comp.isPractice 
               ? await checkPracticeParticipation(user.uid, comp.id)
               : await checkUserParticipation(user.uid, comp.id);
-            return { ...comp, hasParticipated };
-          })
-        );
-        setCompetitions(competitionsWithParticipation);
-      } else {
-        setCompetitions(data);
-      }
+          }
+          
+          return { ...comp, hasParticipated, participantCount };
+        })
+      );
+      
+      setCompetitions(competitionsWithData);
     } catch (error) {
       console.error('Failed to load competitions:', error);
     } finally {

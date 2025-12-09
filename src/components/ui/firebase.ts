@@ -437,7 +437,8 @@ export {
   getFeaturedCompetition,
   
   // Practice Attempts functions
-  getPracticeAttempts
+  getPracticeAttempts,
+  getPracticeParticipantCount
 };
 
 // ===== COMPETITION FUNCTIONS =====
@@ -1172,6 +1173,36 @@ const checkPracticeParticipation = async (userId: string, competitionId: string)
   } catch (error) {
     console.error('❌ Error checking practice participation:', error);
     return false;
+  }
+};
+
+// Get unique participant count for practice tests
+const getPracticeParticipantCount = async (competitionId: string): Promise<number> => {
+  try {
+    console.log('📊 Counting unique practice participants for competition:', competitionId);
+    const practiceAttemptsRef = collection(db, 'practiceAttempts');
+    const q = query(
+      practiceAttemptsRef,
+      where('competitionId', '==', competitionId)
+    );
+    
+    const querySnapshot = await getDocs(q);
+    
+    // Get unique user IDs
+    const uniqueUsers = new Set<string>();
+    querySnapshot.docs.forEach(doc => {
+      const userId = doc.data().userId;
+      if (userId) {
+        uniqueUsers.add(userId);
+      }
+    });
+    
+    const count = uniqueUsers.size;
+    console.log('✅ Unique practice participants:', count);
+    return count;
+  } catch (error) {
+    console.error('❌ Error counting practice participants:', error);
+    return 0;
   }
 };
 

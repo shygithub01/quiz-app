@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { getCompetitionById, checkUserParticipation, checkPracticeParticipation, resetUserAttempt, isAdmin, getQuizTemplate, getPracticeAttempts } from '../components/ui/firebase';
+import { getCompetitionById, checkUserParticipation, checkPracticeParticipation, resetUserAttempt, isAdmin, getQuizTemplate, getPracticeAttempts, getPracticeParticipantCount } from '../components/ui/firebase';
 import { Competition } from '../types';
 
 const CompetitionDetails: React.FC = () => {
@@ -14,6 +14,7 @@ const CompetitionDetails: React.FC = () => {
   const [hasParticipated, setHasParticipated] = useState(false);
   const [questionCount, setQuestionCount] = useState<number>(0);
   const [practiceAttempts, setPracticeAttempts] = useState<any[]>([]);
+  const [participantCount, setParticipantCount] = useState<number>(0);
 
   const [resetting, setResetting] = useState(false);
   const [userIsAdmin, setUserIsAdmin] = useState(false);
@@ -34,6 +35,15 @@ const CompetitionDetails: React.FC = () => {
             if (template?.questions) {
               setQuestionCount(template.questions.length);
             }
+          }
+          
+          // For practice tests, get unique participant count from practiceAttempts
+          // For scholarship competitions, use the participantCount from competition document
+          if (data.isPractice) {
+            const practiceCount = await getPracticeParticipantCount(id);
+            setParticipantCount(practiceCount);
+          } else {
+            setParticipantCount(data.participantCount || 0);
           }
           
           // Check if user has already participated and if user is admin
@@ -285,7 +295,7 @@ const CompetitionDetails: React.FC = () => {
         
         <div className="bg-white rounded-lg shadow p-6">
           <div className="text-sm text-gray-600 mb-1">Participants</div>
-          <div className="font-medium text-2xl">{competition.participantCount || 0}</div>
+          <div className="font-medium text-2xl">{participantCount}</div>
         </div>
       </div>
 
@@ -415,7 +425,7 @@ const CompetitionDetails: React.FC = () => {
         <h2 className="text-xl font-bold mb-4">Competition Status</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
           <div className="p-4 bg-blue-50 rounded-lg">
-            <div className="text-2xl font-bold text-blue-600">{competition.participantCount || 0}</div>
+            <div className="text-2xl font-bold text-blue-600">{participantCount}</div>
             <div className="text-sm text-blue-800">Total Participants</div>
           </div>
           <div className="p-4 bg-green-50 rounded-lg">
