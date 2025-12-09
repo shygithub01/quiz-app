@@ -331,9 +331,9 @@ export default function CompetitionQuiz() {
           <div>
             <h1 className="text-2xl font-bold mb-2">{competition?.title}</h1>
             <p className="text-blue-100">
-              {(competition?.competitionType || 'scholarship') === 'scholarship' 
-                ? 'Scholarship Competition - One Attempt Only' 
-                : 'Practice Session - Multiple Attempts Allowed'}
+              {competition?.isPractice
+                ? 'Practice Session - Multiple Attempts Allowed'
+                : 'Scholarship Competition - One Attempt Only'}
             </p>
           </div>
           {/* Timer */}
