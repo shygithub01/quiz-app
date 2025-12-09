@@ -172,12 +172,21 @@ const CompetitionDetails: React.FC = () => {
           <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
             <h3 className="font-medium text-green-900 mb-2 text-center">Practice Session - Keep Practicing!</h3>
             <p className="text-green-800 text-center mb-4">You can take this practice test as many times as you want. Each attempt is saved so you can track your progress.</p>
-            <div className="flex justify-center">
+            <div className="flex justify-center gap-4">
               <button
                 onClick={() => navigate(`/competitions/${id}/quiz`)}
                 className="px-8 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg hover:from-blue-600 hover:to-indigo-600 transition-all shadow-lg hover:shadow-xl font-medium"
               >
                 🔄 Take Another Practice Attempt
+              </button>
+              <button
+                onClick={() => {
+                  const progressSection = document.getElementById('practice-history');
+                  progressSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+                className="px-8 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white rounded-lg hover:from-purple-600 hover:to-pink-600 transition-all shadow-lg hover:shadow-xl font-medium"
+              >
+                📊 View Progress
               </button>
             </div>
           </div>
@@ -346,7 +355,7 @@ const CompetitionDetails: React.FC = () => {
 
       {/* Practice History - Only for practice competitions */}
       {competition.isPractice && practiceAttempts.length > 0 && (
-        <div className="bg-white rounded-lg shadow p-6 mb-8">
+        <div id="practice-history" className="bg-white rounded-lg shadow p-6 mb-8">
           <h2 className="text-xl font-bold mb-4">📊 Your Practice History</h2>
           <p className="text-gray-600 mb-4">Track your progress across multiple attempts</p>
           <div className="space-y-3">
