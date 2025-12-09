@@ -63,7 +63,8 @@ export default function CompetitionQuiz() {
         }
 
         // Check if already participated (only for scholarship competitions)
-        if ((comp.competitionType || 'scholarship') === 'scholarship') {
+        // Practice tests allow unlimited attempts
+        if (!comp.isPractice) {
           const hasParticipated = await checkUserParticipation(user.uid, competitionId);
           if (hasParticipated) {
             setError('You have already participated in this scholarship competition. Only one attempt is allowed.');
@@ -142,7 +143,7 @@ export default function CompetitionQuiz() {
 
       const timeSpent = Math.floor((Date.now() - startTime) / 1000);
 
-      // Submit to leaderboard
+      // Submit to leaderboard (only for scholarship competitions)
       await submitCompetitionAttempt(user.uid, competitionId, {
         score: finalScore,
         totalQuestions: questions.length,
@@ -150,7 +151,8 @@ export default function CompetitionQuiz() {
         attemptId: `${competitionId}-${user.uid}-${Date.now()}`,
         userName: user.displayName || 'Anonymous',
         userEmail: user.email || '',
-        school: undefined
+        school: undefined,
+        isPractice: competition?.isPractice || false
       });
 
       setScore(finalScore);

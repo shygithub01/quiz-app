@@ -160,25 +160,17 @@ const CompetitionDetails: React.FC = () => {
           </span>
         </div>
 
-        {/* Participation Status - Combined for Practice Competitions */}
+        {/* Participation Status - For Practice Competitions - Show attempt history */}
         {hasParticipated && competition.isPractice && (
           <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
-            <h3 className="font-medium text-green-900 mb-2 text-center">Practice Session Complete!</h3>
-            <p className="text-green-800 text-center mb-4">Want to practice more? You can retake this session anytime.</p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <h3 className="font-medium text-green-900 mb-2 text-center">Practice Session - Keep Practicing!</h3>
+            <p className="text-green-800 text-center mb-4">You can take this practice test as many times as you want. Each attempt is saved so you can track your progress.</p>
+            <div className="flex justify-center">
               <button
-                disabled
-                className="px-6 py-3 bg-gray-300 text-gray-600 rounded-lg font-medium cursor-not-allowed"
+                onClick={() => navigate(`/competitions/${id}/quiz`)}
+                className="px-8 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg hover:from-blue-600 hover:to-indigo-600 transition-all shadow-lg hover:shadow-xl font-medium"
               >
-                ✅ Already Participated
-              </button>
-              <button
-                onClick={handleResetAttempt}
-                disabled={resetting}
-                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg hover:from-blue-600 hover:to-indigo-600 transition-all shadow-lg hover:shadow-xl"
-                title="Retake this practice session"
-              >
-                {resetting ? '🔄 Preparing...' : '🔄 Retake Practice Session'}
+                🔄 Take Another Practice Attempt
               </button>
             </div>
           </div>

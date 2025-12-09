@@ -535,41 +535,48 @@ const submitCompetitionAttempt = async (
     userName: string;
     userEmail: string;
     school?: string;
+    isPractice?: boolean;
   }
 ): Promise<void> => {
   try {
     console.log('🏆 Submitting competition attempt for user:', userId);
     
-    // Check if already participated
-    const hasParticipated = await checkUserParticipation(userId, competitionId);
-    if (hasParticipated) {
-      throw new Error('You have already participated in this competition');
+    // Check if already participated (only for scholarship competitions)
+    // Practice tests allow unlimited attempts
+    if (!attemptData.isPractice) {
+      const hasParticipated = await checkUserParticipation(userId, competitionId);
+      if (hasParticipated) {
+        throw new Error('You have already participated in this competition');
+      }
     }
     
-    // Add to leaderboard
-    const leaderboardRef = collection(db, 'leaderboard');
-    await addDoc(leaderboardRef, {
-      competitionId,
-      userId,
-      userName: attemptData.userName,
-      userEmail: attemptData.userEmail,
-      school: attemptData.school || null,
-      score: attemptData.score,
-      totalQuestions: attemptData.totalQuestions,
-      timeSpent: attemptData.timeSpent,
-      rank: 0, // Will be calculated
-      completedAt: Timestamp.now(),
-      attemptId: attemptData.attemptId
-    });
-    
-    // Recalculate all ranks for this competition
-    await recalculateRanks(competitionId);
-    
-    // Increment participant count
-    const competitionRef = doc(db, 'competitions', competitionId);
-    await updateDoc(competitionRef, {
-      participantCount: increment(1)
-    });
+    // Add to leaderboard (only for scholarship competitions)
+    // Practice tests don't go on leaderboard
+    if (!attemptData.isPractice) {
+      const leaderboardRef = collection(db, 'leaderboard');
+      await addDoc(leaderboardRef, {
+        competitionId,
+        userId,
+        userName: attemptData.userName,
+        userEmail: attemptData.userEmail,
+        school: attemptData.school || null,
+        score: attemptData.score,
+        totalQuestions: attemptData.totalQuestions,
+        timeSpent: attemptData.timeSpent,
+        rank: 0, // Will be calculated
+        completedAt: Timestamp.now(),
+        attemptId: attemptData.attemptId
+      });
+      
+      // Recalculate all ranks for this competition
+      await recalculateRanks(competitionId);
+      
+      // Increment participant count only once for scholarship
+      const competitionRef = doc(db, 'competitions', competitionId);
+      await updateDoc(competitionRef, {
+        participantCount: increment(1)
+      });
+    }
     
     console.log('✅ Competition attempt submitted');
   } catch (error) {
