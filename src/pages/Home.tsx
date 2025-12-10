@@ -9,7 +9,6 @@ import {
   Brain, 
   FileText, 
   Trophy,
-  Target, 
   Users,
   Zap,
   GraduationCap,
@@ -17,8 +16,7 @@ import {
   CheckCircle,
   Star,
   DollarSign,
-  Calendar,
-  Award
+  Calendar
 } from 'lucide-react';
 
 // Types & Interfaces
@@ -101,32 +99,7 @@ export default function Home() {
               Transform any document or topic into intelligent quizzes. Win scholarships. Build knowledge.
             </p>
 
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-              <Button 
-                onClick={() => {
-                  if (user) {
-                    navigate('/quiz-generator');
-                  } else {
-                    navigate('/scholarship'); // Redirect to scholarship page which has sign-in
-                  }
-                }}
-                className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold text-lg px-8 py-4 rounded-full shadow-2xl hover:shadow-purple-500/25 transition-all duration-300 transform hover:scale-105"
-              >
-                <Brain className="mr-2 h-6 w-6" />
-                {user ? 'Create Quiz Now' : 'Sign In to Try Generator'}
-              </Button>
-              
-              {featuredCompetition && (
-                <Button 
-                  onClick={() => navigate('/scholarship')}
-                  className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold text-lg px-8 py-4 rounded-full shadow-2xl hover:shadow-green-500/25 transition-all duration-300 transform hover:scale-105"
-                >
-                  <Trophy className="mr-2 h-6 w-6" />
-                  Win Scholarships
-                </Button>
-              )}
-            </div>
+
           </div>
 
           {/* Featured Competition Banner */}
@@ -171,112 +144,7 @@ export default function Home() {
         </div>
       </div>
 
-      {/* Features Section */}
-      <div className="bg-white/5 backdrop-blur-sm py-16">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-white mb-4">
-              Powerful Features for Every User
-            </h2>
-            <p className="text-xl text-purple-200 max-w-2xl mx-auto">
-              From students to educators, our AI-powered platform serves everyone's learning needs
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {/* Document Upload */}
-            <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/15 transition-all duration-300">
-              <CardHeader className="text-center">
-                <FileText className="h-12 w-12 mx-auto mb-4 text-blue-400" />
-                <CardTitle className="text-xl">Document to Quiz</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-purple-100 text-center mb-4">
-                  Upload PDFs, Word docs, or text files and instantly generate intelligent quizzes from your content.
-                </p>
-                <div className="flex flex-wrap gap-2 justify-center">
-                  <span className="bg-blue-500/20 text-blue-200 px-2 py-1 rounded text-sm">PDF</span>
-                  <span className="bg-blue-500/20 text-blue-200 px-2 py-1 rounded text-sm">DOCX</span>
-                  <span className="bg-blue-500/20 text-blue-200 px-2 py-1 rounded text-sm">TXT</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Topic-Based Generation */}
-            <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/15 transition-all duration-300">
-              <CardHeader className="text-center">
-                <Brain className="h-12 w-12 mx-auto mb-4 text-purple-400" />
-                <CardTitle className="text-xl">Topic-Based Quizzes</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-purple-100 text-center mb-4">
-                  Enter any topic and our AI generates comprehensive quizzes with multiple difficulty levels.
-                </p>
-                <div className="flex flex-wrap gap-2 justify-center">
-                  <span className="bg-purple-500/20 text-purple-200 px-2 py-1 rounded text-sm">Math</span>
-                  <span className="bg-purple-500/20 text-purple-200 px-2 py-1 rounded text-sm">Science</span>
-                  <span className="bg-purple-500/20 text-purple-200 px-2 py-1 rounded text-sm">History</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Scholarship Competitions */}
-            <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/15 transition-all duration-300">
-              <CardHeader className="text-center">
-                <Trophy className="h-12 w-12 mx-auto mb-4 text-yellow-400" />
-                <CardTitle className="text-xl">Merit Scholarships</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-purple-100 text-center mb-4">
-                  Compete in timed competitions and win real money scholarships based on your knowledge and speed.
-                </p>
-                <div className="flex flex-wrap gap-2 justify-center">
-                  <span className="bg-yellow-500/20 text-yellow-200 px-2 py-1 rounded text-sm">Cash Prizes</span>
-                  <span className="bg-yellow-500/20 text-yellow-200 px-2 py-1 rounded text-sm">Fair Competition</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Practice Mode */}
-            <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/15 transition-all duration-300">
-              <CardHeader className="text-center">
-                <Target className="h-12 w-12 mx-auto mb-4 text-green-400" />
-                <CardTitle className="text-xl">Practice & Improve</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-purple-100 text-center mb-4">
-                  Take unlimited practice tests, track your progress, and build confidence before competitions.
-                </p>
-                <div className="flex flex-wrap gap-2 justify-center">
-                  <span className="bg-green-500/20 text-green-200 px-2 py-1 rounded text-sm">Unlimited Attempts</span>
-                  <span className="bg-green-500/20 text-green-200 px-2 py-1 rounded text-sm">Progress Tracking</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* AI-Powered */}
-            <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/15 transition-all duration-300">
-              <CardHeader className="text-center">
-                <Zap className="h-12 w-12 mx-auto mb-4 text-orange-400" />
-                <CardTitle className="text-xl">AI-Powered Intelligence</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-purple-100 text-center mb-4">
-                  Advanced AI ensures fair, unbiased question generation with multiple difficulty levels and formats.
-                </p>
-                <div className="flex flex-wrap gap-2 justify-center">
-                  <span className="bg-orange-500/20 text-orange-200 px-2 py-1 rounded text-sm">Smart Generation</span>
-                  <span className="bg-orange-500/20 text-orange-200 px-2 py-1 rounded text-sm">Fair & Unbiased</span>
-                </div>
-              </CardContent>
-            </Card>
-
-
-          </div>
-        </div>
-      </div>
-
-      {/* User Types Section */}
+      {/* Choose Your Path Section */}
       <div className="py-16">
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-12">
@@ -374,65 +242,86 @@ export default function Home() {
                 </div>
               </CardContent>
             </Card>
+          </div>
+        </div>
+      </div>
+
+      {/* Features Section */}
+      <div className="bg-white/5 backdrop-blur-sm py-16">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold text-white mb-4">
+              Powerful Features for Every User
+            </h2>
+            <p className="text-xl text-purple-200 max-w-2xl mx-auto">
+              From students to educators, our AI-powered platform serves everyone's learning needs
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {/* Document Upload */}
+            <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/15 transition-all duration-300">
+              <CardHeader className="text-center">
+                <FileText className="h-12 w-12 mx-auto mb-4 text-blue-400" />
+                <CardTitle className="text-xl">Document to Quiz</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-purple-100 text-center mb-4">
+                  Upload PDFs, Word docs, or text files and instantly generate intelligent quizzes from your content.
+                </p>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  <span className="bg-blue-500/20 text-blue-200 px-2 py-1 rounded text-sm">PDF</span>
+                  <span className="bg-blue-500/20 text-blue-200 px-2 py-1 rounded text-sm">DOCX</span>
+                  <span className="bg-blue-500/20 text-blue-200 px-2 py-1 rounded text-sm">TXT</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Topic-Based Generation */}
+            <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/15 transition-all duration-300">
+              <CardHeader className="text-center">
+                <Brain className="h-12 w-12 mx-auto mb-4 text-purple-400" />
+                <CardTitle className="text-xl">Topic-Based Quizzes</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-purple-100 text-center mb-4">
+                  Enter any topic and our AI generates comprehensive quizzes with multiple difficulty levels.
+                </p>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  <span className="bg-purple-500/20 text-purple-200 px-2 py-1 rounded text-sm">Math</span>
+                  <span className="bg-purple-500/20 text-purple-200 px-2 py-1 rounded text-sm">Science</span>
+                  <span className="bg-purple-500/20 text-purple-200 px-2 py-1 rounded text-sm">History</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Scholarship Competitions */}
+            <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/15 transition-all duration-300">
+              <CardHeader className="text-center">
+                <Trophy className="h-12 w-12 mx-auto mb-4 text-yellow-400" />
+                <CardTitle className="text-xl">Merit Scholarships</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-purple-100 text-center mb-4">
+                  Compete in timed competitions and win real money scholarships based on your knowledge and speed.
+                </p>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  <span className="bg-yellow-500/20 text-yellow-200 px-2 py-1 rounded text-sm">Cash Prizes</span>
+                  <span className="bg-yellow-500/20 text-yellow-200 px-2 py-1 rounded text-sm">Fair Competition</span>
+                </div>
+              </CardContent>
+            </Card>
+
+
 
 
           </div>
         </div>
       </div>
 
-      {/* CTA Section */}
-      <div className="bg-gradient-to-r from-purple-900/50 to-indigo-900/50 backdrop-blur-sm py-16">
-        <div className="max-w-4xl mx-auto px-4 text-center">
-          <h2 className="text-4xl font-bold text-white mb-6">
-            Ready to Transform Your Learning?
-          </h2>
-          
-          <p className="text-xl text-purple-100 mb-8">
-            Join thousands of users already using Quizist.AI to generate quizzes and win scholarships
-          </p>
-          
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button 
-              onClick={() => {
-                if (user) {
-                  navigate('/quiz-generator');
-                } else {
-                  navigate('/scholarship'); // Redirect to scholarship page which has sign-in
-                }
-              }}
-              className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold text-xl px-12 py-6 rounded-full shadow-2xl hover:shadow-purple-500/25 transition-all duration-300 transform hover:scale-105"
-            >
-              <Brain className="mr-2 h-6 w-6" />
-              {user ? 'Create Your First Quiz' : 'Sign In to Start'}
-            </Button>
-            
-            {featuredCompetition && (
-              <Button 
-                onClick={() => navigate('/scholarship')}
-                className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold text-xl px-12 py-6 rounded-full shadow-2xl hover:shadow-green-500/25 transition-all duration-300 transform hover:scale-105"
-              >
-                <Award className="mr-2 h-6 w-6" />
-                Win Scholarships
-              </Button>
-            )}
-          </div>
 
-          <div className="mt-8 flex items-center justify-center gap-8 text-purple-200">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-400" />
-              <span>100% Free to Start</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-400" />
-              <span>No Credit Card Required</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-400" />
-              <span>Instant Results</span>
-            </div>
-          </div>
-        </div>
-      </div>
+
+
     </div>
   );
 }
