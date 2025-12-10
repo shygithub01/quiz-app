@@ -106,11 +106,17 @@ export default function Home() {
             {/* CTA Buttons */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
               <Button 
-                onClick={() => user ? navigate('/quiz-generator') : navigate('/quiz-generator')}
+                onClick={() => {
+                  if (user) {
+                    navigate('/quiz-generator');
+                  } else {
+                    navigate('/scholarship'); // Redirect to scholarship page which has sign-in
+                  }
+                }}
                 className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold text-lg px-8 py-4 rounded-full shadow-2xl hover:shadow-purple-500/25 transition-all duration-300 transform hover:scale-105"
               >
                 <Brain className="mr-2 h-6 w-6" />
-                {user ? 'Create Quiz Now' : 'Try Quiz Generator'}
+                {user ? 'Create Quiz Now' : 'Sign In to Try Generator'}
               </Button>
               
               {featuredCompetition && (
@@ -327,10 +333,16 @@ export default function Home() {
                 
                 <div className="pt-4">
                   <Button 
-                    onClick={() => navigate(user ? '/quiz-generator' : '/quiz-generator')}
+                    onClick={() => {
+                      if (user) {
+                        navigate('/quiz-generator');
+                      } else {
+                        navigate('/scholarship'); // Redirect to scholarship page which has sign-in
+                      }
+                    }}
                     className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold"
                   >
-                    {user ? 'Start Creating Quizzes' : 'Get Started Free'}
+                    {user ? 'Start Creating Quizzes' : 'Sign In to Get Started'}
                   </Button>
                 </div>
               </CardContent>
@@ -364,10 +376,16 @@ export default function Home() {
                 
                 <div className="pt-4">
                   <Button 
-                    onClick={() => navigate(user ? '/quiz-generator' : '/quiz-generator')}
+                    onClick={() => {
+                      if (user) {
+                        navigate('/quiz-generator');
+                      } else {
+                        navigate('/scholarship'); // Redirect to scholarship page which has sign-in
+                      }
+                    }}
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold"
                   >
-                    {user ? 'Create Teaching Materials' : 'Try for Teaching'}
+                    {user ? 'Create Teaching Materials' : 'Sign In for Teaching'}
                   </Button>
                 </div>
               </CardContent>
@@ -426,11 +444,17 @@ export default function Home() {
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Button 
-              onClick={() => navigate(user ? '/quiz-generator' : '/quiz-generator')}
+              onClick={() => {
+                if (user) {
+                  navigate('/quiz-generator');
+                } else {
+                  navigate('/scholarship'); // Redirect to scholarship page which has sign-in
+                }
+              }}
               className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold text-xl px-12 py-6 rounded-full shadow-2xl hover:shadow-purple-500/25 transition-all duration-300 transform hover:scale-105"
             >
               <Brain className="mr-2 h-6 w-6" />
-              {user ? 'Create Your First Quiz' : 'Start Free Today'}
+              {user ? 'Create Your First Quiz' : 'Sign In to Start'}
             </Button>
             
             {featuredCompetition && (

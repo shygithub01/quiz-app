@@ -345,7 +345,7 @@ export default function QuizGenerator() {
 
       <div className="flex flex-col md:flex-row gap-6">
         {/* File Upload Section */}
-        <Card variant="glass" className="flex-1">
+        <Card className="flex-1 bg-white/10 backdrop-blur-sm border-white/20">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileText className="w-5 h-5" />
@@ -383,7 +383,7 @@ export default function QuizGenerator() {
         </Card>
 
         {/* Topic Input Section */}
-        <Card variant="glass" className="flex-1">
+        <Card className="flex-1 bg-white/10 backdrop-blur-sm border-white/20">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Brain className="w-5 h-5" />
@@ -406,7 +406,7 @@ export default function QuizGenerator() {
       </div>
 
       {/* Quiz Settings */}
-      <Card variant="glass">
+      <Card className="bg-white/10 backdrop-blur-sm border-white/20">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Target className="w-5 h-5" />
@@ -488,7 +488,7 @@ export default function QuizGenerator() {
 
       {/* Recent Quizzes Section - Only show for signed-in users */}
       {user && recentQuizzes.length > 0 && (
-        <Card variant="glass">
+        <Card className="bg-white/10 backdrop-blur-sm border-white/20">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Clock className="w-5 h-5" />
@@ -500,8 +500,7 @@ export default function QuizGenerator() {
               {recentQuizzes.slice(0, 6).map((quiz) => (
                 <Card 
                   key={quiz.id} 
-                  variant="ghost"
-                  className="hover:bg-white/10 transition-all duration-300 cursor-pointer"
+                  className="hover:bg-white/10 transition-all duration-300 cursor-pointer bg-white/5 border-white/10"
                   onClick={() => handleRetakeQuiz(quiz.id)}
                 >
                   <CardHeader>
@@ -530,7 +529,7 @@ export default function QuizGenerator() {
     const userAnswer = quizState.userAnswers[quizState.currentQuestionIndex];
 
     return (
-      <Card variant="glass" className="animate-fade-in-up">
+      <Card className="animate-fade-in-up bg-white/10 backdrop-blur-sm border-white/20">
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2">
@@ -614,7 +613,7 @@ export default function QuizGenerator() {
   };
 
   const renderResults = () => (
-    <Card variant="glass" className="animate-fade-in">
+    <Card className="animate-fade-in bg-white/10 backdrop-blur-sm border-white/20">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           {quizState.score / quizState.questions.length >= 0.7 ? (
