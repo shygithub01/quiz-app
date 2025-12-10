@@ -187,12 +187,21 @@ const CompetitionDetails: React.FC = () => {
             <h3 className="font-medium text-green-900 mb-2 text-center">Practice Session - Keep Practicing!</h3>
             <p className="text-green-800 text-center mb-4">You can take this practice test as many times as you want. Each attempt is saved so you can track your progress.</p>
             <div className="flex justify-center gap-4">
-              <button
-                onClick={() => navigate(`/competitions/${id}/quiz`)}
-                className="px-8 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg hover:from-blue-600 hover:to-indigo-600 transition-all shadow-lg hover:shadow-xl font-medium"
-              >
-                🔄 Take Another Practice Attempt
-              </button>
+              {competition.status === 'active' ? (
+                <button
+                  onClick={() => navigate(`/competitions/${id}/quiz`)}
+                  className="px-8 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-lg hover:from-blue-600 hover:to-indigo-600 transition-all shadow-lg hover:shadow-xl font-medium"
+                >
+                  🔄 Take Another Practice Attempt
+                </button>
+              ) : (
+                <button
+                  disabled
+                  className="px-8 py-3 bg-gray-300 text-gray-600 rounded-lg font-medium cursor-not-allowed"
+                >
+                  {competition.status === 'upcoming' ? '📅 Practice Not Started' : '🏁 Practice Ended'}
+                </button>
+              )}
               <button
                 onClick={() => {
                   const progressSection = document.getElementById('practice-history');
