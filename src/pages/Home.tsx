@@ -12,9 +12,7 @@ import {
   Target, 
   Users,
   Zap,
-  BookOpen,
   GraduationCap,
-  Building,
   ArrowRight,
   CheckCircle,
   Star,
@@ -273,21 +271,7 @@ export default function Home() {
               </CardContent>
             </Card>
 
-            {/* Enterprise Ready */}
-            <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/15 transition-all duration-300">
-              <CardHeader className="text-center">
-                <Building className="h-12 w-12 mx-auto mb-4 text-indigo-400" />
-                <CardTitle className="text-xl">Enterprise Solutions</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-purple-100 text-center mb-4">
-                  Scalable solutions for schools, universities, and organizations with advanced analytics and management.
-                </p>
-                <div className="flex flex-wrap gap-2 justify-center">
-                  <span className="bg-indigo-500/20 text-indigo-200 px-2 py-1 rounded text-sm">Coming Soon</span>
-                </div>
-              </CardContent>
-            </Card>
+
           </div>
         </div>
       </div>
@@ -297,15 +281,58 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4">
           <div className="text-center mb-12">
             <h2 className="text-4xl font-bold text-white mb-4">
-              Built for Everyone
+              Choose Your Path
             </h2>
             <p className="text-xl text-purple-200">
-              Whether you're a student, educator, or institution, we have the right solution for you
+              Generate intelligent quizzes or compete for scholarships
             </p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {/* Students */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+            {/* Try Quiz Generator */}
+            <Card className="bg-gradient-to-br from-purple-900/30 to-indigo-900/30 border-purple-400/30 text-white">
+              <CardHeader className="text-center">
+                <Brain className="h-16 w-16 mx-auto mb-4 text-purple-400" />
+                <CardTitle className="text-2xl">Try Quiz Generator</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 text-purple-400" />
+                    <span>Upload documents or enter topics</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 text-purple-400" />
+                    <span>AI-generated intelligent questions</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 text-purple-400" />
+                    <span>Multiple difficulty levels</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 text-purple-400" />
+                    <span>Instant results and explanations</span>
+                  </div>
+                </div>
+                
+                <div className="pt-4">
+                  <Button 
+                    onClick={() => {
+                      if (user) {
+                        navigate('/quiz-generator');
+                      } else {
+                        navigate('/scholarship'); // Redirect to scholarship page which has sign-in
+                      }
+                    }}
+                    className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold"
+                  >
+                    {user ? 'Start Creating Quizzes' : 'Sign In to Try Generator'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* For Students */}
             <Card className="bg-gradient-to-br from-green-900/30 to-emerald-900/30 border-green-400/30 text-white">
               <CardHeader className="text-center">
                 <GraduationCap className="h-16 w-16 mx-auto mb-4 text-green-400" />
@@ -327,7 +354,7 @@ export default function Home() {
                   </div>
                   <div className="flex items-center gap-3">
                     <CheckCircle className="h-5 w-5 text-green-400" />
-                    <span>Generate quizzes from your study materials</span>
+                    <span>Compete in timed competitions</span>
                   </div>
                 </div>
                 
@@ -335,98 +362,20 @@ export default function Home() {
                   <Button 
                     onClick={() => {
                       if (user) {
-                        navigate('/quiz-generator');
+                        navigate('/scholarship');
                       } else {
                         navigate('/scholarship'); // Redirect to scholarship page which has sign-in
                       }
                     }}
                     className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold"
                   >
-                    {user ? 'Start Creating Quizzes' : 'Sign In to Get Started'}
+                    {user ? 'View Scholarships' : 'Sign In for Scholarships'}
                   </Button>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Educators */}
-            <Card className="bg-gradient-to-br from-blue-900/30 to-indigo-900/30 border-blue-400/30 text-white">
-              <CardHeader className="text-center">
-                <BookOpen className="h-16 w-16 mx-auto mb-4 text-blue-400" />
-                <CardTitle className="text-2xl">For Educators</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="h-5 w-5 text-blue-400" />
-                    <span>Create assessments from any content</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="h-5 w-5 text-blue-400" />
-                    <span>Save time on quiz creation</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="h-5 w-5 text-blue-400" />
-                    <span>Multiple difficulty levels</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="h-5 w-5 text-blue-400" />
-                    <span>Instant feedback and analytics</span>
-                  </div>
-                </div>
-                
-                <div className="pt-4">
-                  <Button 
-                    onClick={() => {
-                      if (user) {
-                        navigate('/quiz-generator');
-                      } else {
-                        navigate('/scholarship'); // Redirect to scholarship page which has sign-in
-                      }
-                    }}
-                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold"
-                  >
-                    {user ? 'Create Teaching Materials' : 'Sign In for Teaching'}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
 
-            {/* Institutions */}
-            <Card className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 border-purple-400/30 text-white">
-              <CardHeader className="text-center">
-                <Building className="h-16 w-16 mx-auto mb-4 text-purple-400" />
-                <CardTitle className="text-2xl">For Institutions</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="h-5 w-5 text-purple-400" />
-                    <span>Enterprise-grade security</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="h-5 w-5 text-purple-400" />
-                    <span>Advanced analytics dashboard</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="h-5 w-5 text-purple-400" />
-                    <span>Custom branding options</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="h-5 w-5 text-purple-400" />
-                    <span>Dedicated support team</span>
-                  </div>
-                </div>
-                
-                <div className="pt-4">
-                  <Button 
-                    disabled
-                    className="w-full bg-purple-600/50 text-white font-semibold cursor-not-allowed opacity-60"
-                  >
-                    Coming Soon - Contact Us
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
           </div>
         </div>
       </div>
@@ -439,7 +388,7 @@ export default function Home() {
           </h2>
           
           <p className="text-xl text-purple-100 mb-8">
-            Join thousands of students and educators already using Quizist.AI to enhance their learning experience
+            Join thousands of users already using Quizist.AI to generate quizzes and win scholarships
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
