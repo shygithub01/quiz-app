@@ -106,21 +106,9 @@ export default function QuizGenerator() {
 
   // Quiz Generation Functions
   const generateQuiz = async (fromFile: boolean = true) => {
-    if (!user) {
-      toast({
-        title: "Authentication Required",
-        description: "Please sign in to generate a quiz.",
-        variant: "destructive"
-      });
-      return;
-    }
-
     try {
       setLoading(true);
-      const userId = user?.uid;
-      if (!userId) {
-       throw new Error('User not authenticated');
-      }
+      const userId = user?.uid; // Optional - some features work without auth
 
       let response;
       if (fromFile && uploadedFile) {
@@ -187,6 +175,7 @@ export default function QuizGenerator() {
         showResults: isLastQuestion
       };
 
+      // Save completion only if user is signed in
       if (isLastQuestion && user?.uid && prev.attemptId) {
         updateQuizCompletion(user.uid, prev.attemptId, {
           answers: newAnswers,
@@ -345,6 +334,13 @@ export default function QuizGenerator() {
       <div className="text-center mb-8">
         <h1 className="text-4xl font-bold text-white mb-4">AI Quiz Generator</h1>
         <p className="text-xl text-purple-200">Transform any document or topic into intelligent quizzes</p>
+        {!user && (
+          <div className="mt-4 p-4 bg-blue-500/20 border border-blue-400/30 rounded-lg">
+            <p className="text-blue-200">
+              💡 <strong>Sign in</strong> to save your quiz history and track progress over time
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col md:flex-row gap-6">
@@ -490,8 +486,8 @@ export default function QuizGenerator() {
         </CardFooter>
       </Card>
 
-      {/* Recent Quizzes Section */}
-      {recentQuizzes.length > 0 && (
+      {/* Recent Quizzes Section - Only show for signed-in users */}
+      {user && recentQuizzes.length > 0 && (
         <Card variant="glass">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -675,24 +671,8 @@ export default function QuizGenerator() {
     </Card>
   );
 
-  if (!user) {
-    return (
-      <div className="container max-w-4xl mx-auto py-8">
-        <Card variant="glass" className="text-center p-8">
-          <CardContent className="space-y-4">
-            <Brain className="w-12 h-12 mx-auto text-white/60" />
-            <CardTitle>Sign In Required</CardTitle>
-            <CardDescription>
-              Please sign in to access the AI Quiz Generator
-            </CardDescription>
-            <Button onClick={() => navigate('/')}>
-              Go to Home Page
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+  // Allow access to quiz generator for all users
+  // Some features may require sign-in, but basic access is available
 
   return (
     <div className="container max-w-4xl mx-auto space-y-8 py-8">
