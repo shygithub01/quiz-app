@@ -454,13 +454,29 @@ const getCompetitions = async (status?: 'upcoming' | 'active' | 'completed'): Pr
     }
     
     const querySnapshot = await getDocs(q);
+    const now = new Date();
+    
     const competitions = querySnapshot.docs.map(doc => {
       const data = doc.data();
+      const startDate = data.startDate?.toDate ? data.startDate.toDate() : new Date(data.startDate);
+      const endDate = data.endDate?.toDate ? data.endDate.toDate() : new Date(data.endDate);
+      
+      // Calculate actual status based on dates
+      let actualStatus = data.status;
+      if (now < startDate) {
+        actualStatus = 'upcoming';
+      } else if (now >= startDate && now <= endDate) {
+        actualStatus = 'active';
+      } else if (now > endDate) {
+        actualStatus = 'completed';
+      }
+      
       return {
         id: doc.id,
         ...data,
-        startDate: data.startDate?.toDate ? data.startDate.toDate() : new Date(data.startDate),
-        endDate: data.endDate?.toDate ? data.endDate.toDate() : new Date(data.endDate),
+        startDate,
+        endDate,
+        status: actualStatus, // Use calculated status
         createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt)
       };
     });
@@ -484,11 +500,26 @@ const getCompetitionById = async (competitionId: string): Promise<any | null> =>
     }
     
     const data = competitionDoc.data();
+    const now = new Date();
+    const startDate = data.startDate?.toDate ? data.startDate.toDate() : new Date(data.startDate);
+    const endDate = data.endDate?.toDate ? data.endDate.toDate() : new Date(data.endDate);
+    
+    // Calculate actual status based on dates
+    let actualStatus = data.status;
+    if (now < startDate) {
+      actualStatus = 'upcoming';
+    } else if (now >= startDate && now <= endDate) {
+      actualStatus = 'active';
+    } else if (now > endDate) {
+      actualStatus = 'completed';
+    }
+    
     return {
       id: competitionDoc.id,
       ...data,
-      startDate: data.startDate?.toDate ? data.startDate.toDate() : new Date(data.startDate),
-      endDate: data.endDate?.toDate ? data.endDate.toDate() : new Date(data.endDate),
+      startDate,
+      endDate,
+      status: actualStatus, // Use calculated status
       createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(data.createdAt)
     };
   } catch (error) {

@@ -5,7 +5,8 @@ import {
   getCompetitions,
   getAppSettings,
   setFeaturedCompetition,
-  isAdmin 
+  isAdmin,
+  getPracticeParticipantCount
 } from '../components/ui/firebase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -54,10 +55,24 @@ export default function AdminCompetitionSettings() {
       
       // Load all competitions
       const competitions = await getCompetitions();
-      setAllCompetitions(competitions);
+      
+      // Get correct participant counts for each competition
+      const competitionsWithCounts = await Promise.all(
+        competitions.map(async (comp: any) => {
+          // For practice tests, get unique participant count from practiceAttempts
+          // For scholarship competitions, use the participantCount from competition document
+          const participantCount = comp.isPractice 
+            ? await getPracticeParticipantCount(comp.id)
+            : comp.participantCount || 0;
+          
+          return { ...comp, participantCount };
+        })
+      );
+      
+      setAllCompetitions(competitionsWithCounts);
       
       // Filter scholarship competitions (not practice)
-      const scholarships = competitions.filter(
+      const scholarships = competitionsWithCounts.filter(
         (c: any) => !c.isPractice
       );
       setScholarshipCompetitions(scholarships);
