@@ -1,782 +1,465 @@
 // Home.tsx
-import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { getNextCompetitionShortDate, getPrizePool } from '../config/competition';
-import { 
-  generateNewQuizFromDocument,
-  generateNewQuizFromTopic,
-  getQuizHistory, 
-  getQuizById, 
-  updateQuizCompletion 
-} from '@/components/api';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
+import { getFeaturedCompetition } from '@/components/ui/firebase';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';  // correct path, keeping single quotes
 import { 
   Brain, 
   FileText, 
-  Upload, 
+  Trophy,
   Target, 
-  Clock, 
-  CheckCircle, 
-  XCircle, 
-  ChevronRight,
-  ChevronLeft,
-  RefreshCw,
-  Book,
-  AlertCircle
+  Users,
+  Zap,
+  BookOpen,
+  GraduationCap,
+  Building,
+  ArrowRight,
+  CheckCircle,
+  Star,
+  DollarSign,
+  Calendar,
+  Award
 } from 'lucide-react';
 
 // Types & Interfaces
-interface Question {
-  question: string;
-  options: string[];
-  correctAnswer: string;
-}
-
-interface QuizState {
-  questions: Question[];
-  currentQuestionIndex: number;
-  userAnswers: string[];
-  score: number;
-  showResults: boolean;
-  quizId?: string;
-  attemptId?: string;
-  isReviewMode?: boolean;
-  startTime?: number; // timestamp when quiz started
-  currentTime?: number; // current timestamp for live timer
-}
-
-interface QuizHistoryItem {
+interface FeaturedCompetition {
   id: string;
   title: string;
-  score?: number;
-  totalQuestions: number;
-  timestamp: Date;
+  prizePool: string;
+  startDate: Date;
+  participantCount: number;
 }
 
-// Initial States
-const initialQuizState: QuizState = {
-  questions: [],
-  currentQuestionIndex: 0,
-  userAnswers: [],
-  score: 0,
-  showResults: false,
-  isReviewMode: false
-};
-
-const DIFFICULTY_OPTIONS = ['easy', 'medium', 'hard'];
-const QUIZ_TYPES = ['multiple-choice', 'true-false'];
-const DEFAULT_NUM_QUESTIONS = 5;
-
 export default function Home() {
-  // Hooks & State
   const { user } = useAuth();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const { toast } = useToast();
-  const [loading, setLoading] = useState(false);
-  const [quizState, setQuizState] = useState<QuizState>(initialQuizState);
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  const [topic, setTopic] = useState('');
-  const [difficulty, setDifficulty] = useState('medium');
-  const [quizType, setQuizType] = useState('multiple-choice');
-  const [numQuestions, setNumQuestions] = useState(DEFAULT_NUM_QUESTIONS);
-  const [recentQuizzes, setRecentQuizzes] = useState<QuizHistoryItem[]>([]);
-  
-  // Timer effect - updates every second when quiz is active
-  useEffect(() => {
-    if (quizState.startTime && !quizState.showResults && quizState.questions.length > 0 && !quizState.isReviewMode) {
-      const interval = setInterval(() => {
-        setQuizState(prev => ({ ...prev, currentTime: Date.now() }));
-      }, 1000);
-      return () => clearInterval(interval);
-    }
-  }, [quizState.startTime, quizState.showResults, quizState.questions.length, quizState.isReviewMode]);
-
-  // Effects
+  const [featuredCompetition, setFeaturedCompetition] = useState<FeaturedCompetition | null>(null);
+  const [, setLoading] = useState(true);
 
   useEffect(() => {
-  const retakeQuizId = searchParams.get('retake');
-  const resultsQuizId = searchParams.get('results');
-  
-  if (retakeQuizId) {
-    handleRetakeQuiz(retakeQuizId);
-  } else if (resultsQuizId) {
-    handleViewResults(resultsQuizId);
-  }
-  loadRecentQuizzes();
-}, []);
+    loadFeaturedCompetition();
+  }, []);
 
-  // Quiz Generation Functions
-  const generateQuiz = async (fromFile: boolean = true) => {
-    if (!user) {
-      toast({
-        title: "Authentication Required",
-        description: "Please sign in to generate a quiz.",
-        variant: "destructive"
-      });
-      return;
-    }
-
+  const loadFeaturedCompetition = async () => {
     try {
-      setLoading(true);
-
-      const userId = user?.uid;
-      if (!userId) {
-       throw new Error('User not authenticated');
-      }
-
-      let response;
-
-      if (fromFile && uploadedFile) {
-        response = await generateNewQuizFromDocument({
-          file: uploadedFile,
-          numQuestions,
-          difficulty,
-          quizType
+      const competition = await getFeaturedCompetition();
+      if (competition) {
+        setFeaturedCompetition({
+          id: competition.id,
+          title: competition.title,
+          prizePool: competition.prizePool || '$300',
+          startDate: competition.startDate,
+          participantCount: competition.participantCount || 0
         });
-      } else if (!fromFile && topic) {
-        response = await generateNewQuizFromTopic({
-          topic,
-          difficulty,
-          quizType,
-          numQuestions
-        }, userId);
-      } else {
-        throw new Error('Invalid quiz generation parameters');
-      }
-
-      if (response.success && response.quiz) {
-        console.log('🎯 QUIZ GENERATION SUCCESS - About to set state');
-        const startTime = Date.now();
-        console.log('⏱️ Quiz started at:', new Date(startTime).toLocaleTimeString());
-        console.log('⏱️ startTime value:', startTime);
-        setQuizState({
-          ...initialQuizState,
-          questions: response.quiz,
-          quizId: response.quizId,
-          attemptId: response.attemptId,
-          startTime,
-          currentTime: startTime
-        });
-
-        // setShowFileUpload(false); // This line was removed from the new_code
-      } else {
-        throw new Error(response.message || 'Failed to generate quiz');
       }
     } catch (error) {
-      toast({
-        title: "Quiz Generation Failed",
-        description: error instanceof Error ? error.message : 'An unexpected error occurred',
-        variant: "destructive"
-      });
+      console.error('Error loading featured competition:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  // Quiz Interaction Functions
-  const handleAnswerSubmit = (answer: string) => {
-    setQuizState(prev => {
-      const newAnswers = [...prev.userAnswers];
-      newAnswers[prev.currentQuestionIndex] = answer;
-
-      const isLastQuestion = prev.currentQuestionIndex === prev.questions.length - 1;
-      const newScore = newAnswers.reduce((score, userAnswer, index) => {
-        return userAnswer === prev.questions[index].correctAnswer ? score + 1 : score;
-      }, 0);
-
-      // Calculate time spent if quiz is finishing
-      const timeSpent = isLastQuestion && prev.startTime 
-        ? Math.floor((Date.now() - prev.startTime) / 1000)
-        : undefined;
-
-      const newState = {
-        ...prev,
-        userAnswers: newAnswers,
-        currentQuestionIndex: isLastQuestion ? prev.currentQuestionIndex : prev.currentQuestionIndex + 1,
-        score: newScore,
-        showResults: isLastQuestion
-      };
-
-      // Save completion when quiz finishes
-      if (isLastQuestion && user?.uid && prev.attemptId) {
-        console.log('⏱️ Quiz completed in', timeSpent, 'seconds');
-        updateQuizCompletion(user.uid, prev.attemptId, {
-          answers: newAnswers,
-          score: newScore,
-          completedAt: new Date().toISOString(),
-          timeSpent
-        }).catch(error => {
-          console.error('Failed to save quiz completion:', error);
-        });
-      }
-
-      return newState;
-
+  const formatDate = (date: Date) => {
+    return new Date(date).toLocaleDateString('en-US', { 
+      month: 'short', 
+      day: 'numeric',
+      year: 'numeric'
     });
   };
 
-  const handleRetakeQuiz = async (attemptId: string) => {
-    if (!user?.uid) return;
-    
-    try {
-      setLoading(true);
-      const userId = user?.uid;
-      if (!userId) {
-        throw new Error('User not authenticated');
-      }
-
-      const quizData = await getQuizById(attemptId, user.uid) as {
-        questions: any[];
-        userAnswers: string[];
-        score: number;
-        quizTemplateId: string;
-        title: string;
-      } | null;
-      
-      if (quizData && quizData.questions) {
-        const startTime = Date.now();
-        setQuizState({
-          ...initialQuizState,
-          questions: quizData.questions,
-          quizId: quizData.quizTemplateId,
-          attemptId: attemptId,
-          startTime,
-          currentTime: startTime
-        });
-        
-        toast({
-          title: "Quiz Loaded",
-          description: `Starting retake of "${quizData.title}"`,
-        });
-      } else {
-        throw new Error('Quiz data not found');
-      }
-    } catch (error) {
-      toast({
-        title: "Retake Failed",
-        description: error instanceof Error ? error.message : 'Failed to retake quiz',
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
- 
-
-  
 
 
-  const handleViewResults = async (attemptId: string) => {
-    if (!user?.uid) return;
-    
-    try {
-      setLoading(true);
-      const quizData = await getQuizById(attemptId, user.uid) as {
-        questions: any[];
-        userAnswers: string[];
-        score: number;
-        quizTemplateId: string;
-        title: string;
-      } | null;
-      console.log('🔍 DEBUG - Quiz data for results:', quizData);
-      
-      if (quizData && quizData.questions) {
-        setQuizState({
-          questions: quizData.questions,
-          currentQuestionIndex: 0,
-          userAnswers: quizData.userAnswers || [],
-          score: quizData.score || 0,
-          showResults: true,
-          quizId: quizData.quizTemplateId,
-          attemptId: attemptId
-        });
-        
-        toast({
-          title: "Results Loaded",
-          description: `Viewing results for "${quizData.title}"`,
-        });
-      } else {
-        throw new Error('Quiz results not found - no questions available');
-      }
-    } catch (error) {
-      toast({
-        title: "Results Failed",
-        description: error instanceof Error ? error.message : 'Failed to load results',
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900">
+      {/* Hero Section */}
+      <div className="relative overflow-hidden">
+        {/* Background Elements */}
+        <div className="absolute inset-0">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl animate-pulse" />
+          <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+        </div>
 
-  const resetQuiz = () => {
-    setQuizState(initialQuizState);
-    loadRecentQuizzes(); // Refresh recent quizzes
-    // Don't clear uploadedFile or topic - keep them so user can generate new quiz
-  };
+        <div className="relative max-w-7xl mx-auto px-4 py-16">
+          {/* Main Hero */}
+          <div className="text-center mb-16">
+            <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-6 py-2 mb-6">
+              <Zap className="h-4 w-4 text-yellow-300" />
+              <span className="text-purple-100 font-medium">AI-Powered Quiz Generation Platform</span>
+            </div>
+            
+            <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 leading-tight">
+              <span className="bg-gradient-to-r from-purple-300 to-pink-300 bg-clip-text text-transparent">
+                Quizist.AI
+              </span>
+              <br />
+              <span className="text-3xl md:text-4xl text-purple-200">
+                Where Knowledge Meets Innovation
+              </span>
+            </h1>
+            
+            <p className="text-xl md:text-2xl text-purple-100 mb-8 max-w-3xl mx-auto">
+              Transform any document or topic into intelligent quizzes. Win scholarships. Build knowledge.
+            </p>
 
-  // File Upload Handlers
-  const handleFileDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files[0];
-    if (file) setUploadedFile(file);
-  }, []);
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) setUploadedFile(file);
-  };
-
-  // Recent Quizzes Functions
-
-  const loadRecentQuizzes = async () => {
-    if (!user?.uid) return;
-    try {
-      const attempts = await getQuizHistory(user.uid);
-      const recentQuizzes = attempts.slice(0, 6).map(attempt => ({
-        id: attempt.id,
-        title: attempt.title,
-        score: attempt.score,
-        totalQuestions: attempt.questionCount,
-        timestamp: new Date(attempt.startedAt)
-      }));
-      setRecentQuizzes(recentQuizzes);
-    } catch (error) {
-      console.error('Failed to load recent quizzes:', error);
-    }
-  }; 
-
-  // Render Functions
-  const renderQuizForm = () => (
-    <div className="space-y-8 animate-fade-in">
-      {/* Scholarship Section for Signed-in Users */}
-      {user && (
-        <Card variant="glass" className="bg-gradient-to-r from-green-900/30 to-emerald-900/30 border-green-400/30">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-green-100">
-              🎓 Scholarship Opportunities Available
-            </CardTitle>
-            <CardDescription className="text-green-200">
-              Win real money scholarships through merit-based competitions
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
-              <div className="text-green-100">
-                <p className="font-medium">💰 {getNextCompetitionShortDate()}th Competition: {getPrizePool()} in prizes</p>
-                <p className="text-sm text-green-200">Henrico County students eligible now</p>
-              </div>
+            {/* CTA Buttons */}
+            <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
               <Button 
-                onClick={() => navigate('/scholarship')}
-                className="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-2"
+                onClick={() => user ? navigate('/quiz-generator') : navigate('/quiz-generator')}
+                className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold text-lg px-8 py-4 rounded-full shadow-2xl hover:shadow-purple-500/25 transition-all duration-300 transform hover:scale-105"
               >
-                View Scholarship Program
+                <Brain className="mr-2 h-6 w-6" />
+                {user ? 'Create Quiz Now' : 'Try Quiz Generator'}
               </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-      <div className="flex flex-col md:flex-row gap-6">
-        {/* File Upload Section */}
-        <Card variant="glass" className="flex-1">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileText className="w-5 h-5" />
-              Upload Document
-            </CardTitle>
-            <CardDescription>
-              Generate questions from your document
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div
-              className="border-2 border-dashed border-white/20 rounded-xl p-6 text-center hover:border-white/40 transition-all duration-300"
-              onDrop={handleFileDrop}
-              onDragOver={(e) => e.preventDefault()}
-            >
-              {uploadedFile ? (
-                <div className="flex items-center justify-center gap-2 text-white">
-                  <FileText className="w-5 h-5" />
-                  {uploadedFile.name}
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <Upload className="w-8 h-8 mx-auto text-white/60" />
-                  <p className="text-white/60">Drag & drop or click to upload</p>
-                </div>
-              )}
-              <input
-                type="file"
-                onChange={handleFileSelect}
-                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                accept=".pdf,.doc,.docx,.txt"
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Topic Input Section */}
-        <Card variant="glass" className="flex-1">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Brain className="w-5 h-5" />
-              Enter Topic
-            </CardTitle>
-            <CardDescription>
-              Generate questions from a specific topic
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <input
-              type="text"
-              value={topic}
-              onChange={(e) => setTopic(e.target.value)}
-              placeholder="Enter a topic..."
-              className="w-full p-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder:text-white/40 focus:border-white/40 transition-all duration-300"
-            />
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Quiz Settings */}
-      <Card variant="glass">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Target className="w-5 h-5" />
-            Quiz Settings
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="space-y-2">
-              <label className="text-sm text-white/70">Difficulty</label>
-              <select
-                value={difficulty}
-                onChange={(e) => setDifficulty(e.target.value)}
-                className="w-full p-2 rounded-lg bg-white/10 border border-white/20 text-white"
-              >
-                {DIFFICULTY_OPTIONS.map(option => (
-                  <option key={option} value={option} className="bg-gray-800">
-                    {option.charAt(0).toUpperCase() + option.slice(1)}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm text-white/70">Quiz Type</label>
-              <select
-                value={quizType}
-                onChange={(e) => setQuizType(e.target.value)}
-                className="w-full p-2 rounded-lg bg-white/10 border border-white/20 text-white"
-              >
-                {QUIZ_TYPES.map(type => (
-                  <option key={type} value={type} className="bg-gray-800">
-                    {type.split('-').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-sm text-white/70">Number of Questions</label>
-              <input
-                type="number"
-                value={numQuestions}
-                onChange={(e) => setNumQuestions(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
-                min="1"
-                max="20"
-                className="w-full p-2 rounded-lg bg-white/10 border border-white/20 text-white"
-              />
-            </div>
-          </div>
-        </CardContent>
-        <CardFooter className="justify-end space-x-4">
-          <Button 
-            variant="ghost" 
-            onClick={resetQuiz}
-            disabled={loading}
-          >
-            Reset
-          </Button>
-          <Button
-            onClick={() => generateQuiz(!!uploadedFile)}
-            disabled={loading || (!uploadedFile && !topic)}
-            className="min-w-[120px]"
-          >
-            {loading ? (
-              <>
-                <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-                Generating...
-              </>
-            ) : (
-              <>
-                <Brain className="w-4 h-4 mr-2" />
-                Generate Quiz
-              </>
-            )}
-          </Button>
-        </CardFooter>
-      </Card>
-
-      {/* Recent Quizzes Section */}
-      {recentQuizzes.length > 0 && (
-        <Card variant="glass">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="w-5 h-5" />
-              Recent Quizzes
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {recentQuizzes.slice(0, 6).map((quiz) => (
-                <Card 
-                  key={quiz.id} 
-                  variant="ghost"
-                  className="hover:bg-white/10 transition-all duration-300 cursor-pointer"
-                  onClick={() => handleRetakeQuiz(quiz.id)}
-                >
-                  <CardHeader>
-                    <CardTitle className="text-lg">{formatQuizDisplayName(quiz)}</CardTitle>
-                    <CardDescription>
-                      Score: {quiz.score}/{quiz.totalQuestions}
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
-              ))}
-            </div>
-          </CardContent>
-          <CardFooter>
-            <Button variant="ghost" onClick={() => navigate('/past-quizzes')}>
-              View All Quizzes
-              <ChevronRight className="w-4 h-4 ml-2" />
-            </Button>
-          </CardFooter>
-        </Card>
-      )}
-    </div>
-  );
-
-  // Add this new function in Home.tsx
-const formatQuizDisplayName = (quiz: any) => {
-  const date = new Date(quiz.timestamp).toLocaleDateString();
-  const time = new Date(quiz.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-  
-  if (quiz.type === 'topic') {
-    const topicName = quiz.title.replace(' (New)', '');
-    return `${topicName} - ${date} ${time}`;
-  } else if (quiz.type === 'file') {
-    const filename = quiz.originalFileName || quiz.title.replace(' (New)', '') || 'Document';
-    return `${filename} - ${date} ${time}`;
-  }
-  
-  return `${quiz.title} - ${date} ${time}`;
-};  
-
-
-  const renderQuestion = () => {
-  const currentQuestion = quizState.questions[quizState.currentQuestionIndex];
-  const userAnswer = quizState.userAnswers[quizState.currentQuestionIndex];
-
-  return (
-    <Card variant="glass" className="animate-fade-in-up">
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <CardTitle className="flex items-center gap-2">
-            <Book className="w-5 h-5" />
-            Question {quizState.currentQuestionIndex + 1} of {quizState.questions.length}
-          </CardTitle>
-          {/* Live Timer Display - Bold & Beautiful */}
-          {quizState.startTime && quizState.currentTime && !quizState.isReviewMode && (
-            <div className="flex items-center gap-3 bg-gradient-to-r from-indigo-500 to-purple-600 px-6 py-3 rounded-xl shadow-lg animate-pulse-subtle">
-              <Clock className="w-6 h-6 text-white animate-pulse" />
-              <div className="flex flex-col">
-                <span className="text-xs text-white/80 font-medium uppercase tracking-wide">Time Elapsed</span>
-                <span className="text-2xl font-bold text-white tabular-nums">
-                  {Math.floor((quizState.currentTime - quizState.startTime) / 60000)}:{Math.floor(((quizState.currentTime - quizState.startTime) % 60000) / 1000).toString().padStart(2, '0')}
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <p className="text-lg text-white">{currentQuestion.question}</p>
-        <div className="grid grid-cols-1 gap-3">
-          {currentQuestion.options.map((option, index) => (
-            <Button
-              key={index}
-              variant={userAnswer === option ? 'default' : 'ghost'}
-                            className={`w-full justify-start text-left ${quizState.isReviewMode ? 'cursor-not-allowed opacity-60' : ''}`}
-              onClick={() => {
-                console.log('🔍 Button clicked - showResults:', quizState.isReviewMode);
-                if (!quizState.isReviewMode) {
-                  handleAnswerSubmit(option);
-                }
-              }}
-              disabled={quizState.isReviewMode}
-            >
-              {option}
-            </Button>
-          ))}
-        </div>
-
-        {/* Navigation Controls */}
-        <div className="flex justify-between items-center pt-4 border-t border-purple-600/30">
-          <Button
-            variant="outline"
-            onClick={() => {
-              if (quizState.currentQuestionIndex > 0) {
-                setQuizState(prev => ({
-                  ...prev,
-                  currentQuestionIndex: prev.currentQuestionIndex - 1
-                }));
-              }
-            }}
-            disabled={quizState.currentQuestionIndex === 0}
-            className="border-purple-400 text-white hover:bg-purple-600/30 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            Previous
-          </Button>
-
-          <div className="text-purple-200 text-sm font-medium">
-            {quizState.currentQuestionIndex + 1} of {quizState.questions.length}
-          </div>
-
-          <Button
-            onClick={() => {
-              if (quizState.currentQuestionIndex < quizState.questions.length - 1) {
-                setQuizState(prev => ({
-                  ...prev,
-                  currentQuestionIndex: prev.currentQuestionIndex + 1
-                }));
-              }
-            }}
-            disabled={quizState.currentQuestionIndex === quizState.questions.length - 1}
-            className="bg-purple-600 hover:bg-purple-700 text-white font-medium flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Next
-            <ChevronRight className="w-4 h-4" />
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
-
-  const renderResults = () => (
-    <Card variant="glass" className="animate-fade-in">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          {quizState.score / quizState.questions.length >= 0.7 ? (
-            <CheckCircle className="w-6 h-6 text-green-400" />
-          ) : (
-            <AlertCircle className="w-6 h-6 text-yellow-400" />
-          )}
-          Quiz Results
-        </CardTitle>
-        <CardDescription>
-          You scored {quizState.score} out of {quizState.questions.length}
-          {quizState.startTime && quizState.currentTime && (
-            <span className="ml-3 text-indigo-300">
-              • Time: {Math.floor((quizState.currentTime - quizState.startTime) / 60000)}:{Math.floor(((quizState.currentTime - quizState.startTime) % 60000) / 1000).toString().padStart(2, '0')}
-            </span>
-          )}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        {quizState.questions.map((question, index) => (
-          <div key={index} className="space-y-2">
-            <p className="font-medium text-white">{question.question}</p>
-            <div className="grid grid-cols-1 gap-2">
-              {question.options.map((option, optionIndex) => (
-                <div
-                  key={optionIndex}
-                  className={`p-3 rounded-lg ${
-                    option === question.correctAnswer
-                      ? 'bg-green-500/20 border border-green-400/30'
-                      : option === quizState.userAnswers[index] && option !== question.correctAnswer
-                      ? 'bg-red-500/20 border border-red-400/30'
-                      : 'bg-white/10 border border-white/20'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    {option === question.correctAnswer ? (
-                      <CheckCircle className="w-4 h-4 text-green-400" />
-                    ) : option === quizState.userAnswers[index] && option !== question.correctAnswer ? (
-                      <XCircle className="w-4 h-4 text-red-400" />
-                    ) : null}
-                    <span className="text-white">{option}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        ))}
-      </CardContent>
-
-<CardFooter className="justify-end">
-      <Button onClick={() => setQuizState({ ...quizState, currentQuestionIndex: 0, showResults: false, isReviewMode: true })}>
-  Review Questions
-      </Button>
-      </CardFooter>
-
-
-    </Card>
-  );
-
-  // Main Render
-  return (
-    <div className="container max-w-4xl mx-auto space-y-8 py-8">
-      {!user ? (
-        <Card variant="glass" className="text-center p-8">
-          <CardContent className="space-y-4">
-            <Brain className="w-12 h-12 mx-auto text-white/60" />
-            <CardTitle>Welcome to Quizist.AI</CardTitle>
-            <CardDescription>
-              AI-Powered Merit Scholarship Platform - Where Knowledge Earns Scholarships
-            </CardDescription>
-            <div className="mt-6 space-y-4">
-              <div className="p-4 bg-gradient-to-r from-green-900/20 to-emerald-900/20 rounded-lg border border-green-400/30">
-                <p className="text-green-100 text-sm mb-3">
-                  🎓 <strong>For Students:</strong> Win real money scholarships with our merit-based competitions
-                </p>
+              
+              {featuredCompetition && (
                 <Button 
                   onClick={() => navigate('/scholarship')}
-                  className="bg-green-600 hover:bg-green-700 text-white w-full"
+                  className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold text-lg px-8 py-4 rounded-full shadow-2xl hover:shadow-green-500/25 transition-all duration-300 transform hover:scale-105"
                 >
-                  {user ? 'Go to Scholarship Program' : 'View Scholarship Opportunities'}
+                  <Trophy className="mr-2 h-6 w-6" />
+                  Win Scholarships
                 </Button>
-              </div>
-              
-              <div className="p-4 bg-purple-900/20 rounded-lg border border-purple-400/30">
-                <p className="text-purple-100 text-sm mb-3">
-                  🏫 <strong>For Schools & Institutions:</strong> Enterprise solutions coming soon
-                </p>
+              )}
+            </div>
+          </div>
+
+          {/* Featured Competition Banner */}
+          {featuredCompetition && (
+            <div className="bg-gradient-to-r from-green-900/30 to-emerald-900/30 backdrop-blur-sm rounded-2xl p-8 border border-green-400/30 mb-16">
+              <div className="text-center">
+                <div className="inline-flex items-center gap-2 bg-green-500/20 rounded-full px-4 py-2 mb-4">
+                  <Star className="h-4 w-4 text-yellow-300" />
+                  <span className="text-green-100 font-medium">Featured Scholarship Competition</span>
+                </div>
+                
+                <h2 className="text-3xl font-bold text-white mb-4">{featuredCompetition.title}</h2>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-2xl mx-auto mb-6">
+                  <div className="text-center">
+                    <DollarSign className="h-8 w-8 mx-auto mb-2 text-green-400" />
+                    <div className="text-2xl font-bold text-white">{featuredCompetition.prizePool}</div>
+                    <div className="text-green-200">Prize Pool</div>
+                  </div>
+                  <div className="text-center">
+                    <Calendar className="h-8 w-8 mx-auto mb-2 text-blue-400" />
+                    <div className="text-2xl font-bold text-white">{formatDate(featuredCompetition.startDate)}</div>
+                    <div className="text-green-200">Competition Date</div>
+                  </div>
+                  <div className="text-center">
+                    <Users className="h-8 w-8 mx-auto mb-2 text-purple-400" />
+                    <div className="text-2xl font-bold text-white">{featuredCompetition.participantCount}</div>
+                    <div className="text-green-200">Registered</div>
+                  </div>
+                </div>
+
                 <Button 
-                  disabled
-                  variant="outline" 
-                  className="border-purple-300 text-purple-300 cursor-not-allowed w-full opacity-60"
+                  onClick={() => navigate('/scholarship')}
+                  className="bg-green-600 hover:bg-green-700 text-white font-semibold px-8 py-3 rounded-full"
                 >
-                  Coming Soon - Stay Tuned
+                  Register for Scholarship
+                  <ArrowRight className="ml-2 h-5 w-5" />
                 </Button>
               </div>
             </div>
-          </CardContent>
-        </Card>
-      ) : quizState.questions.length === 0 ? (
-        renderQuizForm()
-      ) : quizState.showResults ? (
-        renderResults()
-      ) : (
-        renderQuestion()
-      )}
+          )}
+        </div>
+      </div>
+
+      {/* Features Section */}
+      <div className="bg-white/5 backdrop-blur-sm py-16">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold text-white mb-4">
+              Powerful Features for Every User
+            </h2>
+            <p className="text-xl text-purple-200 max-w-2xl mx-auto">
+              From students to educators, our AI-powered platform serves everyone's learning needs
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {/* Document Upload */}
+            <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/15 transition-all duration-300">
+              <CardHeader className="text-center">
+                <FileText className="h-12 w-12 mx-auto mb-4 text-blue-400" />
+                <CardTitle className="text-xl">Document to Quiz</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-purple-100 text-center mb-4">
+                  Upload PDFs, Word docs, or text files and instantly generate intelligent quizzes from your content.
+                </p>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  <span className="bg-blue-500/20 text-blue-200 px-2 py-1 rounded text-sm">PDF</span>
+                  <span className="bg-blue-500/20 text-blue-200 px-2 py-1 rounded text-sm">DOCX</span>
+                  <span className="bg-blue-500/20 text-blue-200 px-2 py-1 rounded text-sm">TXT</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Topic-Based Generation */}
+            <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/15 transition-all duration-300">
+              <CardHeader className="text-center">
+                <Brain className="h-12 w-12 mx-auto mb-4 text-purple-400" />
+                <CardTitle className="text-xl">Topic-Based Quizzes</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-purple-100 text-center mb-4">
+                  Enter any topic and our AI generates comprehensive quizzes with multiple difficulty levels.
+                </p>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  <span className="bg-purple-500/20 text-purple-200 px-2 py-1 rounded text-sm">Math</span>
+                  <span className="bg-purple-500/20 text-purple-200 px-2 py-1 rounded text-sm">Science</span>
+                  <span className="bg-purple-500/20 text-purple-200 px-2 py-1 rounded text-sm">History</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Scholarship Competitions */}
+            <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/15 transition-all duration-300">
+              <CardHeader className="text-center">
+                <Trophy className="h-12 w-12 mx-auto mb-4 text-yellow-400" />
+                <CardTitle className="text-xl">Merit Scholarships</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-purple-100 text-center mb-4">
+                  Compete in timed competitions and win real money scholarships based on your knowledge and speed.
+                </p>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  <span className="bg-yellow-500/20 text-yellow-200 px-2 py-1 rounded text-sm">Cash Prizes</span>
+                  <span className="bg-yellow-500/20 text-yellow-200 px-2 py-1 rounded text-sm">Fair Competition</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Practice Mode */}
+            <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/15 transition-all duration-300">
+              <CardHeader className="text-center">
+                <Target className="h-12 w-12 mx-auto mb-4 text-green-400" />
+                <CardTitle className="text-xl">Practice & Improve</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-purple-100 text-center mb-4">
+                  Take unlimited practice tests, track your progress, and build confidence before competitions.
+                </p>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  <span className="bg-green-500/20 text-green-200 px-2 py-1 rounded text-sm">Unlimited Attempts</span>
+                  <span className="bg-green-500/20 text-green-200 px-2 py-1 rounded text-sm">Progress Tracking</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* AI-Powered */}
+            <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/15 transition-all duration-300">
+              <CardHeader className="text-center">
+                <Zap className="h-12 w-12 mx-auto mb-4 text-orange-400" />
+                <CardTitle className="text-xl">AI-Powered Intelligence</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-purple-100 text-center mb-4">
+                  Advanced AI ensures fair, unbiased question generation with multiple difficulty levels and formats.
+                </p>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  <span className="bg-orange-500/20 text-orange-200 px-2 py-1 rounded text-sm">Smart Generation</span>
+                  <span className="bg-orange-500/20 text-orange-200 px-2 py-1 rounded text-sm">Fair & Unbiased</span>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Enterprise Ready */}
+            <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/15 transition-all duration-300">
+              <CardHeader className="text-center">
+                <Building className="h-12 w-12 mx-auto mb-4 text-indigo-400" />
+                <CardTitle className="text-xl">Enterprise Solutions</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-purple-100 text-center mb-4">
+                  Scalable solutions for schools, universities, and organizations with advanced analytics and management.
+                </p>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  <span className="bg-indigo-500/20 text-indigo-200 px-2 py-1 rounded text-sm">Coming Soon</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+
+      {/* User Types Section */}
+      <div className="py-16">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-4xl font-bold text-white mb-4">
+              Built for Everyone
+            </h2>
+            <p className="text-xl text-purple-200">
+              Whether you're a student, educator, or institution, we have the right solution for you
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Students */}
+            <Card className="bg-gradient-to-br from-green-900/30 to-emerald-900/30 border-green-400/30 text-white">
+              <CardHeader className="text-center">
+                <GraduationCap className="h-16 w-16 mx-auto mb-4 text-green-400" />
+                <CardTitle className="text-2xl">For Students</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 text-green-400" />
+                    <span>Win real money scholarships</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 text-green-400" />
+                    <span>Practice with unlimited attempts</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 text-green-400" />
+                    <span>Track your progress over time</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 text-green-400" />
+                    <span>Generate quizzes from your study materials</span>
+                  </div>
+                </div>
+                
+                <div className="pt-4">
+                  <Button 
+                    onClick={() => navigate(user ? '/quiz-generator' : '/quiz-generator')}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold"
+                  >
+                    {user ? 'Start Creating Quizzes' : 'Get Started Free'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Educators */}
+            <Card className="bg-gradient-to-br from-blue-900/30 to-indigo-900/30 border-blue-400/30 text-white">
+              <CardHeader className="text-center">
+                <BookOpen className="h-16 w-16 mx-auto mb-4 text-blue-400" />
+                <CardTitle className="text-2xl">For Educators</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 text-blue-400" />
+                    <span>Create assessments from any content</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 text-blue-400" />
+                    <span>Save time on quiz creation</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 text-blue-400" />
+                    <span>Multiple difficulty levels</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 text-blue-400" />
+                    <span>Instant feedback and analytics</span>
+                  </div>
+                </div>
+                
+                <div className="pt-4">
+                  <Button 
+                    onClick={() => navigate(user ? '/quiz-generator' : '/quiz-generator')}
+                    className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold"
+                  >
+                    {user ? 'Create Teaching Materials' : 'Try for Teaching'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Institutions */}
+            <Card className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 border-purple-400/30 text-white">
+              <CardHeader className="text-center">
+                <Building className="h-16 w-16 mx-auto mb-4 text-purple-400" />
+                <CardTitle className="text-2xl">For Institutions</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 text-purple-400" />
+                    <span>Enterprise-grade security</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 text-purple-400" />
+                    <span>Advanced analytics dashboard</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 text-purple-400" />
+                    <span>Custom branding options</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 text-purple-400" />
+                    <span>Dedicated support team</span>
+                  </div>
+                </div>
+                
+                <div className="pt-4">
+                  <Button 
+                    disabled
+                    className="w-full bg-purple-600/50 text-white font-semibold cursor-not-allowed opacity-60"
+                  >
+                    Coming Soon - Contact Us
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+
+      {/* CTA Section */}
+      <div className="bg-gradient-to-r from-purple-900/50 to-indigo-900/50 backdrop-blur-sm py-16">
+        <div className="max-w-4xl mx-auto px-4 text-center">
+          <h2 className="text-4xl font-bold text-white mb-6">
+            Ready to Transform Your Learning?
+          </h2>
+          
+          <p className="text-xl text-purple-100 mb-8">
+            Join thousands of students and educators already using Quizist.AI to enhance their learning experience
+          </p>
+          
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button 
+              onClick={() => navigate(user ? '/quiz-generator' : '/quiz-generator')}
+              className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-bold text-xl px-12 py-6 rounded-full shadow-2xl hover:shadow-purple-500/25 transition-all duration-300 transform hover:scale-105"
+            >
+              <Brain className="mr-2 h-6 w-6" />
+              {user ? 'Create Your First Quiz' : 'Start Free Today'}
+            </Button>
+            
+            {featuredCompetition && (
+              <Button 
+                onClick={() => navigate('/scholarship')}
+                className="bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white font-bold text-xl px-12 py-6 rounded-full shadow-2xl hover:shadow-green-500/25 transition-all duration-300 transform hover:scale-105"
+              >
+                <Award className="mr-2 h-6 w-6" />
+                Win Scholarships
+              </Button>
+            )}
+          </div>
+
+          <div className="mt-8 flex items-center justify-center gap-8 text-purple-200">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-400" />
+              <span>100% Free to Start</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-400" />
+              <span>No Credit Card Required</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-5 w-5 text-green-400" />
+              <span>Instant Results</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
