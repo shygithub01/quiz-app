@@ -23,7 +23,6 @@ export default function AdminEditCompetition() {
     description: '',
     startDate: '',
     endDate: '',
-    status: 'upcoming',
     isPractice: false,
     rules: '',
     prizes: ''
@@ -66,7 +65,6 @@ export default function AdminEditCompetition() {
         description: comp.description || '',
         startDate: startDate.toISOString().slice(0, 16), // Format for datetime-local
         endDate: endDate.toISOString().slice(0, 16),
-        status: comp.status || 'upcoming',
         isPractice: comp.isPractice || false,
         rules: Array.isArray(comp.rules) ? comp.rules.join('\n') : (comp.rules || ''),
         prizes: Array.isArray(comp.prizes) ? comp.prizes.join('\n') : (comp.prizes || '')
@@ -97,13 +95,12 @@ export default function AdminEditCompetition() {
     try {
       setSaving(true);
 
-      // Prepare update data
+      // Prepare update data (status will be auto-calculated based on dates)
       const updateData = {
         title: formData.title,
         description: formData.description,
         startDate: new Date(formData.startDate).toISOString(),
         endDate: new Date(formData.endDate).toISOString(),
-        status: formData.status,
         isPractice: formData.isPractice,
         rules: formData.rules.split('\n').filter(r => r.trim()),
         // Clear prizes for practice competitions, keep them for scholarship competitions
@@ -238,23 +235,16 @@ export default function AdminEditCompetition() {
                   />
                 </div>
               </div>
-
-              {/* Status */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Status *
-                </label>
-                <select
-                  name="status"
-                  value={formData.status}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="upcoming">Upcoming</option>
-                  <option value="active">Active</option>
-                  <option value="completed">Completed</option>
-                </select>
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <p className="text-sm text-blue-800">
+                  ℹ️ <strong>Competition status is automatically calculated:</strong>
+                  <br />• Upcoming: Before start date
+                  <br />• Active: Between start and end date
+                  <br />• Completed: After end date
+                  <br /><br />
+                  To reactivate a completed competition, simply update the end date to a future time.
+                </p>
               </div>
 
               {/* Competition Type */}
