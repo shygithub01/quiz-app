@@ -91,68 +91,6 @@ export default function Competitions() {
     });
   };
 
-  /**
-   * FIXED: Renders practice competition button with consistent styling
-   * based ONLY on competition status - hasParticipated is COMPLETELY IGNORED
-   * 
-   * PRACTICE COMPETITIONS = UNLIMITED ATTEMPTS
-   * - Users can retake practice tests as many times as they want
-   * - Button appearance is the same for everyone (status-based only)
-   * - No "Already Participated" blocking for practice
-   */
-  const renderPracticeButton = (competition: Competition) => {
-    // Determine button state based ONLY on status
-    const isCompleted = competition.status === 'completed';
-    const isActive = competition.status === 'active';
-    const isUpcoming = competition.status === 'upcoming';
-
-    // For completed practice competitions - ALWAYS grey, ALWAYS same text
-    if (isCompleted) {
-      return (
-        <button
-          disabled
-          className="flex-1 font-medium transition-all shadow-lg rounded-md px-4 py-2 bg-gray-100 text-gray-800 border border-gray-300 cursor-not-allowed"
-        >
-          📅 Practice Ended
-        </button>
-      );
-    }
-
-    // For active practice competitions - same button for everyone
-    if (isActive) {
-      return (
-        <button
-          onClick={() => navigate(`/competitions/${competition.id}`)}
-          className="flex-1 font-medium transition-all shadow-lg hover:shadow-xl rounded-md px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white"
-        >
-          ▶️ Start Practice
-        </button>
-      );
-    }
-
-    // For upcoming practice competitions
-    if (isUpcoming) {
-      return (
-        <button
-          disabled
-          className="flex-1 font-medium transition-all shadow-lg rounded-md px-4 py-2 bg-yellow-100 text-yellow-800 border border-yellow-300 cursor-not-allowed"
-        >
-          ⏰ Coming Soon
-        </button>
-      );
-    }
-
-    // Fallback (should never reach here)
-    return (
-      <button
-        disabled
-        className="flex-1 font-medium transition-all shadow-lg rounded-md px-4 py-2 bg-gray-100 text-gray-800 border border-gray-300 cursor-not-allowed"
-      >
-        📅 Practice Ended
-      </button>
-    );
-  };
-
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-6xl mx-auto space-y-8">
@@ -250,48 +188,89 @@ export default function Competitions() {
                   </div>
 
                   <div className="flex gap-3 pt-2">
-                    {/* PRACTICE COMPETITIONS - FIXED BUTTON LOGIC */}
-                    {competition.isPractice && renderPracticeButton(competition)}
+                   {/* PRACTICE COMPETITIONS (DEBUG) */}
+{competition.isPractice && (() => {
+  const isCompleted = competition.status === 'completed';
+  const isActive = competition.status === 'active';
+
+  let label = '';
+  let disabled = false;
+
+  if (isCompleted) {
+    label = `✅ DEBUG COMPLETED (${competition.id})`;
+    disabled = true;
+  } else if (isActive) {
+    label = competition.hasParticipated
+      ? `🟢 DEBUG ACTIVE / RETAKE (${competition.id})`
+      : `🔵 DEBUG ACTIVE / JOIN (${competition.id})`;
+  } else {
+    label = `⏳ DEBUG NOT STARTED (${competition.id})`;
+    disabled = true;
+  }
+
+  console.log('Practice button render (DEBUG)', {
+    id: competition.id,
+    title: competition.title,
+    status: competition.status,
+    isPractice: competition.isPractice,
+    hasParticipated: competition.hasParticipated,
+    label,
+    disabled,
+  });
+
+  return (
+    <button
+      onClick={() => {
+        if (!disabled) {
+          navigate(`/competitions/${competition.id}`);
+        }
+      }}
+      className="flex-1 font-medium transition-all shadow-lg hover:shadow-xl rounded-md px-4 py-2 rounded-md"
+      // INLINE STYLE so CSS *cannot* sneak in a blue gradient
+      style={{
+        backgroundColor: isCompleted ? '#e5e7eb' : '#111827',  // grey vs almost-black
+        color: isCompleted ? '#1f2933' : '#f9fafb',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.8 : 1,
+      }}
+      disabled={disabled}
+    >
+      {label}
+    </button>
+  );
+})()}
  
-                    {/* SCHOLARSHIP COMPETITIONS - ONE-TIME PARTICIPATION ONLY */}
+                    {/* SCHOLARSHIP COMPETITIONS */}
                     {!competition.isPractice && (
                       <>
-                        {/* Main Competition Button */}
-                        {!competition.hasParticipated && competition.status === 'active' ? (
-                          // User hasn't participated yet AND competition is active - allow joining
+                        {!competition.hasParticipated ? (
                           <button 
                             onClick={() => navigate(`/competitions/${competition.id}`)}
-                            className="flex-1 font-medium transition-all shadow-lg hover:shadow-xl rounded-md px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white"
+                            className={`flex-1 font-medium transition-all shadow-lg hover:shadow-xl rounded-md px-4 py-2 ${
+                              competition.status === 'completed'
+                                ? 'bg-gray-100 text-gray-800 cursor-not-allowed'
+                                : competition.status === 'active'
+                                  ? 'bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white'
+                                  : 'bg-gray-100 text-gray-800 cursor-not-allowed'
+                            }`}
+                            disabled={competition.status !== 'active'}
                           >
-                            🚀 Join Competition
+                            {competition.status === 'completed'
+                              ? '📅 Completed'
+                              : competition.status === 'active'
+                                ? '🚀 Join Competition'
+                                : '📅 Upcoming'
+                            }
                           </button>
-                        ) : competition.hasParticipated ? (
-                          // User already participated - show grey disabled button
+                        ) : (
                           <button 
                             disabled
-                            className="flex-1 font-medium bg-gray-100 text-gray-800 border border-gray-300 cursor-not-allowed rounded-md px-4 py-2"
+                            className="flex-1 font-medium bg-gray-100 text-gray-800 cursor-not-allowed rounded-md px-4 py-2"
                           >
                             ✅ Already Participated
                           </button>
-                        ) : competition.status === 'completed' ? (
-                          // Competition is completed
-                          <button 
-                            disabled
-                            className="flex-1 font-medium bg-gray-100 text-gray-800 border border-gray-300 cursor-not-allowed rounded-md px-4 py-2"
-                          >
-                            📅 Completed
-                          </button>
-                        ) : (
-                          // Competition is upcoming
-                          <button 
-                            disabled
-                            className="flex-1 font-medium bg-yellow-100 text-yellow-800 border border-yellow-300 cursor-not-allowed rounded-md px-4 py-2"
-                          >
-                            ⏰ Upcoming
-                          </button>
                         )}
                         
-                        {/* Leaderboard Button - Always Available */}
                         <button 
                           onClick={() => navigate(`/competitions/${competition.id}/leaderboard`)}
                           className="flex-1 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-medium shadow-lg hover:shadow-xl transition-all rounded-md px-4 py-2"

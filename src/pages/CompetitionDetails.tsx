@@ -197,9 +197,9 @@ const CompetitionDetails: React.FC = () => {
               ) : (
                 <button
                   disabled
-                  className="px-8 py-3 bg-gray-300 text-gray-600 rounded-lg font-medium cursor-not-allowed"
+                  className="px-8 py-3 bg-gray-100 text-gray-800 rounded-lg font-medium cursor-not-allowed"
                 >
-                  {competition.status === 'upcoming' ? '📅 Practice Not Started' : '🏁 Practice Ended'}
+                  {competition.status === 'upcoming' ? '📅 Practice Not Started' : '📅 Completed'}
                 </button>
               )}
               <button
@@ -327,13 +327,13 @@ const CompetitionDetails: React.FC = () => {
         {(competition.status !== 'active' || (hasParticipated && !competition.isPractice)) && (
           <button
             disabled
-            className="px-8 py-4 bg-gray-300 text-gray-600 rounded-lg font-medium text-lg cursor-not-allowed"
+            className="px-8 py-4 bg-gray-100 text-gray-800 rounded-lg font-medium text-lg cursor-not-allowed"
           >
             {hasParticipated && !competition.isPractice
               ? '✅ Already Participated' 
               : competition.status === 'upcoming' 
-                ? '📅 Competition Upcoming' 
-                : '🏁 Competition Completed'
+                ? '📅 Upcoming' 
+                : '📅 Completed'
             }
           </button>
         )}
