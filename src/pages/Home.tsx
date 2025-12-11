@@ -29,7 +29,7 @@ interface FeaturedCompetition {
 }
 
 export default function Home() {
-  const { user } = useAuth();
+  const { user, signIn } = useAuth();
   const navigate = useNavigate();
   const [featuredCompetition, setFeaturedCompetition] = useState<FeaturedCompetition | null>(null);
   const [, setLoading] = useState(true);
@@ -185,11 +185,17 @@ export default function Home() {
                 
                 <div className="pt-4">
                   <Button 
-                    onClick={() => {
+                    onClick={async () => {
                       if (user) {
                         navigate('/quiz-generator');
                       } else {
-                        navigate('/scholarship'); // Redirect to scholarship page which has sign-in
+                        try {
+                          await signIn();
+                          // After successful sign-in, navigate to quiz generator
+                          navigate('/quiz-generator');
+                        } catch (error) {
+                          console.error('Sign-in failed:', error);
+                        }
                       }
                     }}
                     className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold"
@@ -228,11 +234,17 @@ export default function Home() {
                 
                 <div className="pt-4">
                   <Button 
-                    onClick={() => {
+                    onClick={async () => {
                       if (user) {
                         navigate('/scholarship');
                       } else {
-                        navigate('/scholarship'); // Redirect to scholarship page which has sign-in
+                        try {
+                          await signIn();
+                          // After successful sign-in, navigate to scholarship
+                          navigate('/scholarship');
+                        } catch (error) {
+                          console.error('Sign-in failed:', error);
+                        }
                       }
                     }}
                     className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold"
