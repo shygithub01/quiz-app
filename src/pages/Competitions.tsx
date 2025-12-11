@@ -204,9 +204,19 @@ export default function Competitions() {
                         ) : (
                           <Button 
                             onClick={() => navigate(`/competitions/${competition.id}`)}
-                            className="flex-1 font-medium transition-all bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white shadow-lg hover:shadow-xl"
+                            className={`flex-1 font-medium transition-all shadow-lg hover:shadow-xl ${
+                              competition.status === 'active' 
+                                ? 'bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white' 
+                                : 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                            }`}
+                            disabled={competition.status !== 'active'}
                           >
-                            🔄 Retake Practice
+                            {competition.status === 'active' 
+                              ? '🔄 Retake Practice' 
+                              : competition.status === 'upcoming' 
+                                ? '📅 Practice Not Started'
+                                : '🏁 Practice Ended'
+                            }
                           </Button>
                         )}
                       </>
