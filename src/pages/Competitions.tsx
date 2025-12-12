@@ -39,9 +39,15 @@ export default function Competitions() {
         data.map(async (comp) => {
           // For practice tests, get unique participant count from practiceAttempts
           // For scholarship competitions, use the participantCount from competition document
-          const participantCount = comp.isPractice 
+          const actualCount = comp.isPractice 
             ? await getPracticeParticipantCount(comp.id)
             : comp.participantCount || 0;
+          
+          // Add marketing boost to participant count
+          // Practice: +100, Scholarship: +25
+          const participantCount = comp.isPractice 
+            ? actualCount + 100
+            : actualCount + 25;
           
           // Check participation for each competition if user is logged in
           let hasParticipated = false;
@@ -290,6 +296,14 @@ export default function Competitions() {
                             ⏰ Upcoming
                           </button>
                         )}
+                        
+                        {/* View Details Button - Always Available */}
+                        <button 
+                          onClick={() => navigate(`/competitions/${competition.id}`)}
+                          className="flex-1 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-medium shadow-lg hover:shadow-xl transition-all rounded-md px-4 py-2"
+                        >
+                          📋 View Details
+                        </button>
                         
                         {/* Leaderboard Button - Always Available */}
                         <button 

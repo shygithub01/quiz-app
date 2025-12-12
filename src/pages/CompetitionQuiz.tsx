@@ -35,16 +35,48 @@ export default function CompetitionQuiz() {
   const [showResults, setShowResults] = useState(false);
   const [score, setScore] = useState(0);
   const [submitting, setSubmitting] = useState(false);
+  const [isTimeExpired, setIsTimeExpired] = useState(false);
+  const [durationMs, setDurationMs] = useState<number | null>(null);
 
-  // Timer effect
+  // Parse duration string to milliseconds
+  const parseDuration = (durationStr: string): number | null => {
+    if (!durationStr) return null;
+    
+    const match = durationStr.match(/(\d+)\s*(minute|min|hour|hr)/i);
+    if (!match) return null;
+    
+    const value = parseInt(match[1]);
+    const unit = match[2].toLowerCase();
+    
+    if (unit.startsWith('hour') || unit === 'hr') {
+      return value * 60 * 60 * 1000; // hours to ms
+    } else {
+      return value * 60 * 1000; // minutes to ms
+    }
+  };
+
+  // Timer effect with expiration check
   useEffect(() => {
-    if (startTime && !showResults && questions.length > 0) {
+    if (startTime && !showResults && questions.length > 0 && !submitting) {
       const interval = setInterval(() => {
-        setCurrentTime(Date.now());
+        const now = Date.now();
+        setCurrentTime(now);
+        
+        // Check if time has expired
+        if (durationMs) {
+          const elapsed = now - startTime;
+          if (elapsed >= durationMs && !isTimeExpired) {
+            setIsTimeExpired(true);
+            // Auto-submit after a brief delay to show the expired state
+            setTimeout(() => {
+              handleSubmit();
+            }, 1500);
+          }
+        }
       }, 1000);
       return () => clearInterval(interval);
     }
-  }, [startTime, showResults, questions.length]);
+  }, [startTime, showResults, questions.length, durationMs, isTimeExpired, submitting]);
 
   // Load competition and questions
   useEffect(() => {
@@ -81,6 +113,12 @@ export default function CompetitionQuiz() {
 
         setCompetition(comp);
 
+        // Parse duration if available
+        if (comp.duration) {
+          const duration = parseDuration(comp.duration);
+          setDurationMs(duration);
+        }
+
         // Load quiz template
         const template = await getQuizTemplate(comp.quizTemplateId);
         if (!template || !template.questions) {
@@ -105,6 +143,11 @@ export default function CompetitionQuiz() {
   }, [competitionId, user]);
 
   const handleAnswerSelect = (answer: string) => {
+    // Prevent answer selection if time has expired
+    if (isTimeExpired) {
+      return;
+    }
+    
     const newAnswers = [...userAnswers];
     newAnswers[currentQuestionIndex] = answer;
     setUserAnswers(newAnswers);
@@ -166,9 +209,70 @@ export default function CompetitionQuiz() {
   };
 
   const formatTime = (ms: number) => {
-    const minutes = Math.floor(ms / 60000);
-    const seconds = Math.floor((ms % 60000) / 1000);
+    const totalSeconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
+  // Calculate remaining time
+  const getTimeRemaining = () => {
+    if (!durationMs) return null;
+    const elapsed = currentTime - startTime;
+    const remaining = durationMs - elapsed;
+    return Math.max(0, remaining);
+  };
+
+  // Get timer display info
+  const getTimerDisplay = () => {
+    const timeRemaining = getTimeRemaining();
+    
+    if (timeRemaining === null) {
+      // No duration set, show elapsed time
+      return {
+        time: formatTime(currentTime - startTime),
+        label: 'Time Elapsed',
+        color: 'text-white',
+        bgColor: 'bg-white/20'
+      };
+    }
+    
+    if (timeRemaining === 0) {
+      return {
+        time: '0:00',
+        label: 'Time Expired!',
+        color: 'text-red-100',
+        bgColor: 'bg-red-500/40 animate-pulse'
+      };
+    }
+    
+    const remainingSeconds = Math.floor(timeRemaining / 1000);
+    
+    if (remainingSeconds <= 60) {
+      // Last minute - red warning
+      return {
+        time: formatTime(timeRemaining),
+        label: 'Time Remaining',
+        color: 'text-red-100',
+        bgColor: 'bg-red-500/40 animate-pulse'
+      };
+    } else if (remainingSeconds <= 300) {
+      // Last 5 minutes - yellow warning
+      return {
+        time: formatTime(timeRemaining),
+        label: 'Time Remaining',
+        color: 'text-yellow-100',
+        bgColor: 'bg-yellow-500/30'
+      };
+    } else {
+      // Normal time
+      return {
+        time: formatTime(timeRemaining),
+        label: 'Time Remaining',
+        color: 'text-white',
+        bgColor: 'bg-white/20'
+      };
+    }
   };
 
   if (loading) {
@@ -337,20 +441,35 @@ export default function CompetitionQuiz() {
             </p>
           </div>
           {/* Timer */}
-          <div className="flex items-center gap-3 bg-white/20 px-6 py-3 rounded-xl backdrop-blur-sm">
-            <Clock className="w-6 h-6 animate-pulse" />
+          <div className={`flex items-center gap-3 ${getTimerDisplay().bgColor} px-6 py-3 rounded-xl backdrop-blur-sm transition-all`}>
+            <Clock className={`w-6 h-6 ${isTimeExpired ? 'animate-pulse' : ''}`} />
             <div className="flex flex-col">
-              <span className="text-xs text-white/80 font-medium uppercase tracking-wide">Time Elapsed</span>
-              <span className="text-2xl font-bold tabular-nums">
-                {formatTime(currentTime - startTime)}
+              <span className={`text-xs ${getTimerDisplay().color} font-medium uppercase tracking-wide`}>
+                {getTimerDisplay().label}
+              </span>
+              <span className={`text-2xl font-bold tabular-nums ${getTimerDisplay().color}`}>
+                {getTimerDisplay().time}
               </span>
             </div>
           </div>
         </div>
       </div>
 
+      {/* Time Expired Warning */}
+      {isTimeExpired && (
+        <div className="mb-6 bg-red-50 border-2 border-red-500 rounded-lg p-6 animate-pulse">
+          <div className="flex items-center justify-center gap-3">
+            <AlertCircle className="h-8 w-8 text-red-600" />
+            <div className="text-center">
+              <h3 className="text-xl font-bold text-red-900 mb-1">⏰ Time's Up!</h3>
+              <p className="text-red-800">Submitting your answers automatically...</p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Question Card */}
-      <Card>
+      <Card className={isTimeExpired ? 'opacity-60' : ''}>
         <CardHeader>
           <CardTitle className="text-xl">
             Question {currentQuestionIndex + 1} of {questions.length}
@@ -364,8 +483,11 @@ export default function CompetitionQuiz() {
               <button
                 key={index}
                 onClick={() => handleAnswerSelect(option)}
+                disabled={isTimeExpired}
                 className={`w-full p-4 text-left rounded-lg border-2 transition-all ${
-                  userAnswers[currentQuestionIndex] === option
+                  isTimeExpired
+                    ? 'border-gray-300 bg-gray-100 text-gray-500 cursor-not-allowed'
+                    : userAnswers[currentQuestionIndex] === option
                     ? 'border-blue-600 bg-blue-50'
                     : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50'
                 }`}
@@ -424,7 +546,7 @@ export default function CompetitionQuiz() {
             <Button
               variant="outline"
               onClick={handlePrevious}
-              disabled={currentQuestionIndex === 0}
+              disabled={currentQuestionIndex === 0 || isTimeExpired}
               className="min-w-[120px]"
             >
               ← Previous
@@ -434,13 +556,17 @@ export default function CompetitionQuiz() {
               {currentQuestionIndex === questions.length - 1 ? (
                 <Button
                   onClick={handleSubmit}
-                  disabled={submitting}
+                  disabled={submitting || isTimeExpired}
                   className="bg-green-600 hover:bg-green-700 min-w-[180px]"
                 >
-                  {submitting ? 'Submitting...' : '✓ Submit Competition'}
+                  {submitting ? 'Submitting...' : isTimeExpired ? 'Auto-submitting...' : '✓ Submit Competition'}
                 </Button>
               ) : (
-                <Button onClick={handleNext} className="min-w-[120px]">
+                <Button 
+                  onClick={handleNext} 
+                  disabled={isTimeExpired}
+                  className="min-w-[120px]"
+                >
                   Next →
                 </Button>
               )}

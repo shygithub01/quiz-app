@@ -41,17 +41,59 @@ export default function Home() {
   const loadFeaturedCompetition = async () => {
     try {
       const competition = await getFeaturedCompetition();
+      
       if (competition) {
+        // Check if competition has ended by comparing end date
+        const now = new Date();
+        const endDate = new Date(competition.endDate);
+        
+        console.log('📅 Featured competition:', competition.title);
+        console.log('📅 End date:', endDate);
+        console.log('📅 Current date:', now);
+        console.log('📅 Has ended:', endDate < now);
+        
+        if (endDate < now) {
+          // Featured competition has ended - show "Coming Soon"
+          console.log('⚠️ Featured competition has ended, showing Coming Soon');
+          setFeaturedCompetition({
+            id: 'expired',
+            title: 'Competition Coming Soon!',
+            prizePool: '$300',
+            startDate: new Date(),
+            participantCount: 0
+          });
+        } else {
+          // Featured competition is still active/upcoming - show it
+          console.log('✅ Featured competition is active, showing details');
+          setFeaturedCompetition({
+            id: competition.id,
+            title: competition.title,
+            prizePool: competition.prizePool || '$300',
+            startDate: competition.startDate,
+            participantCount: competition.participantCount || 0
+          });
+        }
+      } else {
+        // No featured competition set - show "Coming Soon"
+        console.log('⚠️ No featured competition set, showing Coming Soon');
         setFeaturedCompetition({
-          id: competition.id,
-          title: competition.title,
-          prizePool: competition.prizePool || '$300',
-          startDate: competition.startDate,
-          participantCount: competition.participantCount || 0
+          id: 'none',
+          title: 'Competition Coming Soon!',
+          prizePool: '$300',
+          startDate: new Date(),
+          participantCount: 0
         });
       }
     } catch (error) {
-      console.error('Error loading featured competition:', error);
+      console.error('❌ Error loading featured competition:', error);
+      // On error, show "Coming Soon"
+      setFeaturedCompetition({
+        id: 'error',
+        title: 'Competition Coming Soon!',
+        prizePool: '$300',
+        startDate: new Date(),
+        participantCount: 0
+      });
     } finally {
       setLoading(false);
     }
@@ -104,40 +146,73 @@ export default function Home() {
 
           {/* Featured Competition Banner */}
           {featuredCompetition && (
-            <div className="bg-gradient-to-r from-green-900/30 to-emerald-900/30 backdrop-blur-sm rounded-2xl p-8 border border-green-400/30 mb-16">
+            <div className={`backdrop-blur-sm rounded-2xl p-8 border mb-16 ${
+              featuredCompetition.id === 'expired' || featuredCompetition.id === 'none'
+                ? 'bg-gradient-to-r from-orange-900/30 to-yellow-900/30 border-orange-400/30'
+                : 'bg-gradient-to-r from-green-900/30 to-emerald-900/30 border-green-400/30'
+            }`}>
               <div className="text-center">
-                <div className="inline-flex items-center gap-2 bg-green-500/20 rounded-full px-4 py-2 mb-4">
+                <div className={`inline-flex items-center gap-2 rounded-full px-4 py-2 mb-4 ${
+                  featuredCompetition.id === 'expired' || featuredCompetition.id === 'none'
+                    ? 'bg-orange-500/20'
+                    : 'bg-green-500/20'
+                }`}>
                   <Star className="h-4 w-4 text-yellow-300" />
-                  <span className="text-green-100 font-medium">Featured Scholarship Competition</span>
+                  <span className={`font-medium ${
+                    featuredCompetition.id === 'expired' || featuredCompetition.id === 'none'
+                      ? 'text-orange-100'
+                      : 'text-green-100'
+                  }`}>Featured Scholarship Competition</span>
                 </div>
                 
                 <h2 className="text-3xl font-bold text-white mb-4">{featuredCompetition.title}</h2>
                 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-2xl mx-auto mb-6">
-                  <div className="text-center">
-                    <DollarSign className="h-8 w-8 mx-auto mb-2 text-green-400" />
-                    <div className="text-2xl font-bold text-white">{featuredCompetition.prizePool}</div>
-                    <div className="text-green-200">Prize Pool</div>
+                {featuredCompetition.id === 'expired' || featuredCompetition.id === 'none' ? (
+                  <div className="max-w-2xl mx-auto mb-6">
+                    <Trophy className="h-16 w-16 mx-auto mb-4 text-orange-300 opacity-50" />
+                    <p className="text-xl text-orange-100">
+                      The latest competition has ended. New competitions coming soon!
+                    </p>
                   </div>
-                  <div className="text-center">
-                    <Calendar className="h-8 w-8 mx-auto mb-2 text-blue-400" />
-                    <div className="text-2xl font-bold text-white">{formatDate(featuredCompetition.startDate)}</div>
-                    <div className="text-green-200">Competition Date</div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-2xl mx-auto mb-6">
+                    <div className="text-center">
+                      <DollarSign className="h-8 w-8 mx-auto mb-2 text-green-400" />
+                      <div className="text-2xl font-bold text-white">{featuredCompetition.prizePool}</div>
+                      <div className="text-green-200">Prize Pool</div>
+                    </div>
+                    <div className="text-center">
+                      <Calendar className="h-8 w-8 mx-auto mb-2 text-blue-400" />
+                      <div className="text-2xl font-bold text-white">{formatDate(featuredCompetition.startDate)}</div>
+                      <div className="text-green-200">Competition Date</div>
+                    </div>
+                    <div className="text-center">
+                      <Users className="h-8 w-8 mx-auto mb-2 text-purple-400" />
+                      <div className="text-2xl font-bold text-white">{featuredCompetition.participantCount}</div>
+                      <div className="text-green-200">Registered</div>
+                    </div>
                   </div>
-                  <div className="text-center">
-                    <Users className="h-8 w-8 mx-auto mb-2 text-purple-400" />
-                    <div className="text-2xl font-bold text-white">{featuredCompetition.participantCount}</div>
-                    <div className="text-green-200">Registered</div>
-                  </div>
-                </div>
+                )}
 
-                <Button 
-                  onClick={() => navigate('/scholarship')}
-                  className="bg-green-600 hover:bg-green-700 text-white font-semibold px-8 py-3 rounded-full"
-                >
-                  Register for Scholarship
-                  <ArrowRight className="ml-2 h-5 w-5" />
-                </Button>
+                {featuredCompetition.id === 'expired' || featuredCompetition.id === 'none' || featuredCompetition.id === 'error' ? (
+                  user && (
+                    <Button 
+                      onClick={() => navigate('/competitions')}
+                      className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3 rounded-full"
+                    >
+                      Practice Now
+                      <ArrowRight className="ml-2 h-5 w-5" />
+                    </Button>
+                  )
+                ) : (
+                  <Button 
+                    onClick={() => navigate('/scholarship')}
+                    className="bg-green-600 hover:bg-green-700 text-white font-semibold px-8 py-3 rounded-full"
+                  >
+                    Register for Scholarship
+                    <ArrowRight className="ml-2 h-5 w-5" />
+                  </Button>
+                )}
               </div>
             </div>
           )}

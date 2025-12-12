@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { getCompetitionById, getLeaderboard } from '@/components/ui/firebase';
+import { getCompetitionById, getLeaderboard, getQuizTemplate, getPracticeParticipantCount } from '@/components/ui/firebase';
 import { ArrowLeft, Trophy, Medal, Award, Clock, Target } from 'lucide-react';
 
 interface LeaderboardEntry {
@@ -23,6 +23,8 @@ export default function CompetitionLeaderboard() {
   const [competition, setCompetition] = useState<any>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [questionCount, setQuestionCount] = useState<number>(0);
+  const [participantCount, setParticipantCount] = useState<number>(0);
 
   useEffect(() => {
     loadData();
@@ -36,14 +38,52 @@ export default function CompetitionLeaderboard() {
 
       // Load competition details
       const comp = await getCompetitionById(competitionId);
+      console.log('🏆 Competition loaded:', comp);
       setCompetition(comp);
 
       // Load leaderboard
       const leaderboardData = await getLeaderboard(competitionId);
+      console.log('📊 Leaderboard loaded:', leaderboardData.length, 'entries');
       setLeaderboard(leaderboardData);
 
+      // Fetch question count from quiz template
+      if (comp?.quizTemplateId) {
+        console.log('📝 Fetching quiz template:', comp.quizTemplateId);
+        const template = await getQuizTemplate(comp.quizTemplateId);
+        console.log('📝 Template loaded:', template);
+        if (template?.questions) {
+          const qCount = template.questions.length;
+          console.log('✅ Question count:', qCount);
+          setQuestionCount(qCount);
+        } else {
+          console.log('⚠️ No questions in template');
+        }
+      } else {
+        console.log('⚠️ No quizTemplateId in competition');
+      }
+
+      // Get participant count
+      // For practice tests, get unique participant count from practiceAttempts
+      // For scholarship competitions, use the participantCount from competition document
+      if (comp?.isPractice) {
+        console.log('📊 Getting practice participant count...');
+        const actualCount = await getPracticeParticipantCount(competitionId);
+        console.log('✅ Practice participant count (actual):', actualCount);
+        // Add marketing boost: +100 for practice
+        const displayCount = actualCount + 100;
+        console.log('✅ Practice participant count (display):', displayCount);
+        setParticipantCount(displayCount);
+      } else {
+        const actualCount = comp?.participantCount || 0;
+        console.log('✅ Scholarship participant count (actual):', actualCount);
+        // Add marketing boost: +25 for scholarship
+        const displayCount = actualCount + 25;
+        console.log('✅ Scholarship participant count (display):', displayCount);
+        setParticipantCount(displayCount);
+      }
+
     } catch (error) {
-      console.error('Error loading leaderboard:', error);
+      console.error('❌ Error loading leaderboard:', error);
     } finally {
       setLoading(false);
     }
@@ -111,11 +151,11 @@ export default function CompetitionLeaderboard() {
         <div className="mb-6">
           <div className="mb-6">
             <button
-              onClick={() => navigate(`/competitions/${competitionId}`)}
+              onClick={() => navigate('/competitions')}
               className="px-6 py-3 rounded-lg font-medium bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 text-white shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
             >
               <ArrowLeft className="h-4 w-4" />
-              Back to Competition
+              Back to Competitions
             </button>
           </div>
 
@@ -130,11 +170,11 @@ export default function CompetitionLeaderboard() {
               <div className="flex justify-center gap-8 text-amber-100">
                 <div className="flex items-center gap-2">
                   <Target className="h-5 w-5" />
-                  <span className="font-medium">{leaderboard.length} Participants</span>
+                  <span className="font-medium">{participantCount} Participants</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Trophy className="h-5 w-5" />
-                  <span className="font-medium">50 Questions</span>
+                  <span className="font-medium">{questionCount} Questions</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <span className={`px-3 py-1 rounded-full text-sm font-bold ${
@@ -224,15 +264,6 @@ export default function CompetitionLeaderboard() {
           </CardContent>
         </Card>
 
-        {/* Back to Competition Button */}
-        <div className="mt-6 text-center">
-          <button
-            onClick={() => navigate(`/competitions/${competitionId}`)}
-            className="px-8 py-3 rounded-lg font-medium bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white shadow-lg hover:shadow-xl transition-all"
-          >
-            Back to Competition Details
-          </button>
-        </div>
       </div>
     </div>
   );

@@ -6,7 +6,8 @@ import {
   getAppSettings,
   setFeaturedCompetition,
   isAdmin,
-  getPracticeParticipantCount
+  getPracticeParticipantCount,
+  deleteCompetition
 } from '../components/ui/firebase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -14,8 +15,6 @@ import {
   Settings, 
   Star,
   Trophy,
-  Edit,
-  Eye,
   Plus
 } from 'lucide-react';
 
@@ -88,6 +87,31 @@ export default function AdminCompetitionSettings() {
       alert('Failed to load settings');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteCompetition = async (competitionId: string, title: string) => {
+    const confirmed = confirm(
+      `⚠️ Are you sure you want to delete "${title}"?\n\n` +
+      'This will permanently delete:\n' +
+      '• The competition\n' +
+      '• All participant data\n' +
+      '• All leaderboard entries\n\n' +
+      'This action CANNOT be undone!'
+    );
+    
+    if (!confirmed) return;
+    
+    try {
+      setSaving(true);
+      await deleteCompetition(competitionId);
+      alert('✅ Competition deleted successfully');
+      await loadData(); // Reload the list
+    } catch (error) {
+      console.error('❌ Error deleting competition:', error);
+      alert('Failed to delete competition. Please try again.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -309,22 +333,28 @@ export default function AdminCompetitionSettings() {
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
+                            <button
                               onClick={() => navigate(`/competitions/${comp.id}`)}
-                              title="View"
+                              className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+                              title="View competition details"
                             >
-                              <Eye className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
+                              View
+                            </button>
+                            <button
                               onClick={() => navigate(`/admin/competitions/${comp.id}/edit`)}
-                              title="Edit"
+                              className="px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+                              title="Edit competition"
                             >
-                              <Edit className="h-4 w-4" />
-                            </Button>
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteCompetition(comp.id, comp.title)}
+                              disabled={saving}
+                              className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Delete competition"
+                            >
+                              Delete
+                            </button>
                           </div>
                         </td>
                       </tr>

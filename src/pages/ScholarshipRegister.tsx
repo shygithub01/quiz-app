@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { saveScholarshipRegistration, checkScholarshipRegistration, getActiveCompetitionSettings } from '../components/ui/firebase';
-import { COMPETITION_CONFIG, getNextCompetitionDate, getPrizePool } from '../config/competition';
+import { saveScholarshipRegistration, checkScholarshipRegistration } from '../components/ui/firebase';
+import { COMPETITION_CONFIG, getPrizePool } from '../config/competition';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -57,15 +57,83 @@ export default function ScholarshipRegister() {
 
   const loadCompetitionData = async () => {
     try {
-      // Load competition settings
-      const settings = await getActiveCompetitionSettings();
-      setCompetitionSettings(settings);
-      console.log('🏆 Loaded competition settings for registration:', settings);
+      // Load actual competitions from competitions collection
+      const { getCompetitions } = await import('../components/ui/firebase');
+      const competitions = await getCompetitions();
+      
+      // Find the next active or upcoming scholarship competition
+      const scholarshipCompetitions = competitions.filter((c: any) => !c.isPractice);
+      const now = new Date();
+      
+      console.log('📊 All scholarship competitions:', scholarshipCompetitions.map((c: any) => ({
+        title: c.title,
+        status: c.status,
+        startDate: c.startDate,
+        endDate: c.endDate,
+        endDatePassed: new Date(c.endDate) < now
+      })));
+      
+      // Filter by actual dates, not just status (status might not be updated)
+      const activeOrUpcoming = scholarshipCompetitions.filter((c: any) => {
+        const endDate = new Date(c.endDate);
+        const isNotEnded = endDate >= now;
+        return isNotEnded && (c.status === 'active' || c.status === 'upcoming');
+      });
+      
+      console.log('🎯 Active/Upcoming competitions (by date):', activeOrUpcoming.length);
+      
+      if (activeOrUpcoming.length > 0) {
+        // Sort by start date to get the next one
+        const sorted = activeOrUpcoming.sort((a: any, b: any) => 
+          new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
+        );
+        const nextCompetition = sorted[0];
+        
+        // Convert competition to settings format for display
+        const settings = {
+          dateTime: new Date(nextCompetition.startDate).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          }),
+          duration: nextCompetition.duration || '60 minutes',
+          questionCount: nextCompetition.questionCount || 50,
+          subjects: 'Math, Science, English, Social Studies', // Default for now
+          prizePool: nextCompetition.prizePool ? `$${nextCompetition.prizePool}` : '$300',
+          status: nextCompetition.status
+        };
+        
+        setCompetitionSettings(settings);
+        console.log('🏆 Loaded next scholarship competition:', nextCompetition);
+        console.log('📋 Display settings:', settings);
+      } else {
+        // Check if there are any completed competitions
+        const completedCompetitions = scholarshipCompetitions.filter((c: any) => c.status === 'completed');
+        
+        if (completedCompetitions.length > 0) {
+          // Show "competition completed, next one coming soon" message
+          setCompetitionSettings({
+            status: 'no_upcoming',
+            message: 'The latest competition has ended. New competitions coming soon!'
+          });
+          console.log('📅 All competitions completed, showing coming soon message');
+        } else {
+          // No competitions at all
+          setCompetitionSettings({
+            status: 'no_competitions',
+            message: 'No competitions available yet. Check back soon!'
+          });
+          console.log('⚠️ No scholarship competitions found');
+        }
+      }
       
       // Check existing registration
       await checkExistingRegistration();
     } catch (error) {
       console.error('❌ Error loading competition data:', error);
+      setCompetitionSettings(null);
     }
   };
 
@@ -150,9 +218,18 @@ export default function ScholarshipRegister() {
       case 2:
         return registrationData.gradeLevel !== '' && registrationData.school !== '';
       case 3:
-        return registrationData.birthYear !== '' && 
-               (!isUnder18() || registrationData.parentEmail !== '') &&
-               registrationData.agreeToTerms;
+        const hasRequiredFields = registrationData.birthYear !== '' && registrationData.agreeToTerms;
+        const hasParentEmailIfNeeded = !isUnder18() || (registrationData.parentEmail !== '' && registrationData.parentEmail !== undefined && registrationData.parentEmail.includes('@'));
+        console.log('🔍 Step 3 validation:', {
+          birthYear: registrationData.birthYear,
+          agreeToTerms: registrationData.agreeToTerms,
+          isUnder18: isUnder18(),
+          parentEmail: registrationData.parentEmail,
+          hasRequiredFields,
+          hasParentEmailIfNeeded,
+          canProceed: hasRequiredFields && hasParentEmailIfNeeded
+        });
+        return hasRequiredFields && hasParentEmailIfNeeded;
       default:
         return false;
     }
@@ -263,7 +340,11 @@ export default function ScholarshipRegister() {
                   <>
                     <div className="font-medium text-green-800">✅ You're Eligible!</div>
                     <div className="text-green-700 text-sm mt-1">
-                      Henrico County students can register for the {competitionSettings?.shortDate || COMPETITION_CONFIG.nextCompetition.shortDate}th competition with {competitionSettings?.prizePool || getPrizePool()} in prizes.
+                      {competitionSettings?.status === 'no_upcoming' || competitionSettings?.status === 'no_competitions' ? (
+                        'Complete registration to be notified when the next competition opens.'
+                      ) : (
+                        `Henrico County students can register for the next competition with ${competitionSettings?.prizePool || getPrizePool()} in prizes.`
+                      )}
                     </div>
                   </>
                 ) : (
@@ -597,6 +678,7 @@ export default function ScholarshipRegister() {
             onClick={() => step === 3 ? handleSubmit() : setStep(step + 1)}
             disabled={!canProceed()}
             className="flex items-center gap-2 bg-purple-600 hover:bg-purple-700 text-white font-semibold px-6 py-3 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
+            title={!canProceed() ? 'Please fill in all required fields' : ''}
           >
             {step === 3 ? (
               isEligible ? 'Complete Registration' : 'Join Waitlist'
@@ -610,32 +692,69 @@ export default function ScholarshipRegister() {
         {/* Competition Info */}
         {isEligible && (
           <div className="mt-8 max-w-2xl mx-auto">
-            <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3 mb-4">
-                  <Clock className="h-6 w-6 text-green-600" />
-                  <h3 className="text-lg font-semibold text-green-800">Next Competition Details</h3>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <div className="font-medium text-green-800">Date & Time:</div>
-                    <div className="text-green-700">{competitionSettings?.dateTime || getNextCompetitionDate()}</div>
+            {competitionSettings?.status === 'no_upcoming' || competitionSettings?.status === 'no_competitions' ? (
+              <Card className="bg-gradient-to-r from-orange-50 to-yellow-50 border-orange-200">
+                <CardContent className="p-6 text-center">
+                  <div className="flex flex-col items-center gap-4">
+                    <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center">
+                      <Clock className="h-8 w-8 text-orange-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold text-orange-800 mb-2">
+                        {competitionSettings?.status === 'no_upcoming' ? '📅 Competition Completed' : '🚀 Coming Soon'}
+                      </h3>
+                      <p className="text-orange-700 mb-4">
+                        {competitionSettings?.message}
+                      </p>
+                      <p className="text-sm text-orange-600">
+                        Complete your registration now to be notified when the next competition opens.
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <div className="font-medium text-green-800">Duration:</div>
-                    <div className="text-green-700">{competitionSettings?.duration || COMPETITION_CONFIG.nextCompetition.duration} ({competitionSettings?.questionCount || COMPETITION_CONFIG.nextCompetition.questionCount} questions)</div>
+                </CardContent>
+              </Card>
+            ) : (
+              <Card className="bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-3 mb-4">
+                    <Clock className="h-6 w-6 text-green-600" />
+                    <h3 className="text-lg font-semibold text-green-800">Next Competition Details</h3>
                   </div>
-                  <div>
-                    <div className="font-medium text-green-800">Subjects:</div>
-                    <div className="text-green-700">{competitionSettings?.subjects || COMPETITION_CONFIG.nextCompetition.subjects}</div>
-                  </div>
-                  <div>
-                    <div className="font-medium text-green-800">Prize Pool:</div>
-                    <div className="text-green-700">{competitionSettings?.prizePool || getPrizePool()} ({COMPETITION_CONFIG.prizes.first}, {COMPETITION_CONFIG.prizes.second}, {COMPETITION_CONFIG.prizes.third})</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                  {competitionSettings ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <div className="font-medium text-green-800">Date & Time:</div>
+                        <div className="text-green-700">
+                          {competitionSettings.dateTime}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="font-medium text-green-800">Duration:</div>
+                        <div className="text-green-700">
+                          {competitionSettings.duration} ({competitionSettings.questionCount} questions)
+                        </div>
+                      </div>
+                      <div>
+                        <div className="font-medium text-green-800">Subjects:</div>
+                        <div className="text-green-700">
+                          {competitionSettings.subjects}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="font-medium text-green-800">Prize Pool:</div>
+                        <div className="text-green-700">
+                          {competitionSettings.prizePool} ({COMPETITION_CONFIG.prizes.first}, {COMPETITION_CONFIG.prizes.second}, {COMPETITION_CONFIG.prizes.third})
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center text-green-700">
+                      Loading competition details...
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
       </div>

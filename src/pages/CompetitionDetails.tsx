@@ -40,10 +40,13 @@ const CompetitionDetails: React.FC = () => {
           // For practice tests, get unique participant count from practiceAttempts
           // For scholarship competitions, use the participantCount from competition document
           if (data.isPractice) {
-            const practiceCount = await getPracticeParticipantCount(id);
-            setParticipantCount(practiceCount);
+            const actualCount = await getPracticeParticipantCount(id);
+            // Add marketing boost: +100 for practice
+            setParticipantCount(actualCount + 100);
           } else {
-            setParticipantCount(data.participantCount || 0);
+            const actualCount = data.participantCount || 0;
+            // Add marketing boost: +25 for scholarship
+            setParticipantCount(actualCount + 25);
           }
           
           // Check if user has already participated and if user is admin

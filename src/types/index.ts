@@ -60,6 +60,7 @@ export interface Competition {
   maxAttempts?: number;
   participantCount: number;
   questionCount?: number; // Number of questions in the competition
+  duration?: string; // Duration string like "60 minutes" or "2 hours"
   createdAt?: Date;
   createdBy?: string;
 }

@@ -46,14 +46,28 @@ export default function ScholarshipHome() {
         const competition = await getFeaturedCompetition();
         
         if (competition) {
-          console.log('✅ Featured competition loaded:', competition.title);
-          setCompetitionSettings(competition);
+          // Check if competition has ended
+          const now = new Date();
+          const endDate = new Date(competition.endDate);
+          
+          console.log('📅 Competition end date:', endDate);
+          console.log('📅 Current date:', now);
+          console.log('📅 Has ended:', endDate < now);
+          
+          if (endDate < now) {
+            console.log('⚠️ Featured competition has ended, not displaying');
+            setCompetitionSettings(null);
+          } else {
+            console.log('✅ Featured competition loaded:', competition.title);
+            setCompetitionSettings(competition);
+          }
         } else {
           console.log('⚠️ No featured competition set');
           setCompetitionSettings(null);
         }
       } catch (error) {
         console.error('❌ Error loading featured competition:', error);
+        setCompetitionSettings(null);
       }
 
       // Check registration if user is signed in
@@ -256,8 +270,8 @@ export default function ScholarshipHome() {
               </div>
             </div>
 
-            {/* CTA Button - Only show if competition exists */}
-            {competitionSettings && (
+            {/* CTA Button */}
+            {competitionSettings ? (
               <>
                 {checkingRegistration ? (
                   <Button 
@@ -308,7 +322,28 @@ export default function ScholarshipHome() {
                   </p>
                 )}
               </>
-            )}
+            ) : user ? (
+              <div className="bg-orange-500/20 backdrop-blur-sm rounded-2xl p-6 border border-orange-400/30">
+                <div className="flex items-center justify-center gap-3 mb-4">
+                  <Trophy className="h-8 w-8 text-orange-400" />
+                  <h3 className="text-2xl font-bold text-white">Competition Ended</h3>
+                </div>
+                <p className="text-orange-100 text-center mb-2">
+                  The latest competition has ended. New competitions coming soon!
+                </p>
+                <p className="text-orange-200 text-center mb-4">
+                  Meanwhile, you can practice to improve your skills.
+                </p>
+                <div className="flex justify-center">
+                  <Button 
+                    onClick={() => navigate('/competitions')}
+                    className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3"
+                  >
+                    Practice Now
+                  </Button>
+                </div>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
