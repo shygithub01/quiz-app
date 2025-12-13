@@ -105,10 +105,20 @@ const initializeUserProfile = async (userId: string, email: string, displayName:
         email,
         displayName,
         role: UserRole.STUDENT,
+        disabled: false,
         createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now()
+        updatedAt: Timestamp.now(),
+        lastLoginAt: Timestamp.now(),
+        lastActivityAt: Timestamp.now()
       });
       console.log('✅ User profile initialized');
+    } else {
+      // Update last login timestamp for existing users
+      await updateDoc(userRef, {
+        lastLoginAt: Timestamp.now(),
+        lastActivityAt: Timestamp.now()
+      });
+      console.log('✅ User login timestamp updated');
     }
   } catch (error) {
     console.error('Error initializing user profile:', error);
@@ -369,6 +379,203 @@ const deleteQuiz = async (userId: string, quizId: string) => {
   }
 };
 
+// ===== USER ACTIVITY TRACKING FUNCTIONS =====
+
+interface CompetitionAttempt {
+  id: string;
+  userId: string;
+  competitionId: string;
+  competitionTitle: string;
+  isPractice: boolean;
+  score: number;
+  totalQuestions: number;
+  timeSpent: number;
+  rank?: number;
+  completedAt: Date;
+}
+
+interface UserStats {
+  totalCompetitions: number;
+  practiceTests: number;
+  scholarshipCompetitions: number;
+  averageScore: number;
+  bestScore: number;
+  totalTimeSpent: number;
+}
+
+// Get all competition attempts for a user (both practice and scholarship)
+const getUserCompetitionHistory = async (userId: string): Promise<CompetitionAttempt[]> => {
+  try {
+    console.log('📊 Fetching competition history for user:', userId);
+    const attempts: CompetitionAttempt[] = [];
+    
+    // Get practice attempts
+    const practiceAttemptsRef = collection(db, 'practiceAttempts');
+    const practiceQuery = query(
+      practiceAttemptsRef,
+      where('userId', '==', userId),
+      orderBy('completedAt', 'desc')
+    );
+    const practiceSnapshot = await getDocs(practiceQuery);
+    
+    for (const doc of practiceSnapshot.docs) {
+      const data = doc.data();
+      const competition = await getCompetitionById(data.competitionId);
+      
+      attempts.push({
+        id: doc.id,
+        userId: data.userId,
+        competitionId: data.competitionId,
+        competitionTitle: competition?.title || 'Unknown Competition',
+        isPractice: true,
+        score: data.score,
+        totalQuestions: data.totalQuestions,
+        timeSpent: data.timeSpent,
+        completedAt: data.completedAt?.toDate ? data.completedAt.toDate() : new Date(data.completedAt)
+      });
+    }
+    
+    // Get scholarship attempts (from leaderboard)
+    const leaderboardRef = collection(db, 'leaderboard');
+    const scholarshipQuery = query(
+      leaderboardRef,
+      where('userId', '==', userId),
+      orderBy('completedAt', 'desc')
+    );
+    const scholarshipSnapshot = await getDocs(scholarshipQuery);
+    
+    for (const doc of scholarshipSnapshot.docs) {
+      const data = doc.data();
+      const competition = await getCompetitionById(data.competitionId);
+      
+      attempts.push({
+        id: doc.id,
+        userId: data.userId,
+        competitionId: data.competitionId,
+        competitionTitle: competition?.title || 'Unknown Competition',
+        isPractice: false,
+        score: data.score,
+        totalQuestions: data.totalQuestions,
+        timeSpent: data.timeSpent,
+        rank: data.rank,
+        completedAt: data.completedAt?.toDate ? data.completedAt.toDate() : new Date(data.completedAt)
+      });
+    }
+    
+    // Sort by completion date (most recent first)
+    attempts.sort((a, b) => b.completedAt.getTime() - a.completedAt.getTime());
+    
+    console.log('✅ Fetched competition history:', attempts.length, 'attempts');
+    return attempts;
+  } catch (error) {
+    console.error('❌ Error fetching competition history:', error);
+    throw error;
+  }
+};
+
+// Get user statistics
+const getUserStatistics = async (userId: string): Promise<UserStats> => {
+  try {
+    console.log('📊 Calculating statistics for user:', userId);
+    const history = await getUserCompetitionHistory(userId);
+    
+    if (history.length === 0) {
+      return {
+        totalCompetitions: 0,
+        practiceTests: 0,
+        scholarshipCompetitions: 0,
+        averageScore: 0,
+        bestScore: 0,
+        totalTimeSpent: 0
+      };
+    }
+    
+    const practiceTests = history.filter(a => a.isPractice).length;
+    const scholarshipCompetitions = history.filter(a => !a.isPractice).length;
+    
+    const totalScore = history.reduce((sum, a) => sum + (a.score / a.totalQuestions * 100), 0);
+    const averageScore = totalScore / history.length;
+    
+    const bestScore = Math.max(...history.map(a => (a.score / a.totalQuestions * 100)));
+    
+    const totalTimeSpent = history.reduce((sum, a) => sum + a.timeSpent, 0);
+    
+    const stats = {
+      totalCompetitions: history.length,
+      practiceTests,
+      scholarshipCompetitions,
+      averageScore: Math.round(averageScore),
+      bestScore: Math.round(bestScore),
+      totalTimeSpent
+    };
+    
+    console.log('✅ User statistics calculated:', stats);
+    return stats;
+  } catch (error) {
+    console.error('❌ Error calculating user statistics:', error);
+    throw error;
+  }
+};
+
+// Set user status (enable/disable)
+const setUserStatus = async (userId: string, disabled: boolean): Promise<void> => {
+  try {
+    console.log('🔄 Setting user status:', userId, 'disabled:', disabled);
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, {
+      disabled,
+      updatedAt: Timestamp.now()
+    });
+    console.log('✅ User status updated');
+  } catch (error) {
+    console.error('❌ Error setting user status:', error);
+    throw error;
+  }
+};
+
+// Delete user and all their data
+const deleteUserData = async (userId: string): Promise<void> => {
+  try {
+    console.log('🗑️ Deleting user data for:', userId);
+    
+    // Delete practice attempts
+    const practiceAttemptsRef = collection(db, 'practiceAttempts');
+    const practiceQuery = query(practiceAttemptsRef, where('userId', '==', userId));
+    const practiceSnapshot = await getDocs(practiceQuery);
+    const practiceDeletes = practiceSnapshot.docs.map(doc => deleteDoc(doc.ref));
+    await Promise.all(practiceDeletes);
+    
+    // Delete leaderboard entries
+    const leaderboardRef = collection(db, 'leaderboard');
+    const leaderboardQuery = query(leaderboardRef, where('userId', '==', userId));
+    const leaderboardSnapshot = await getDocs(leaderboardQuery);
+    const leaderboardDeletes = leaderboardSnapshot.docs.map(doc => deleteDoc(doc.ref));
+    await Promise.all(leaderboardDeletes);
+    
+    // Delete user attempts
+    const attemptsRef = collection(db, `users/${userId}/attempts`);
+    const attemptsSnapshot = await getDocs(attemptsRef);
+    const attemptDeletes = attemptsSnapshot.docs.map(doc => deleteDoc(doc.ref));
+    await Promise.all(attemptDeletes);
+    
+    // Delete scholarship registration
+    const scholarshipRef = doc(db, 'scholarshipRegistrations', userId);
+    const scholarshipDoc = await getDoc(scholarshipRef);
+    if (scholarshipDoc.exists()) {
+      await deleteDoc(scholarshipRef);
+    }
+    
+    // Delete user profile
+    const userRef = doc(db, 'users', userId);
+    await deleteDoc(userRef);
+    
+    console.log('✅ User data deleted successfully');
+  } catch (error) {
+    console.error('❌ Error deleting user data:', error);
+    throw error;
+  }
+};
+
 // ===== EXPORTS =====
 
 
@@ -438,7 +645,13 @@ export {
   
   // Practice Attempts functions
   getPracticeAttempts,
-  getPracticeParticipantCount
+  getPracticeParticipantCount,
+  
+  // User Activity Tracking functions
+  getUserCompetitionHistory,
+  getUserStatistics,
+  setUserStatus,
+  deleteUserData
 };
 
 // ===== COMPETITION FUNCTIONS =====

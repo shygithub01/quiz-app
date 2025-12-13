@@ -7,7 +7,8 @@ import {
   signOut as firebaseSignOut,
   onAuthStateChanged
 } from 'firebase/auth'
-import { auth, initializeUserProfile } from '@/components/ui/firebase'
+import { auth, initializeUserProfile, db } from '@/components/ui/firebase'
+import { doc, getDoc } from 'firebase/firestore'
 
 interface AuthContextType {
   user: User | null
@@ -36,6 +37,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             user.email || '', 
             user.displayName || 'Anonymous'
           );
+          
+          // Check if user is disabled
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          if (userDoc.exists() && userDoc.data().disabled) {
+            console.log('⚠️ User account is disabled');
+            await firebaseSignOut(auth);
+            alert('Your account has been disabled. Please contact support for assistance.');
+            setUser(null);
+            setLoading(false);
+            return;
+          }
         } catch (error) {
           console.error('Error initializing user profile:', error);
         }
