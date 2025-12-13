@@ -418,6 +418,9 @@ export {
   getUserRole,
   setUserRole,
   initializeUserProfile,
+  setUserStatus,
+  getUserCompetitionHistory,
+  getUserStatistics,
   
   // Scholarship functions
   checkScholarshipRegistration,
@@ -1234,6 +1237,169 @@ const getPracticeParticipantCount = async (competitionId: string): Promise<numbe
   } catch (error) {
     console.error('❌ Error counting practice participants:', error);
     return 0;
+  }
+};
+
+// ===== USER ACTIVITY TRACKING FUNCTIONS =====
+
+// Set user status (enabled/disabled)
+const setUserStatus = async (userId: string, disabled: boolean): Promise<void> => {
+  try {
+    console.log('🔄 Setting user status:', userId, 'disabled:', disabled);
+    const userRef = doc(db, 'users', userId);
+    await updateDoc(userRef, { 
+      disabled,
+      updatedAt: Timestamp.now()
+    });
+    console.log('✅ User status updated');
+  } catch (error) {
+    console.error('❌ Error setting user status:', error);
+    throw error;
+  }
+};
+
+// Get user's competition history
+const getUserCompetitionHistory = async (userId: string): Promise<any[]> => {
+  try {
+    console.log('📊 Fetching competition history for user:', userId);
+    
+    // Get scholarship competition attempts (without orderBy to avoid index requirement)
+    const leaderboardRef = collection(db, 'leaderboard');
+    const scholarshipQuery = query(
+      leaderboardRef,
+      where('userId', '==', userId)
+    );
+    const scholarshipSnapshot = await getDocs(scholarshipQuery);
+    
+    // Get practice attempts (without orderBy to avoid index requirement)
+    const practiceRef = collection(db, 'practiceAttempts');
+    const practiceQuery = query(
+      practiceRef,
+      where('userId', '==', userId)
+    );
+    const practiceSnapshot = await getDocs(practiceQuery);
+    
+    // Combine and format results
+    const history = [];
+    
+    for (const doc of scholarshipSnapshot.docs) {
+      const data = doc.data();
+      const competition = await getCompetitionById(data.competitionId);
+      history.push({
+        id: doc.id,
+        type: 'scholarship',
+        competitionTitle: competition?.title || 'Unknown Competition',
+        competitionId: data.competitionId,
+        score: data.score,
+        totalQuestions: data.totalQuestions,
+        timeSpent: data.timeSpent,
+        rank: data.rank,
+        completedAt: data.completedAt?.toDate()
+      });
+    }
+    
+    for (const doc of practiceSnapshot.docs) {
+      const data = doc.data();
+      const competition = await getCompetitionById(data.competitionId);
+      history.push({
+        id: doc.id,
+        type: 'practice',
+        competitionTitle: competition?.title || 'Unknown Competition',
+        competitionId: data.competitionId,
+        score: data.score,
+        totalQuestions: data.totalQuestions,
+        timeSpent: data.timeSpent,
+        completedAt: data.completedAt?.toDate()
+      });
+    }
+    
+    // Sort by completion date
+    history.sort((a, b) => {
+      const dateA = a.completedAt ? new Date(a.completedAt).getTime() : 0;
+      const dateB = b.completedAt ? new Date(b.completedAt).getTime() : 0;
+      return dateB - dateA;
+    });
+    
+    console.log('✅ Fetched competition history:', history.length, 'entries');
+    return history;
+  } catch (error) {
+    console.error('❌ Error fetching competition history:', error);
+    return [];
+  }
+};
+
+// Get user statistics (separated by scholarship and practice)
+const getUserStatistics = async (userId: string): Promise<any> => {
+  try {
+    console.log('📊 Calculating user statistics for:', userId);
+    
+    const history = await getUserCompetitionHistory(userId);
+    
+    const scholarshipHistory = history.filter(h => h.type === 'scholarship');
+    const practiceHistory = history.filter(h => h.type === 'practice');
+    
+    // Scholarship stats
+    const scholarshipStats = {
+      attempts: scholarshipHistory.length,
+      averageScore: 0,
+      bestScore: 0,
+      totalTimeSpent: 0,
+      bestRank: null as number | null
+    };
+    
+    if (scholarshipHistory.length > 0) {
+      const scores = scholarshipHistory.map(h => (h.score / h.totalQuestions) * 100);
+      scholarshipStats.averageScore = scores.reduce((a, b) => a + b, 0) / scores.length;
+      scholarshipStats.bestScore = Math.max(...scores);
+      scholarshipStats.totalTimeSpent = scholarshipHistory.reduce((sum, h) => sum + (h.timeSpent || 0), 0);
+      
+      const ranks = scholarshipHistory.filter(h => h.rank).map(h => h.rank);
+      if (ranks.length > 0) {
+        scholarshipStats.bestRank = Math.min(...ranks);
+      }
+    }
+    
+    // Practice stats
+    const practiceStats = {
+      attempts: practiceHistory.length,
+      averageScore: 0,
+      bestScore: 0,
+      totalTimeSpent: 0
+    };
+    
+    if (practiceHistory.length > 0) {
+      const scores = practiceHistory.map(h => (h.score / h.totalQuestions) * 100);
+      practiceStats.averageScore = scores.reduce((a, b) => a + b, 0) / scores.length;
+      practiceStats.bestScore = Math.max(...scores);
+      practiceStats.totalTimeSpent = practiceHistory.reduce((sum, h) => sum + (h.timeSpent || 0), 0);
+    }
+    
+    const stats = {
+      totalAttempts: history.length,
+      scholarship: scholarshipStats,
+      practice: practiceStats
+    };
+    
+    console.log('✅ User statistics calculated:', stats);
+    return stats;
+  } catch (error) {
+    console.error('❌ Error calculating user statistics:', error);
+    return {
+      totalAttempts: 0,
+      scholarship: {
+        attempts: 0,
+        averageScore: 0,
+        bestScore: 0,
+        totalTimeSpent: 0,
+        bestRank: null
+      },
+      practice: {
+        attempts: 0,
+        averageScore: 0,
+        bestScore: 0,
+        totalTimeSpent: 0
+      }
+    };
   }
 };
 

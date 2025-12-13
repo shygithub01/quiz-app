@@ -36,6 +36,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             user.email || '', 
             user.displayName || 'Anonymous'
           );
+          
+          // Check if user is disabled
+          const { getDoc, doc } = await import('firebase/firestore');
+          const { db } = await import('@/components/ui/firebase');
+          const userDoc = await getDoc(doc(db, 'users', user.uid));
+          
+          if (userDoc.exists() && userDoc.data().disabled) {
+            console.log('⚠️ User is disabled, signing out');
+            await firebaseSignOut(auth);
+            alert('Your account has been disabled. Please contact support.');
+            setUser(null);
+            setLoading(false);
+            return;
+          }
         } catch (error) {
           console.error('Error initializing user profile:', error);
         }

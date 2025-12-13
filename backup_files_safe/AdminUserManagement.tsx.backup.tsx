@@ -87,10 +87,6 @@ export default function AdminUserManagement() {
     }
   };
 
-  const handleViewDetails = (userId: string) => {
-    navigate(`/admin/users/${userId}`);
-  };
-
   const handleToggleUserStatus = async (userId: string, currentlyDisabled: boolean) => {
     const action = currentlyDisabled ? 'enable' : 'disable';
     if (!confirm(`Are you sure you want to ${action} this user?`)) {
@@ -101,13 +97,17 @@ export default function AdminUserManagement() {
       setUpdating(userId);
       await setUserStatus(userId, !currentlyDisabled);
       alert(`✅ User ${action}d successfully!`);
-      await loadData();
+      await loadData(); // Refresh the list
     } catch (error: any) {
       console.error('Error updating user status:', error);
       alert('❌ ' + (error.message || 'Failed to update user status'));
     } finally {
       setUpdating(null);
     }
+  };
+
+  const handleViewDetails = (userId: string) => {
+    navigate(`/admin/users/${userId}`);
   };
 
   const formatLastActivity = (timestamp: any) => {
@@ -197,89 +197,91 @@ export default function AdminUserManagement() {
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex items-start gap-4 flex-1">
-                    {getRoleIcon(userData.role)}
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <div className="font-medium text-gray-900">
-                          {userData.displayName}
-                          {userData.id === user?.uid && (
-                            <span className="ml-2 text-xs text-blue-600">(You)</span>
+                      {getRoleIcon(userData.role)}
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <div className="font-medium text-gray-900">
+                            {userData.displayName}
+                            {userData.id === user?.uid && (
+                              <span className="ml-2 text-xs text-blue-600">(You)</span>
+                            )}
+                          </div>
+                          {userData.disabled ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-300">
+                              <Ban className="h-3 w-3" />
+                              Disabled
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-300">
+                              <CheckCircle className="h-3 w-3" />
+                              Active
+                            </span>
                           )}
                         </div>
-                        {userData.disabled ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-300">
-                            Disabled
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-300">
-                            Active
-                          </span>
-                        )}
-                      </div>
-                      <div className="text-sm text-gray-600 mt-1">{userData.email}</div>
-                      <div className="flex items-center gap-4 mt-2">
-                        <div className={`px-3 py-1 rounded-full text-xs font-medium border ${getRoleBadgeColor(userData.role)}`}>
-                          {userData.role.replace('_', ' ').toUpperCase()}
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          Last activity: {formatLastActivity(userData.lastActivityAt || userData.lastLoginAt)}
+                        <div className="text-sm text-gray-600 mt-1">{userData.email}</div>
+                        <div className="flex items-center gap-4 mt-2">
+                          <div className={`px-3 py-1 rounded-full text-xs font-medium border ${getRoleBadgeColor(userData.role)}`}>
+                            {userData.role.replace('_', ' ').toUpperCase()}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            Last activity: {formatLastActivity(userData.lastActivityAt || userData.lastLoginAt)}
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
 
-                  <div className="flex flex-col gap-2 ml-4 w-[180px]">
-                    <button
-                      onClick={() => handleViewDetails(userData.id)}
-                      className="w-full px-3 py-2 border rounded-lg text-sm hover:bg-gray-100 flex items-center justify-center gap-2 whitespace-nowrap"
-                    >
-                      <Eye className="h-4 w-4" />
-                      View Details
-                    </button>
-                    
-                    {userData.id !== user?.uid && (
-                      <>
-                        <select
-                          value={userData.role}
-                          onChange={(e) => handleRoleChange(userData.id, e.target.value as UserRole)}
-                          disabled={updating === userData.id}
-                          className="w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                          <option value={UserRole.STUDENT}>Student</option>
-                          <option value={UserRole.TEACHER}>Teacher</option>
-                          <option value={UserRole.ADMIN}>Admin</option>
-                          <option value={UserRole.SUPER_ADMIN}>Super Admin</option>
-                        </select>
-                        
-                        <button
-                          onClick={() => handleToggleUserStatus(userData.id, userData.disabled || false)}
-                          disabled={updating === userData.id}
-                          className={`w-full px-3 py-2 border rounded-lg text-sm flex items-center justify-center gap-2 whitespace-nowrap ${
-                            userData.disabled 
-                              ? 'bg-green-600 text-white hover:bg-green-700' 
-                              : 'bg-red-600 text-white hover:bg-red-700'
-                          }`}
-                        >
-                          {userData.disabled ? (
-                            <>
-                              <CheckCircle className="h-4 w-4" />
-                              Enable
-                            </>
-                          ) : (
-                            <>
-                              <Ban className="h-4 w-4" />
-                              Disable
-                            </>
-                          )}
-                        </button>
-                      </>
-                    )}
-                    {userData.id === user?.uid && (
-                      <div className="text-xs text-gray-500 px-2 py-2 text-center border rounded-lg bg-gray-50">
-                        Cannot modify own account
-                      </div>
-                    )}
-                  </div>
+                    <div className="flex flex-col gap-2 ml-4">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleViewDetails(userData.id)}
+                        className="flex items-center gap-2"
+                      >
+                        <Eye className="h-4 w-4" />
+                        View Details
+                      </Button>
+                      
+                      {userData.id !== user?.uid && (
+                        <>
+                          <select
+                            value={userData.role}
+                            onChange={(e) => handleRoleChange(userData.id, e.target.value as UserRole)}
+                            disabled={updating === userData.id}
+                            className="px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          >
+                            <option value={UserRole.STUDENT}>Student</option>
+                            <option value={UserRole.TEACHER}>Teacher</option>
+                            <option value={UserRole.ADMIN}>Admin</option>
+                            <option value={UserRole.SUPER_ADMIN}>Super Admin</option>
+                          </select>
+                          
+                          <Button
+                            variant={userData.disabled ? "default" : "destructive"}
+                            size="sm"
+                            onClick={() => handleToggleUserStatus(userData.id, userData.disabled || false)}
+                            disabled={updating === userData.id}
+                            className="flex items-center gap-2"
+                          >
+                            {userData.disabled ? (
+                              <>
+                                <CheckCircle className="h-4 w-4" />
+                                Enable
+                              </>
+                            ) : (
+                              <>
+                                <Ban className="h-4 w-4" />
+                                Disable
+                              </>
+                            )}
+                          </Button>
+                        </>
+                      )}
+                      {userData.id === user?.uid && (
+                        <span className="text-sm text-gray-500 px-3 py-2 text-center">
+                          Cannot modify own account
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
