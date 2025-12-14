@@ -100,50 +100,14 @@ export default function AdminUserManagement() {
     navigate(`/admin/users/${userId}`);
   };
 
-  // Filter and search users - SMART WORD-BOUNDARY SEARCH
+  // Filter and search users
   const filteredUsers = useMemo(() => {
-    // Debug logging
-    if (searchQuery) {
-      console.log('=== SEARCH DEBUG ===');
-      console.log('Search Query:', searchQuery);
-    }
-    
     return users.filter(userData => {
-      // Smart search - word-boundary matching for names, start-of-part matching for emails
+      // Search filter - ONLY search in display name
       const query = searchQuery.toLowerCase();
       const name = userData.displayName.toLowerCase();
       
-      // Extract email local part (before @)
-      const emailLocalPart = userData.email.toLowerCase().split('@')[0];
-      
-      // Split email by dots to get individual parts (e.g., "mohapatra.lucy" -> ["mohapatra", "lucy"])
-      const emailParts = emailLocalPart.split('.');
-      
-      // Split name into words (by spaces)
-      const nameWords = name.split(' ');
-      
-      // Check if query matches:
-      // 1. At the START of any WORD in the display name (word-boundary matching)
-      // 2. At the START of any email part (more precise matching)
-      const matchesName = nameWords.some(word => word.startsWith(query));
-      const matchesEmailPart = emailParts.some(part => part.startsWith(query));
-      
-      const matchesSearch = searchQuery === '' || matchesName || matchesEmailPart;
-      
-      // Debug logging for each user when searching
-      if (searchQuery) {
-        console.log('---');
-        console.log('User:', userData.displayName);
-        console.log('Email:', userData.email);
-        console.log('Name (lowercase):', name);
-        console.log('Name words:', nameWords);
-        console.log('Email local part:', emailLocalPart);
-        console.log('Email parts:', emailParts);
-        console.log('Query:', query);
-        console.log('Matches name (word-boundary)?', matchesName);
-        console.log('Matches email part (starts-with)?', matchesEmailPart);
-        console.log('Overall match?', matchesSearch);
-      }
+      const matchesSearch = searchQuery === '' || name.includes(query);
       
       // Role filter
       const matchesRole = roleFilter === 'all' || userData.role === roleFilter;
@@ -252,92 +216,33 @@ export default function AdminUserManagement() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-600">Loading...</div>
+      <div className="flex justify-center items-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
       </div>
     );
   }
 
-  if (currentUserRole !== UserRole.SUPER_ADMIN) {
-    return null;
-  }
-
   return (
     <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
+      <div className="max-w-6xl mx-auto">
+        <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
             <p className="text-gray-600 mt-2">Manage user roles and permissions</p>
           </div>
-          <Button onClick={() => navigate('/')} variant="outline">
-            Back to Home
+          <Button variant="outline" onClick={() => navigate('/admin/competitions')}>
+            Back to Admin
           </Button>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Total Users</p>
-                  <p className="text-2xl font-bold">{users.length}</p>
-                </div>
-                <Users className="h-8 w-8 text-gray-400" />
-              </div>
-            </CardContent>
-          </Card>
-          
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Super Admins</p>
-                  <p className="text-2xl font-bold">
-                    {users.filter(u => u.role === UserRole.SUPER_ADMIN).length}
-                  </p>
-                </div>
-                <Crown className="h-8 w-8 text-purple-400" />
-              </div>
-            </CardContent>
-          </Card>
 
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Admins</p>
-                  <p className="text-2xl font-bold">
-                    {users.filter(u => u.role === UserRole.ADMIN).length}
-                  </p>
-                </div>
-                <Shield className="h-8 w-8 text-blue-400" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Teachers</p>
-                  <p className="text-2xl font-bold">
-                    {users.filter(u => u.role === UserRole.TEACHER).length}
-                  </p>
-                </div>
-                <GraduationCap className="h-8 w-8 text-green-400" />
-              </div>
-            </CardContent>
-          </Card>
-        </div>
 
         {/* Search and Filters */}
-        <Card>
+        <Card className="mb-6">
           <CardContent className="pt-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="relative">
+            <div className="flex flex-col md:flex-row gap-4">
+              {/* Search Bar */}
+              <div className="flex-1 relative">
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <input
                   type="text"
@@ -347,40 +252,44 @@ export default function AdminUserManagement() {
                   className="w-full pl-10 pr-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-              
+
+              {/* Role Filter */}
               <select
                 value={roleFilter}
                 onChange={(e) => setRoleFilter(e.target.value)}
                 className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="all">All Roles</option>
-                <option value={UserRole.SUPER_ADMIN}>Super Admin</option>
-                <option value={UserRole.ADMIN}>Admin</option>
-                <option value={UserRole.TEACHER}>Teacher</option>
-                <option value={UserRole.STUDENT}>Student</option>
+                <option value={UserRole.STUDENT}>Students</option>
+                <option value={UserRole.TEACHER}>Teachers</option>
+                <option value={UserRole.ADMIN}>Admins</option>
+                <option value={UserRole.SUPER_ADMIN}>Super Admins</option>
               </select>
 
+              {/* Status Filter */}
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="all">All Status</option>
-                <option value="active">Active</option>
-                <option value="disabled">Disabled</option>
+                <option value="active">Active Only</option>
+                <option value="disabled">Disabled Only</option>
               </select>
             </div>
 
+            {/* Results Count */}
             <div className="mt-4 text-sm text-gray-600">
-              Showing {filteredUsers.length} of {users.length} users
+              Showing {paginatedUsers.length} of {filteredUsers.length} users
+              {filteredUsers.length !== users.length && ` (filtered from ${users.length} total)`}
             </div>
           </CardContent>
         </Card>
 
-        {/* Role Hierarchy Info */}
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-start gap-3 p-4 bg-blue-50 rounded-lg">
+        {/* Info Card */}
+        <Card className="mb-6 border-blue-200 bg-blue-50">
+          <CardContent className="py-4">
+            <div className="flex items-start gap-3">
               <AlertCircle className="h-5 w-5 text-blue-600 mt-0.5" />
               <div className="text-sm text-blue-800">
                 <p className="font-medium mb-1">Role Hierarchy:</p>

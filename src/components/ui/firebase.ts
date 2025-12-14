@@ -109,6 +109,17 @@ const initializeUserProfile = async (userId: string, email: string, displayName:
         updatedAt: Timestamp.now()
       });
       console.log('✅ User profile initialized');
+    } else {
+      // Update email and displayName if they've changed (sync from Firebase Auth)
+      const currentData = userDoc.data();
+      if (currentData.email !== email || currentData.displayName !== displayName) {
+        await updateDoc(userRef, {
+          email,
+          displayName,
+          updatedAt: Timestamp.now()
+        });
+        console.log('✅ User profile synced with Firebase Auth');
+      }
     }
   } catch (error) {
     console.error('Error initializing user profile:', error);
