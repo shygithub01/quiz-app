@@ -24,6 +24,11 @@ import AdminCreateCompetition from "./pages/AdminCreateCompetition";
 import Schools from "./pages/Schools";
 import ScholarshipHome from "./pages/ScholarshipHome";
 import ScholarshipRegister from "./pages/ScholarshipRegister";
+import Terms from "./pages/Terms";
+import Privacy from "./pages/Privacy";
+import ScholarshipRules from "./pages/ScholarshipRules";
+import AIDisclaimer from "./pages/AIDisclaimer";
+import Contact from "./pages/Contact";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -74,6 +79,12 @@ const App = () => (
                   <Route path="schools" element={<Schools />} />
                   <Route path="scholarship" element={<ScholarshipHome />} />
                   <Route path="scholarship/register" element={<ScholarshipRegister />} />
+                  {/* Legal Pages */}
+                  <Route path="terms" element={<Terms />} />
+                  <Route path="privacy" element={<Privacy />} />
+                  <Route path="scholarship-rules" element={<ScholarshipRules />} />
+                  <Route path="ai-disclaimer" element={<AIDisclaimer />} />
+                  <Route path="contact" element={<Contact />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>

@@ -262,9 +262,76 @@ export default function Layout() {
       {/* Footer Glow Effect */}
       <div className="fixed bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-purple-900/20 to-transparent pointer-events-none" />
 
-      {/* Added Simple Footer for Completeness */}
-      <footer className="bg-gradient-to-t from-purple-900/10 to-transparent border-t border-white/10 p-4 text-center text-sm text-white/70 mt-auto">
-        © {new Date().getFullYear()} AI Quiz Generator. All rights reserved.
+      {/* Legal Footer */}
+      <footer className="bg-gradient-to-t from-purple-900/20 to-transparent border-t border-white/10 mt-auto">
+        <div className="container mx-auto px-6 py-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-6">
+            {/* About Section */}
+            <div>
+              <h3 className="text-white font-bold mb-3">Quizist.AI</h3>
+              <p className="text-white/70 text-sm">
+                AI-powered quiz generation and merit-based scholarship competitions for students.
+              </p>
+            </div>
+            
+            {/* Legal Links */}
+            <div>
+              <h3 className="text-white font-bold mb-3">Legal</h3>
+              <ul className="space-y-2 text-sm">
+                <li>
+                  <Link to="/terms" className="text-white/70 hover:text-white transition-colors">
+                    Terms of Service
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/privacy" className="text-white/70 hover:text-white transition-colors">
+                    Privacy Policy
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/scholarship-rules" className="text-white/70 hover:text-white transition-colors">
+                    Scholarship Rules
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/ai-disclaimer" className="text-white/70 hover:text-white transition-colors">
+                    AI Disclaimer
+                  </Link>
+                </li>
+              </ul>
+            </div>
+            
+            {/* Contact */}
+            <div>
+              <h3 className="text-white font-bold mb-3">Contact</h3>
+              <ul className="space-y-2 text-sm">
+                <li>
+                  <Link to="/contact" className="text-white/70 hover:text-white transition-colors">
+                    Contact Us
+                  </Link>
+                </li>
+                <li>
+                  <a href="mailto:support@quizist.ai" className="text-white/70 hover:text-white transition-colors">
+                    support@quizist.ai
+                  </a>
+                </li>
+                <li>
+                  <a href="mailto:privacy@quizist.ai" className="text-white/70 hover:text-white transition-colors">
+                    privacy@quizist.ai
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </div>
+          
+          {/* Copyright */}
+          <div className="border-t border-white/10 pt-6 text-center text-sm text-white/60">
+            <p>© {new Date().getFullYear()} Quizist.AI. All rights reserved.</p>
+            <p className="mt-2">
+              Scholarships are free and merit-based. Paid features do not affect competition results.
+            </p>
+          </div>
+        </div>
       </footer>
     </div>
   )
