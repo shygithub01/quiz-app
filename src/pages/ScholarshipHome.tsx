@@ -270,6 +270,18 @@ export default function ScholarshipHome() {
               </div>
             </div>
 
+            {/* Merit-Based Scholarship Notice */}
+            <div className="bg-blue-50/80 backdrop-blur-sm rounded-2xl p-6 max-w-4xl mx-auto mb-6 border border-blue-200/50">
+              <div className="flex items-center justify-center gap-3 mb-3">
+                <Shield className="h-6 w-6 text-blue-600" />
+                <h3 className="text-xl font-bold text-blue-900">Merit-Based Scholarship Notice</h3>
+              </div>
+              <p className="text-blue-800 text-center text-lg">
+                Scholarships are <span className="font-bold">free</span> and awarded solely based on quiz performance. 
+                No paid features influence results. One attempt per participant.
+              </p>
+            </div>
+
             {/* CTA Button */}
             {competitionSettings ? (
               <>
@@ -317,9 +329,14 @@ export default function ScholarshipHome() {
                   </Button>
                 )}
                 {!isRegistered && (
-                  <p className="text-purple-200 text-sm mt-4">
-                    ✅ One-Click Registration • ✅ Secure Google Sign-In • ✅ Henrico County Students
-                  </p>
+                  <>
+                    <p className="text-purple-200 text-sm mt-4">
+                      ✅ One-Click Registration • ✅ Secure Google Sign-In • ✅ Henrico County Students
+                    </p>
+                    <p className="text-purple-300 text-xs mt-2 max-w-2xl mx-auto">
+                      Internet connectivity and device limitations may affect participation. Quizist.AI is not responsible for such issues.
+                    </p>
+                  </>
                 )}
               </>
             ) : user ? (

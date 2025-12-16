@@ -25,6 +25,8 @@ interface RegistrationData {
   birthYear: string;
   parentEmail?: string;
   agreeToTerms: boolean;
+  agreeToScholarshipRules?: boolean;
+  acknowledgeMeritBased?: boolean;
   marketingConsent: boolean;
 }
 
@@ -43,6 +45,8 @@ export default function ScholarshipRegister() {
     birthYear: '',
     parentEmail: '',
     agreeToTerms: false,
+    agreeToScholarshipRules: false,
+    acknowledgeMeritBased: false,
     marketingConsent: false
   });
 
@@ -151,6 +155,8 @@ export default function ScholarshipRegister() {
           birthYear: existing.birthYear || '',
           parentEmail: existing.parentEmail || '',
           agreeToTerms: true,
+          agreeToScholarshipRules: true,
+          acknowledgeMeritBased: true,
           marketingConsent: existing.marketingConsent || false
         });
         setIsEligible(existing.county === 'henrico');
@@ -211,6 +217,12 @@ export default function ScholarshipRegister() {
     return currentYear - birthYear < 18;
   };
 
+  const isUnder13 = () => {
+    const currentYear = new Date().getFullYear();
+    const birthYear = parseInt(registrationData.birthYear);
+    return currentYear - birthYear < 13;
+  };
+
   const canProceed = () => {
     switch (step) {
       case 1:
@@ -218,12 +230,23 @@ export default function ScholarshipRegister() {
       case 2:
         return registrationData.gradeLevel !== '' && registrationData.school !== '';
       case 3:
-        const hasRequiredFields = registrationData.birthYear !== '' && registrationData.agreeToTerms;
+        // Block under-13 from proceeding
+        if (isUnder13()) {
+          return false;
+        }
+        
+        const hasRequiredFields = registrationData.birthYear !== '' && 
+                                  registrationData.agreeToTerms &&
+                                  registrationData.agreeToScholarshipRules &&
+                                  registrationData.acknowledgeMeritBased;
         const hasParentEmailIfNeeded = !isUnder18() || (registrationData.parentEmail !== '' && registrationData.parentEmail !== undefined && registrationData.parentEmail.includes('@'));
         console.log('🔍 Step 3 validation:', {
           birthYear: registrationData.birthYear,
           agreeToTerms: registrationData.agreeToTerms,
+          agreeToScholarshipRules: registrationData.agreeToScholarshipRules,
+          acknowledgeMeritBased: registrationData.acknowledgeMeritBased,
           isUnder18: isUnder18(),
+          isUnder13: isUnder13(),
           parentEmail: registrationData.parentEmail,
           hasRequiredFields,
           hasParentEmailIfNeeded,
@@ -477,6 +500,22 @@ export default function ScholarshipRegister() {
               <option key={year} value={year}>{year}</option>
             ))}
           </select>
+          
+          {/* Age Gating Warning for Under 13 */}
+          {registrationData.birthYear && isUnder13() && (
+            <div className="mt-3 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="h-5 w-5 text-orange-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <div className="font-medium text-orange-800">Age Requirement Notice</div>
+                  <div className="text-orange-700 text-sm mt-1">
+                    Scholarship competitions are available to students age 13 and above. 
+                    You can still use our practice mode to improve your skills!
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Parent Email (if under 18) */}
@@ -498,7 +537,7 @@ export default function ScholarshipRegister() {
           </div>
         )}
 
-        {/* Terms Agreement */}
+        {/* Terms Agreement - Enhanced with Legal Requirements */}
         <div className="space-y-4">
           <div className="flex items-start gap-3">
             <input
@@ -506,12 +545,41 @@ export default function ScholarshipRegister() {
               id="terms"
               checked={registrationData.agreeToTerms}
               onChange={(e) => handleInputChange('agreeToTerms', e.target.checked)}
-              className="mt-1"
+              className="mt-1 flex-shrink-0"
+              disabled={isUnder13()}
             />
             <label htmlFor="terms" className="text-sm text-gray-700">
-              I agree to the <a href="/terms" className="text-purple-600 hover:underline">Terms & Conditions</a> and 
-              <a href="/privacy" className="text-purple-600 hover:underline ml-1">Privacy Policy</a>. 
-              I understand this is a merit-based scholarship competition with one attempt per competition. *
+              I agree to the <a href="/terms" target="_blank" className="text-purple-600 hover:underline font-medium">Terms of Service</a> and 
+              <a href="/privacy" target="_blank" className="text-purple-600 hover:underline ml-1 font-medium">Privacy Policy</a>. *
+            </label>
+          </div>
+
+          <div className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              id="scholarshipRules"
+              checked={registrationData.agreeToScholarshipRules || false}
+              onChange={(e) => handleInputChange('agreeToScholarshipRules', e.target.checked)}
+              className="mt-1 flex-shrink-0"
+              disabled={isUnder13()}
+            />
+            <label htmlFor="scholarshipRules" className="text-sm text-gray-700">
+              I agree to the <a href="/scholarship-rules" target="_blank" className="text-purple-600 hover:underline font-medium">Official Scholarship Rules</a>. *
+            </label>
+          </div>
+
+          <div className="flex items-start gap-3">
+            <input
+              type="checkbox"
+              id="meritBased"
+              checked={registrationData.acknowledgeMeritBased || false}
+              onChange={(e) => handleInputChange('acknowledgeMeritBased', e.target.checked)}
+              className="mt-1 flex-shrink-0"
+              disabled={isUnder13()}
+            />
+            <label htmlFor="meritBased" className="text-sm text-gray-700">
+              I understand that scholarships are <span className="font-semibold">free, merit-based</span>, and results are final. 
+              Paid features do not influence scholarship outcomes. *
             </label>
           </div>
 
@@ -521,7 +589,7 @@ export default function ScholarshipRegister() {
               id="marketing"
               checked={registrationData.marketingConsent}
               onChange={(e) => handleInputChange('marketingConsent', e.target.checked)}
-              className="mt-1"
+              className="mt-1 flex-shrink-0"
             />
             <label htmlFor="marketing" className="text-sm text-gray-700">
               I'd like to receive updates about new competitions and scholarship opportunities. (Optional)

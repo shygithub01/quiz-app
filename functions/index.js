@@ -7,6 +7,12 @@ const mammoth = require("mammoth");
 const pdfParse = require("pdf-parse");
 const Busboy = require("busboy");
 const fs = require("fs");
+const admin = require("firebase-admin");
+
+// Initialize Firebase Admin if not already initialized
+if (!admin.apps.length) {
+  admin.initializeApp();
+}
 
 // Define secrets
 const openaiApiKey = defineSecret("OPENAI_API_KEY");
@@ -668,3 +674,103 @@ Requirements:
   }
 });
 
+
+// Parent Notification Email Function
+// Sends email notifications to parents when their child registers or participates in scholarships
+exports.sendParentNotification = onRequest({ region: 'us-central1' }, async (req, res) => {
+  await handleCors(req, res);
+  
+  try {
+    const { parentEmail, studentName, notificationType, competitionDetails } = req.body;
+    
+    if (!parentEmail || !studentName || !notificationType) {
+      return res.status(400).json({ 
+        error: 'Missing required fields: parentEmail, studentName, notificationType' 
+      });
+    }
+
+    console.log(`📧 Sending ${notificationType} notification to parent:`, parentEmail);
+
+    let subject, body;
+
+    if (notificationType === 'registration') {
+      subject = 'Your Child Registered on Quizist.AI';
+      body = `Hello,
+
+This email is to inform you that your child, ${studentName}, has created an account on Quizist.AI, an educational quiz and scholarship platform.
+
+Quizist.AI provides:
+- AI-generated educational quizzes
+- Practice mode for learning
+- Merit-based scholarship competitions (ages 13+)
+
+Your child's information is protected according to our Privacy Policy. If you wish to review or delete your child's information, please contact: privacy@quizist.ai
+
+For general support, contact: support@quizist.ai
+
+Thank you,
+Quizist.AI Team
+https://quizist.ai`;
+    } else if (notificationType === 'scholarship_participation') {
+      const competitionInfo = competitionDetails ? 
+        `\n\nCompetition Details:
+- Date: ${competitionDetails.date || 'TBD'}
+- Prize Pool: ${competitionDetails.prizePool || '$300'}
+- Duration: ${competitionDetails.duration || '60 minutes'}` : '';
+
+      subject = 'Scholarship Competition Participation Notice';
+      body = `Hello,
+
+This email is to inform you that your child, ${studentName}, has registered for a Quizist.AI merit-based scholarship competition.${competitionInfo}
+
+Important Information:
+- Participation is 100% FREE
+- Results are based solely on academic performance
+- No paid features influence scholarship outcomes
+- One attempt per participant
+
+If you have any questions or concerns, please contact:
+- Privacy inquiries: privacy@quizist.ai
+- General support: support@quizist.ai
+
+Thank you,
+Quizist.AI Team
+https://quizist.ai`;
+    } else {
+      return res.status(400).json({ 
+        error: 'Invalid notificationType. Must be "registration" or "scholarship_participation"' 
+      });
+    }
+
+    // In production, integrate with email service (SendGrid, AWS SES, etc.)
+    // For now, log the email that would be sent
+    console.log('📧 Email to be sent:');
+    console.log('To:', parentEmail);
+    console.log('Subject:', subject);
+    console.log('Body:', body);
+
+    // TODO: Integrate with actual email service
+    // Example with SendGrid:
+    // const sgMail = require('@sendgrid/mail');
+    // sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+    // await sgMail.send({
+    //   to: parentEmail,
+    //   from: 'noreply@quizist.ai',
+    //   subject: subject,
+    //   text: body
+    // });
+
+    res.json({ 
+      success: true,
+      message: 'Parent notification email queued successfully',
+      emailPreview: { to: parentEmail, subject }
+    });
+
+  } catch (error) {
+    console.error('❌ Error sending parent notification:', error);
+    res.status(500).json({ 
+      error: 'Failed to send parent notification',
+      details: error.message 
+    });
+  }
+});

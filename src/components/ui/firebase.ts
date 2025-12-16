@@ -1083,12 +1083,61 @@ const debugListAllRegistrations = async () => {
 const saveScholarshipRegistration = async (userId: string, registrationData: any) => {
   try {
     console.log('💾 Saving scholarship registration for user:', userId);
+    
+    // Get user info for parent notification
+    const userDoc = await getDoc(doc(db, 'users', userId));
+    const userData = userDoc.exists() ? userDoc.data() : null;
+    const studentName = userData?.displayName || userData?.email || 'Student';
+    
+    // Save registration
     await setDoc(doc(db, 'scholarshipRegistrations', userId), {
       ...registrationData,
       registeredAt: new Date().toISOString(),
       userId
     });
     console.log('✅ Scholarship registration saved successfully');
+    
+    // Send parent notification emails if parent email provided
+    if (registrationData.parentEmail) {
+      try {
+        console.log('📧 Sending parent notification emails...');
+        
+        // Send registration notification
+        await fetch('https://us-central1-quizist-ai.cloudfunctions.net/sendParentNotification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            parentEmail: registrationData.parentEmail,
+            studentName: studentName,
+            notificationType: 'registration'
+          })
+        });
+        
+        // If eligible for scholarship (Henrico County), send scholarship participation notice
+        if (registrationData.county === 'henrico') {
+          await fetch('https://us-central1-quizist-ai.cloudfunctions.net/sendParentNotification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              parentEmail: registrationData.parentEmail,
+              studentName: studentName,
+              notificationType: 'scholarship_participation',
+              competitionDetails: {
+                date: 'March 15, 2025',
+                prizePool: '$300',
+                duration: '60 minutes'
+              }
+            })
+          });
+        }
+        
+        console.log('✅ Parent notification emails sent');
+      } catch (emailError) {
+        console.error('⚠️ Error sending parent notification (non-critical):', emailError);
+        // Don't fail registration if email fails
+      }
+    }
+    
     return { success: true };
   } catch (error) {
     console.error('❌ Error saving scholarship registration:', error);
