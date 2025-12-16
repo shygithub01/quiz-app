@@ -93,22 +93,46 @@ const setUserRole = async (userId: string, role: UserRole, currentUserRole: User
   }
 };
 
-// Initialize user profile with default role
+// Initialize user profile with default role and subscription
 const initializeUserProfile = async (userId: string, email: string, displayName: string) => {
   try {
     const userRef = doc(db, 'users', userId);
     const userDoc = await getDoc(userRef);
     
     if (!userDoc.exists()) {
-      // Create new user profile with default student role using setDoc
+      // Calculate next reset date (first day of next month)
+      const now = new Date();
+      const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      
+      // Create new user profile with default student role and free subscription
       await setDoc(userRef, {
         email,
         displayName,
         role: UserRole.STUDENT,
         createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now()
+        updatedAt: Timestamp.now(),
+        
+        // Subscription fields
+        subscriptionTier: 'free',
+        subscriptionStatus: 'active',
+        subscriptionStartDate: Timestamp.now(),
+        subscriptionEndDate: null,
+        stripeCustomerId: null,
+        stripeSubscriptionId: null,
+        
+        // Usage tracking
+        quizGenerationsThisMonth: 0,
+        quizGenerationsLimit: 5, // Free tier limit
+        quizGenerationsResetDate: Timestamp.fromDate(nextMonth),
+        savedQuizzesCount: 0,
+        savedQuizzesLimit: 3, // Free tier limit
+        
+        // Trial tracking
+        trialStartDate: null,
+        trialEndDate: null,
+        hasUsedTrial: false,
       });
-      console.log('✅ User profile initialized');
+      console.log('✅ User profile initialized with free subscription');
     } else {
       // Update email and displayName if they've changed (sync from Firebase Auth)
       const currentData = userDoc.data();
@@ -119,6 +143,30 @@ const initializeUserProfile = async (userId: string, email: string, displayName:
           updatedAt: Timestamp.now()
         });
         console.log('✅ User profile synced with Firebase Auth');
+      }
+      
+      // Initialize subscription fields if they don't exist (for existing users)
+      if (!currentData.subscriptionTier) {
+        const now = new Date();
+        const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        
+        await updateDoc(userRef, {
+          subscriptionTier: 'free',
+          subscriptionStatus: 'active',
+          subscriptionStartDate: Timestamp.now(),
+          subscriptionEndDate: null,
+          stripeCustomerId: null,
+          stripeSubscriptionId: null,
+          quizGenerationsThisMonth: 0,
+          quizGenerationsLimit: 5,
+          quizGenerationsResetDate: Timestamp.fromDate(nextMonth),
+          savedQuizzesCount: 0,
+          savedQuizzesLimit: 3,
+          trialStartDate: null,
+          trialEndDate: null,
+          hasUsedTrial: false,
+        });
+        console.log('✅ Subscription fields added to existing user');
       }
     }
   } catch (error) {
