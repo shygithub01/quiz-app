@@ -1,12 +1,11 @@
 // Subscription Service - Manages user subscriptions and usage limits
 
-import { doc, getDoc, updateDoc, Timestamp, setDoc, increment } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, Timestamp, setDoc, increment as firestoreIncrement } from 'firebase/firestore';
 import { db } from '@/components/ui/firebase';
 import { 
   SubscriptionData, 
   SubscriptionTier, 
-  TIER_LIMITS,
-  UserSubscription 
+  TIER_LIMITS
 } from '@/types/subscription';
 
 export class SubscriptionService {
@@ -103,7 +102,7 @@ export class SubscriptionService {
     // Increment usage
     const userRef = doc(db, 'users', userId);
     await updateDoc(userRef, {
-      quizGenerationsThisMonth: increment(1),
+      quizGenerationsThisMonth: firestoreIncrement(1),
     });
     
     console.log('✅ Quiz generation tracked for user:', userId);
@@ -113,11 +112,11 @@ export class SubscriptionService {
   /**
    * Track saved quiz
    */
-  static async trackSavedQuiz(userId: string, increment: number = 1): Promise<boolean> {
+  static async trackSavedQuiz(userId: string, incrementBy: number = 1): Promise<boolean> {
     const subscriptionData = await this.getSubscriptionData(userId);
     
     // Check if user can save quiz
-    if (!subscriptionData.canSaveQuiz && increment > 0) {
+    if (!subscriptionData.canSaveQuiz && incrementBy > 0) {
       console.log('❌ Saved quiz limit reached for user:', userId);
       return false;
     }
@@ -125,7 +124,7 @@ export class SubscriptionService {
     // Update count
     const userRef = doc(db, 'users', userId);
     await updateDoc(userRef, {
-      savedQuizzesCount: increment > 0 ? increment(increment) : increment(increment),
+      savedQuizzesCount: firestoreIncrement(incrementBy),
     });
     
     console.log('✅ Saved quiz count updated for user:', userId);
