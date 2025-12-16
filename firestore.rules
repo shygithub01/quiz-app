@@ -69,5 +69,41 @@ service cloud.firestore {
         trackingId.matches(request.auth.uid + '_.*');
       allow write: if false; // Only Cloud Functions can write
     }
+    
+    // Dynamic pricing - anyone can read, only admins can write
+    match /dynamicPricing/{pricingId} {
+      allow read: if true;
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super_admin'];
+    }
+    
+    // Discount codes - anyone can read active codes, only admins can write
+    match /discountCodes/{codeId} {
+      allow read: if true;
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super_admin'];
+    }
+    
+    // Refunds - users can read their own, only admins can write
+    match /refunds/{refundId} {
+      allow read: if request.auth != null && 
+        (resource.data.userId == request.auth.uid || 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super_admin']);
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super_admin'];
+    }
+    
+    // Pricing history - only admins can read/write
+    match /pricingHistory/{historyId} {
+      allow read, write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super_admin'];
+    }
+    
+    // Promotional campaigns - anyone can read active campaigns, only admins can write
+    match /promotionalCampaigns/{campaignId} {
+      allow read: if true;
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'super_admin'];
+    }
   }
 }
