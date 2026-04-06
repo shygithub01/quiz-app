@@ -23,6 +23,8 @@ import AdminRestore from "./pages/AdminRestore";
 import AdminCreateCompetition from "./pages/AdminCreateCompetition";
 import LiveEventHost from "./pages/LiveEventHost";
 import LiveEventProjector from "./pages/LiveEventProjector";
+import LiveEventJoin from "./pages/LiveEventJoin";
+import LiveEventParticipant from "./pages/LiveEventParticipant";
 import Schools from "./pages/Schools";
 import ScholarshipHome from "./pages/ScholarshipHome";
 import ScholarshipRegister from "./pages/ScholarshipRegister";
@@ -83,8 +85,8 @@ const App = () => (
                   <Route path="admin/live-event/create" element={<LiveEventHost />} />
                   {/* Live Event Routes */}
                   <Route path="live-event/projector/:eventId" element={<LiveEventProjector />} />
-                  <Route path="live-event/join" element={<div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-900 text-2xl">Join Event - Coming in Phase 4</div>} />
-                  <Route path="live-event/participate/:eventId/:sessionId" element={<div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-900 text-2xl">Participant View - Coming in Phase 4</div>} />
+                  <Route path="live-event/join" element={<LiveEventJoin />} />
+                  <Route path="live-event/participate/:eventId/:sessionId" element={<LiveEventParticipant />} />
                   <Route path="live-event/results/:eventId" element={<div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-900 text-2xl">Results View - Coming in Phase 6</div>} />
                   <Route path="schools" element={<Schools />} />
                   <Route path="scholarship" element={<ScholarshipHome />} />

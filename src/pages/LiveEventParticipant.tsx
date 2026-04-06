@@ -1,0 +1,387 @@
+// Live Event Participant View
+// Mobile-optimized interface for participants to answer questions
+
+import { useState, useEffect, useRef } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Trophy, Clock, Award, Wifi, WifiOff } from 'lucide-react';
+import { getCompetitionById } from '@/components/ui/firebase';
+import {
+  getEventById,
+  listenToEvent,
+  listenToLeaderboard,
+  submitAnswer,
+  updateHeartbeat
+} from '@/services/liveEventService';
+import { LiveEvent, LeaderboardEntry } from '@/types/liveEvent';
+
+export default function LiveEventParticipant() {
+  const { eventId, sessionId } = useParams<{ eventId: string; sessionId: string }>();
+  const navigate = useNavigate();
+  
+  const [event, setEvent] = useState<LiveEvent | null>(null);
+  const [competition, setCompetition] = useState<any>(null);
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
+  const [myScore, setMyScore] = useState(0);
+  const [myRank, setMyRank] = useState(0);
+  const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+  const [hasAnswered, setHasAnswered] = useState(false);
+  const [remainingTime, setRemainingTime] = useState(0);
+  const [isConnected, setIsConnected] = useState(true);
+  const [countdown, setCountdown] = useState(3);
+  
+  const questionStartTimeRef = useRef<number>(0);
+  
+  // Load event and competition
+  useEffect(() => {
+    if (!eventId) return;
+    
+    const loadData = async () => {
+      const eventData = await getEventById(eventId);
+      if (eventData) {
+        setEvent(eventData);
+        
+        const compData = await getCompetitionById(eventData.competitionId);
+        setCompetition(compData);
+      }
+    };
+    
+    loadData();
+  }, [eventId]);
+  
+  // Listen to real-time updates
+  useEffect(() => {
+    if (!eventId) return;
+    
+    const unsubscribeEvent = listenToEvent(eventId, (updatedEvent) => {
+      if (updatedEvent) {
+        setEvent(updatedEvent);
+        
+        // Reset answer state when question changes
+        if (updatedEvent.phase === 'question' && 
+            updatedEvent.currentQuestionIndex !== event?.currentQuestionIndex) {
+          setSelectedAnswer(null);
+          setHasAnswered(false);
+          questionStartTimeRef.current = Date.now();
+        }
+      }
+      setIsConnected(true);
+    });
+    
+    const unsubscribeLeaderboard = listenToLeaderboard(eventId, (updatedLeaderboard) => {
+      setLeaderboard(updatedLeaderboard);
+      
+      // Find my score and rank
+      const myEntry = updatedLeaderboard.find(entry => entry.sessionId === sessionId);
+      if (myEntry) {
+        setMyScore(myEntry.score);
+        setMyRank(myEntry.rank);
+      }
+      setIsConnected(true);
+    });
+    
+    return () => {
+      unsubscribeEvent();
+      unsubscribeLeaderboard();
+    };
+  }, [eventId, sessionId, event?.currentQuestionIndex]);
+  
+  // Heartbeat mechanism
+  useEffect(() => {
+    if (!eventId || !sessionId) return;
+    
+    const sendHeartbeat = () => {
+      updateHeartbeat(eventId, sessionId);
+    };
+    
+    // Send initial heartbeat
+    sendHeartbeat();
+    
+    // Send heartbeat every 30 seconds
+    const interval = setInterval(sendHeartbeat, 30000);
+    
+    return () => clearInterval(interval);
+  }, [eventId, sessionId]);
+  
+  // Countdown animation
+  useEffect(() => {
+    if (event?.phase !== 'countdown') return;
+    
+    setCountdown(3);
+    const interval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [event?.phase]);
+  
+  // Timer countdown
+  useEffect(() => {
+    if (!event || event.phase !== 'question' || !event.timerStartedAt) return;
+    
+    const updateTimer = () => {
+      const now = Date.now();
+      const elapsed = now - event.timerStartedAt! - event.pausedDuration;
+      const remaining = Math.max(0, event.timerDuration - elapsed / 1000);
+      setRemainingTime(Math.ceil(remaining));
+    };
+    
+    updateTimer();
+    const interval = setInterval(updateTimer, 100);
+    
+    return () => clearInterval(interval);
+  }, [event?.phase, event?.timerStartedAt, event?.timerDuration, event?.pausedDuration]);
+  
+  // Set question start time
+  useEffect(() => {
+    if (event?.phase === 'question' && event.timerStartedAt) {
+      questionStartTimeRef.current = event.timerStartedAt;
+    }
+  }, [event?.phase, event?.timerStartedAt]);
+  
+  const handleAnswerSelect = async (answer: string) => {
+    if (hasAnswered || !event || !eventId || !sessionId) return;
+    
+    setSelectedAnswer(answer);
+    
+    try {
+      const now = Date.now();
+      const timeToAnswer = (now - questionStartTimeRef.current) / 1000;
+      
+      await submitAnswer(
+        eventId,
+        sessionId,
+        event.currentQuestionIndex,
+        answer,
+        timeToAnswer
+      );
+      
+      setHasAnswered(true);
+    } catch (error: any) {
+      console.error('Error submitting answer:', error);
+      alert(error.message || 'Failed to submit answer');
+      setSelectedAnswer(null);
+    }
+  };
+  
+  if (!event || !competition) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 flex items-center justify-center p-4">
+        <div className="text-center">
+          <Trophy className="h-12 w-12 text-purple-600 animate-spin mx-auto mb-4" />
+          <p className="text-lg text-gray-700">Loading event...</p>
+        </div>
+      </div>
+    );
+  }
+  
+  const currentQuestion = competition.questions?.[event.currentQuestionIndex];
+  const myName = localStorage.getItem(`liveEvent_${eventId}_name`) || 'You';
+  
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-4 shadow-lg">
+        <div className="max-w-2xl mx-auto">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <Trophy className="h-6 w-6" />
+              <span className="font-bold text-lg">{competition.title}</span>
+            </div>
+            {isConnected ? (
+              <Wifi className="h-5 w-5" />
+            ) : (
+              <WifiOff className="h-5 w-5 text-red-300 animate-pulse" />
+            )}
+          </div>
+          
+          <div className="flex items-center justify-between text-sm">
+            <span>{myName}</span>
+            <div className="flex items-center gap-4">
+              <span className="flex items-center gap-1">
+                <Award className="h-4 w-4" />
+                Score: {myScore}
+              </span>
+              <span>Rank: #{myRank || '-'}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div className="max-w-2xl mx-auto p-4">
+        {/* Lobby Phase */}
+        {event.phase === 'lobby' && (
+          <Card className="mt-8">
+            <CardContent className="pt-6 text-center">
+              <Trophy className="h-16 w-16 text-purple-600 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                Welcome, {myName}!
+              </h2>
+              <p className="text-gray-600 mb-4">
+                You've successfully joined the event.
+              </p>
+              <p className="text-lg text-purple-600 font-semibold">
+                Waiting for the host to start the competition...
+              </p>
+            </CardContent>
+          </Card>
+        )}
+        
+        {/* Countdown Phase */}
+        {event.phase === 'countdown' && (
+          <div className="flex items-center justify-center min-h-[60vh]">
+            <div className="text-center">
+              {countdown > 0 ? (
+                <p className="text-9xl font-bold text-purple-600 animate-bounce">
+                  {countdown}
+                </p>
+              ) : (
+                <p className="text-9xl font-bold text-green-600 animate-pulse">
+                  GO!
+                </p>
+              )}
+            </div>
+          </div>
+        )}
+        
+        {/* Question Phase */}
+        {event.phase === 'question' && currentQuestion && (
+          <div className="space-y-4 mt-4">
+            {/* Question Header */}
+            <Card>
+              <CardContent className="pt-4">
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-sm font-semibold text-gray-600">
+                    Question {event.currentQuestionIndex + 1} of {competition.questions.length}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-5 w-5" />
+                    <span className={`text-2xl font-bold ${remainingTime <= 10 ? 'text-red-600 animate-pulse' : 'text-gray-900'}`}>
+                      {remainingTime}s
+                    </span>
+                  </div>
+                </div>
+                
+                <p className="text-xl font-bold text-gray-900 leading-relaxed">
+                  {currentQuestion.question}
+                </p>
+              </CardContent>
+            </Card>
+            
+            {/* Answer Options */}
+            <div className="space-y-3">
+              {currentQuestion.options.map((option: string, idx: number) => (
+                <Button
+                  key={idx}
+                  onClick={() => handleAnswerSelect(option)}
+                  disabled={hasAnswered || remainingTime === 0}
+                  className={`w-full text-left justify-start text-lg font-semibold py-8 px-6 ${
+                    selectedAnswer === option
+                      ? 'bg-purple-600 hover:bg-purple-700 text-white'
+                      : 'bg-white hover:bg-gray-50 text-gray-900 border-2 border-gray-200'
+                  }`}
+                  style={{ minHeight: '44px', touchAction: 'manipulation' }}
+                >
+                  <span className="mr-3 text-xl">
+                    {String.fromCharCode(65 + idx)}.
+                  </span>
+                  {option}
+                </Button>
+              ))}
+            </div>
+            
+            {hasAnswered && (
+              <Card className="bg-green-50 border-2 border-green-200">
+                <CardContent className="pt-4">
+                  <p className="text-center text-green-800 font-semibold">
+                    ✅ Answer submitted! Waiting for other participants...
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        )}
+        
+        {/* Leaderboard Phase */}
+        {event.phase === 'leaderboard' && (
+          <Card className="mt-8">
+            <CardContent className="pt-6">
+              <h2 className="text-2xl font-bold text-center mb-6">
+                🏆 Current Standings
+              </h2>
+              
+              <div className="space-y-3">
+                {leaderboard.slice(0, 10).map((entry) => (
+                  <div
+                    key={entry.sessionId}
+                    className={`flex items-center justify-between p-4 rounded-lg ${
+                      entry.sessionId === sessionId
+                        ? 'bg-purple-100 border-2 border-purple-400'
+                        : 'bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl font-bold w-8 text-center">
+                        {entry.rank}
+                      </span>
+                      <div>
+                        <p className="font-bold">
+                          {entry.name}
+                          {entry.sessionId === sessionId && ' (You)'}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {entry.correctAnswers} correct
+                        </p>
+                      </div>
+                    </div>
+                    <span className="text-2xl font-bold">{entry.score}</span>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        
+        {/* Results Phase */}
+        {event.phase === 'results' && (
+          <Card className="mt-8">
+            <CardContent className="pt-6 text-center">
+              <Trophy className="h-20 w-20 text-yellow-500 mx-auto mb-4" />
+              <h2 className="text-3xl font-bold text-gray-900 mb-4">
+                Competition Complete!
+              </h2>
+              
+              <div className="bg-purple-50 rounded-lg p-6 mb-6">
+                <p className="text-lg text-gray-700 mb-2">Your Final Result</p>
+                <p className="text-5xl font-bold text-purple-600 mb-2">
+                  #{myRank}
+                </p>
+                <p className="text-2xl font-semibold text-gray-900">
+                  {myScore} points
+                </p>
+              </div>
+              
+              <p className="text-gray-600">
+                Thank you for participating!
+              </p>
+              
+              <Button
+                onClick={() => navigate('/')}
+                className="mt-6 bg-gradient-to-r from-purple-600 to-indigo-600"
+              >
+                Back to Home
+              </Button>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
+  );
+}
