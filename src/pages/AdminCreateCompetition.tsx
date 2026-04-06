@@ -38,6 +38,13 @@ export default function AdminCreateCompetition() {
   const [duration, setDuration] = useState('60');
   const [eligibleCounty, setEligibleCounty] = useState('henrico');
   const [competitionType, setCompetitionType] = useState<'practice' | 'competition'>('practice');
+  
+  // Live Event Mode Settings
+  const [isLiveEvent, setIsLiveEvent] = useState(false);
+  const [maxParticipants, setMaxParticipants] = useState(50);
+  const [questionTimer, setQuestionTimer] = useState(30);
+  const [enableFastestFingerBonus, setEnableFastestFingerBonus] = useState(true);
+  const [autoAdvanceOnTimer, setAutoAdvanceOnTimer] = useState(true);
 
   const totalQuestions = Object.values(subjectDistribution).reduce((a, b) => a + b, 0);
 
@@ -154,6 +161,13 @@ export default function AdminCreateCompetition() {
         duration: `${duration} minutes`,
         questionCount: totalQuestions, // Add actual question count
         eligibleCounty,
+        isLiveEvent, // Live Event Mode flag
+        liveEventSettings: isLiveEvent ? {
+          maxParticipants,
+          questionTimer,
+          enableFastestFingerBonus,
+          autoAdvanceOnTimer
+        } : undefined,
         rules: [
           competitionType === 'practice' 
             ? 'Unlimited attempts allowed for practice'
@@ -371,6 +385,92 @@ export default function AdminCreateCompetition() {
                     ? 'Practice tests appear on the Competitions page for students to practice anytime.'
                     : 'Scholarship competitions can be featured on the landing page and have prizes.'}
                 </p>
+              </div>
+
+              {/* Live Event Mode Toggle */}
+              <div className="border-2 border-purple-200 rounded-lg p-4 bg-purple-50">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-bold text-purple-900">
+                      🎪 Enable Live Event Mode
+                    </label>
+                    <span className="text-xs bg-purple-200 text-purple-800 px-2 py-1 rounded-full font-semibold">
+                      NEW
+                    </span>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={isLiveEvent}
+                      onChange={(e) => setIsLiveEvent(e.target.checked)}
+                      className="sr-only peer"
+                      disabled={!questionsGenerated}
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
+                  </label>
+                </div>
+                <p className="text-sm text-purple-700 mb-3">
+                  For in-person cultural events with projector display, QR code joining, and real-time leaderboards. Guests can join without registration.
+                </p>
+                
+                {isLiveEvent && (
+                  <div className="space-y-3 mt-4 pt-4 border-t border-purple-200">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-medium text-purple-900 mb-1">
+                          Max Participants (1-100)
+                        </label>
+                        <input
+                          type="number"
+                          value={maxParticipants}
+                          onChange={(e) => setMaxParticipants(Math.min(100, Math.max(1, parseInt(e.target.value) || 50)))}
+                          className="w-full px-3 py-2 border rounded-lg text-sm"
+                          min="1"
+                          max="100"
+                          disabled={!questionsGenerated}
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-purple-900 mb-1">
+                          Timer per Question (15-120s)
+                        </label>
+                        <input
+                          type="number"
+                          value={questionTimer}
+                          onChange={(e) => setQuestionTimer(Math.min(120, Math.max(15, parseInt(e.target.value) || 30)))}
+                          className="w-full px-3 py-2 border rounded-lg text-sm"
+                          min="15"
+                          max="120"
+                          disabled={!questionsGenerated}
+                        />
+                      </div>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 text-sm text-purple-900">
+                        <input
+                          type="checkbox"
+                          checked={enableFastestFingerBonus}
+                          onChange={(e) => setEnableFastestFingerBonus(e.target.checked)}
+                          className="rounded border-purple-300 text-purple-600 focus:ring-purple-500"
+                          disabled={!questionsGenerated}
+                        />
+                        <span>Enable Fastest Finger Bonus (+50/+30/+10 for top 3)</span>
+                      </label>
+                      
+                      <label className="flex items-center gap-2 text-sm text-purple-900">
+                        <input
+                          type="checkbox"
+                          checked={autoAdvanceOnTimer}
+                          onChange={(e) => setAutoAdvanceOnTimer(e.target.checked)}
+                          className="rounded border-purple-300 text-purple-600 focus:ring-purple-500"
+                          disabled={!questionsGenerated}
+                        />
+                        <span>Auto-advance when timer expires</span>
+                      </label>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>

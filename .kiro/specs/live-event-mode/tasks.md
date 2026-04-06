@@ -42,20 +42,20 @@ This plan implements a real-time quiz competition system for in-person cultural 
     - Update package.json and run npm install
     - _Requirements: 2.2, 11.6_
   
-  - [-] 1.6 Git backup: Phase 1 complete
+  - [x] 1.6 Git backup: Phase 1 complete
     - Create git commit with message "Phase 1: Foundation complete - Database, types, and services"
     - Tag as "live-event-phase-1"
     - _Requirements: N/A_
 
 - [ ] 2. Phase 2: Admin & Host Components
-  - [ ] 2.1 Extend AdminCreateCompetition with Live Event Mode toggle
+  - [x] 2.1 Extend AdminCreateCompetition with Live Event Mode toggle
     - Add "Enable Live Event Mode" toggle switch to competition creation form
     - Add live event settings panel (maxParticipants, questionTimer, enableFastestFingerBonus, autoAdvanceOnTimer)
     - Add validation for live event settings
     - Update competition creation logic to save liveEventSettings
     - _Requirements: 12.5, 20.1, 20.2, 20.3, 20.4, 20.5_
   
-  - [ ] 2.2 Create LiveEventHost component
+  - [x] 2.2 Create LiveEventHost component
     - Create src/pages/LiveEventHost.tsx with host control panel
     - Implement event creation flow (select competition, generate PIN, create event in Realtime DB)
     - Display event details (PIN, QR code, participant count)
@@ -64,7 +64,7 @@ This plan implements a real-time quiz competition system for in-person cultural 
     - Implement single active event constraint check
     - _Requirements: 4.4, 14.1, 14.2, 14.3, 14.4, 14.5, 15.1, 15.2_
   
-  - [ ] 2.3 Implement host control actions
+  - [x] 2.3 Implement host control actions
     - Implement startEvent() - transition to countdown phase
     - Implement pauseEvent() - freeze timer
     - Implement resumeEvent() - continue timer
@@ -82,7 +82,7 @@ This plan implements a real-time quiz competition system for in-person cultural 
     - Test early event termination
     - _Requirements: 14.1, 14.2, 14.3, 14.4, 14.5, 15.1_
   
-  - [ ] 2.5 Add Live Event routes to App.tsx
+  - [x] 2.5 Add Live Event routes to App.tsx
     - Add route /admin/live-event/create → LiveEventHost
     - Add route /live-event/projector/:eventId → LiveEventProjector (placeholder)
     - Add route /live-event/join → LiveEventJoin (placeholder)
@@ -90,7 +90,7 @@ This plan implements a real-time quiz competition system for in-person cultural 
     - Add route /live-event/results/:eventId → LiveEventResults (placeholder)
     - _Requirements: N/A_
   
-  - [ ] 2.6 Git backup: Phase 2 complete
+  - [-] 2.6 Git backup: Phase 2 complete
     - Create git commit with message "Phase 2: Admin & Host components complete"
     - Tag as "live-event-phase-2"
     - _Requirements: N/A_
