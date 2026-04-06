@@ -277,7 +277,7 @@ This plan implements a real-time quiz competition system for in-person cultural 
     - Ask the user if questions arise
     - _Requirements: N/A_
   
-  - [-] 5.9 Git backup: Phase 5 complete
+  - [x] 5.9 Git backup: Phase 5 complete
     - Create git commit with message "Phase 5: Real-time sync and testing complete"
     - Tag as "live-event-phase-5"
     - _Requirements: N/A_
@@ -307,7 +307,7 @@ This plan implements a real-time quiz competition system for in-person cultural 
     - Trigger download on host action
     - _Requirements: 11.6, 11.7_
   
-  - [ ] 6.4 Implement data archival and cleanup
+  - [x] 6.4 Implement data archival and cleanup
     - Create archiveEventResults() function
     - Save results to liveEventArchive Firestore collection on event end
     - Delete guest data from Realtime DB within 60 seconds of event end
@@ -315,7 +315,7 @@ This plan implements a real-time quiz competition system for in-person cultural 
     - Implement cleanup job to delete expired archives
     - _Requirements: 1.4, 16.1, 16.2, 16.3_
   
-  - [ ] 6.5 Implement event statistics logging
+  - [x] 6.5 Implement event statistics logging
     - Log anonymous statistics (participant count, duration, average score)
     - Ensure no PII is included in logs
     - Store statistics separately from guest data
@@ -329,7 +329,7 @@ This plan implements a real-time quiz competition system for in-person cultural 
     - Test statistics logging without PII
     - _Requirements: 11.5, 11.6, 11.7, 16.1, 16.2, 16.3, 16.5_
   
-  - [ ] 6.7 Git backup: Phase 6 complete
+  - [-] 6.7 Git backup: Phase 6 complete
     - Create git commit with message "Phase 6: Results and export complete"
     - Tag as "live-event-phase-6"
     - _Requirements: N/A_

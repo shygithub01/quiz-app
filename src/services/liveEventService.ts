@@ -891,3 +891,181 @@ export async function autoAdvanceQuestion(
     console.error('Error auto-advancing question:', error);
   }
 }
+
+
+// ===== DATA ARCHIVAL AND CLEANUP FUNCTIONS =====
+
+/**
+ * Archive event results to Firestore and delete guest data from Realtime DB
+ */
+export async function archiveAndCleanupEvent(eventId: string): Promise<void> {
+  try {
+    console.log('📦 Archiving event:', eventId);
+    
+    // Get event data
+    const event = await getEventById(eventId);
+    if (!event) {
+      throw new Error('Event not found');
+    }
+    
+    // Get competition data
+    const { getCompetitionById } = await import('../components/ui/firebase');
+    const competition = await getCompetitionById(event.competitionId);
+    if (!competition) {
+      throw new Error('Competition not found');
+    }
+    
+    // Get all participants
+    const participants = await getParticipants(eventId);
+    
+    // Get leaderboard
+    const leaderboard = await getLeaderboard(eventId);
+    
+    // Get all answers
+    const answersRef = ref(realtimeDb, `eventAnswers/${eventId}`);
+    const answersSnapshot = await get(answersRef);
+    const allAnswers = answersSnapshot.exists() ? answersSnapshot.val() : {};
+    
+    // Build results array
+    const results = leaderboard.map(entry => {
+      const participantAnswers = allAnswers[entry.sessionId] || {};
+      const answerDetails: Record<number, {
+        answer: string;
+        correct: boolean;
+        timeToAnswer: number;
+      }> = {};
+      
+      // Process each answer
+      Object.entries(participantAnswers).forEach(([qIndex, answerData]: [string, any]) => {
+        const questionIndex = parseInt(qIndex);
+        const question = competition.questions[questionIndex];
+        
+        answerDetails[questionIndex] = {
+          answer: answerData.answer,
+          correct: answerData.answer === question.correctAnswer,
+          timeToAnswer: answerData.timeToAnswer
+        };
+      });
+      
+      return {
+        sessionId: entry.sessionId,
+        name: entry.name,
+        score: entry.score,
+        rank: entry.rank,
+        correctAnswers: entry.correctAnswers,
+        fastestFingerBonus: entry.fastestFingerBonus,
+        answers: answerDetails
+      };
+    });
+    
+    // Calculate expiration (24 hours from now)
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 24);
+    
+    // Save to Firestore
+    const { db } = await import('../components/ui/firebase');
+    const { collection, addDoc, Timestamp } = await import('firebase/firestore');
+    
+    const archiveData = {
+      eventId,
+      competitionId: event.competitionId,
+      competitionTitle: competition.title,
+      pin: event.pin,
+      startedAt: Timestamp.fromMillis(event.startedAt || event.createdAt),
+      endedAt: Timestamp.fromMillis(event.endedAt || Date.now()),
+      participantCount: participants.length,
+      results,
+      expiresAt: Timestamp.fromDate(expiresAt),
+      archivedAt: Timestamp.now()
+    };
+    
+    await addDoc(collection(db, 'liveEventArchive'), archiveData);
+    console.log('✅ Event archived to Firestore');
+    
+    // Schedule cleanup after 60 seconds
+    setTimeout(async () => {
+      await deleteEvent(eventId);
+      console.log('✅ Guest data deleted from Realtime DB');
+    }, 60000);
+    
+  } catch (error) {
+    console.error('❌ Error archiving event:', error);
+    throw error;
+  }
+}
+
+/**
+ * Cleanup expired archives (called by scheduled job)
+ */
+export async function cleanupExpiredArchives(): Promise<void> {
+  try {
+    console.log('🧹 Cleaning up expired archives...');
+    
+    const { db } = await import('../components/ui/firebase');
+    const { collection, query, where, getDocs, deleteDoc, Timestamp } = await import('firebase/firestore');
+    
+    const archivesRef = collection(db, 'liveEventArchive');
+    const now = Timestamp.now();
+    const q = query(archivesRef, where('expiresAt', '<=', now));
+    
+    const snapshot = await getDocs(q);
+    
+    const deletePromises = snapshot.docs.map(doc => deleteDoc(doc.ref));
+    await Promise.all(deletePromises);
+    
+    console.log(`✅ Deleted ${snapshot.docs.length} expired archives`);
+  } catch (error) {
+    console.error('❌ Error cleaning up archives:', error);
+    throw error;
+  }
+}
+
+/**
+ * Log anonymous event statistics (no PII)
+ */
+export async function logEventStatistics(eventId: string): Promise<void> {
+  try {
+    console.log('📊 Logging event statistics:', eventId);
+    
+    const event = await getEventById(eventId);
+    if (!event) return;
+    
+    const participants = await getParticipants(eventId);
+    const leaderboard = await getLeaderboard(eventId);
+    
+    // Calculate statistics
+    const duration = event.endedAt && event.startedAt 
+      ? (event.endedAt - event.startedAt) / 1000 / 60 // minutes
+      : 0;
+    
+    const scores = leaderboard.map(e => e.score);
+    const avgScore = scores.length > 0 
+      ? scores.reduce((a, b) => a + b, 0) / scores.length 
+      : 0;
+    
+    const maxScore = scores.length > 0 ? Math.max(...scores) : 0;
+    const minScore = scores.length > 0 ? Math.min(...scores) : 0;
+    
+    // Save anonymous statistics
+    const { db } = await import('../components/ui/firebase');
+    const { collection, addDoc, Timestamp } = await import('firebase/firestore');
+    
+    await addDoc(collection(db, 'liveEventStatistics'), {
+      eventId, // Event ID only, no participant names
+      competitionId: event.competitionId,
+      participantCount: participants.length,
+      durationMinutes: Math.round(duration),
+      averageScore: Math.round(avgScore),
+      maxScore,
+      minScore,
+      questionCount: event.currentQuestionIndex + 1,
+      fastestFingerEnabled: event.settings.enableFastestFingerBonus,
+      timestamp: Timestamp.now()
+    });
+    
+    console.log('✅ Event statistics logged (no PII)');
+  } catch (error) {
+    console.error('❌ Error logging statistics:', error);
+    // Don't throw - statistics logging shouldn't break the flow
+  }
+}

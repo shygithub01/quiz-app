@@ -246,19 +246,36 @@ export default function LiveEventHost() {
     if (!event) return;
     
     const confirm = window.confirm(
-      'Are you sure you want to end this event?\n\nThis will:\n- Stop the competition\n- Show final results\n- Delete guest data after 60 seconds'
+      'Are you sure you want to end this event?\n\nThis will:\n- Stop the competition\n- Show final results\n- Archive results to Firestore\n- Delete guest data after 60 seconds'
     );
     
     if (!confirm) return;
     
     try {
+      // Calculate final leaderboard
+      const { calculateLeaderboard } = await import('@/services/liveEventService');
+      const competition = competitions.find(c => c.id === event.competitionId);
+      if (competition) {
+        await calculateLeaderboard(
+          event.id,
+          competition.questions,
+          event.settings.enableFastestFingerBonus
+        );
+      }
+      
+      // Update event status
       await updateEvent(event.id, {
         status: 'completed',
         phase: 'results',
         endedAt: Date.now()
       });
       
-      alert('✅ Event ended. Results are now displayed.');
+      // Archive and cleanup
+      const { archiveAndCleanupEvent, logEventStatistics } = await import('@/services/liveEventService');
+      await archiveAndCleanupEvent(event.id);
+      await logEventStatistics(event.id);
+      
+      alert('✅ Event ended. Results archived and guest data will be deleted in 60 seconds.');
     } catch (error) {
       console.error('Error ending event:', error);
       alert('Failed to end event');
