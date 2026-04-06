@@ -329,7 +329,7 @@ This plan implements a real-time quiz competition system for in-person cultural 
     - Test statistics logging without PII
     - _Requirements: 11.5, 11.6, 11.7, 16.1, 16.2, 16.3, 16.5_
   
-  - [-] 6.7 Git backup: Phase 6 complete
+  - [x] 6.7 Git backup: Phase 6 complete
     - Create git commit with message "Phase 6: Results and export complete"
     - Tag as "live-event-phase-6"
     - _Requirements: N/A_

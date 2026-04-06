@@ -14,7 +14,6 @@ import {
   Clock, 
   StopCircle,
   QrCode,
-  Download,
   AlertCircle
 } from 'lucide-react';
 import { getCompetitions } from '@/components/ui/firebase';
@@ -26,7 +25,7 @@ import {
   checkActiveEvents
 } from '@/services/liveEventService';
 import { LiveEvent, GuestParticipant } from '@/types/liveEvent';
-import QRCode from 'qrcode.react';
+import { QRCodeSVG } from 'qrcode.react';
 
 export default function LiveEventHost() {
   const navigate = useNavigate();
@@ -409,7 +408,7 @@ export default function LiveEventHost() {
                 <CardContent className="space-y-4">
                   <div className="text-center">
                     <div className="bg-white p-4 rounded-lg inline-block">
-                      <QRCode
+                      <QRCodeSVG
                         value={getJoinURL()}
                         size={200}
                         level="H"

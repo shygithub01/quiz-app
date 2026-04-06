@@ -8,9 +8,7 @@ import {
   update, 
   remove,
   onValue,
-  off,
-  serverTimestamp,
-  DatabaseReference
+  off
 } from 'firebase/database';
 import { realtimeDb } from '../components/ui/firebase';
 import { 
@@ -126,7 +124,8 @@ export async function createLiveEvent(
       throw new Error('An active event already exists. Please end it before creating a new one.');
     }
     
-    const eventData: Omit<LiveEvent, 'id'> = {
+    const eventData: LiveEvent = {
+      id: eventId,
       competitionId,
       pin,
       status: 'lobby',
@@ -199,7 +198,7 @@ export async function getEventByPIN(pin: string): Promise<LiveEvent | null> {
     }
     
     const [eventId, eventData] = eventEntry;
-    return { id: eventId, ...eventData } as LiveEvent;
+    return { id: eventId, ...(eventData as object) } as LiveEvent;
   } catch (error) {
     console.error('Error getting event by PIN:', error);
     throw error;
@@ -536,7 +535,7 @@ export function listenToEvent(
 ): () => void {
   const eventRef = ref(realtimeDb, `liveEvents/${eventId}`);
   
-  const unsubscribe = onValue(eventRef, (snapshot) => {
+  onValue(eventRef, (snapshot) => {
     if (snapshot.exists()) {
       callback({ id: eventId, ...snapshot.val() } as LiveEvent);
     } else {
@@ -557,7 +556,7 @@ export function listenToParticipants(
 ): () => void {
   const participantsRef = ref(realtimeDb, `eventParticipants/${eventId}`);
   
-  const unsubscribe = onValue(participantsRef, (snapshot) => {
+  onValue(participantsRef, (snapshot) => {
     if (snapshot.exists()) {
       const participants = Object.values(snapshot.val()) as GuestParticipant[];
       callback(participants);
@@ -578,7 +577,7 @@ export function listenToLeaderboard(
 ): () => void {
   const leaderboardRef = ref(realtimeDb, `eventLeaderboard/${eventId}`);
   
-  const unsubscribe = onValue(leaderboardRef, (snapshot) => {
+  onValue(leaderboardRef, (snapshot) => {
     if (snapshot.exists()) {
       const entries = Object.values(snapshot.val()) as LeaderboardEntry[];
       const sorted = entries.sort((a, b) => a.rank - b.rank);
@@ -601,7 +600,7 @@ export function listenToAnswerCount(
 ): () => void {
   const answersRef = ref(realtimeDb, `eventAnswers/${eventId}`);
   
-  const unsubscribe = onValue(answersRef, (snapshot) => {
+  onValue(answersRef, (snapshot) => {
     if (snapshot.exists()) {
       const allAnswers = snapshot.val();
       let count = 0;
@@ -686,7 +685,7 @@ async function calculateFastestFingerBonus(
   eventId: string,
   questionIndex: number,
   sessionId: string,
-  timeToAnswer: number
+  _timeToAnswer: number
 ): Promise<number> {
   try {
     // Get all answers for this question
