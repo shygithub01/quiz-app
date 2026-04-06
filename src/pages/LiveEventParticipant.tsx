@@ -30,8 +30,14 @@ export default function LiveEventParticipant() {
   const [remainingTime, setRemainingTime] = useState(0);
   const [isConnected, setIsConnected] = useState(true);
   const [countdown, setCountdown] = useState(3);
+  const [queuedAnswer, setQueuedAnswer] = useState<{
+    answer: string;
+    timeToAnswer: number;
+    questionIndex: number;
+  } | null>(null);
   
   const questionStartTimeRef = useRef<number>(0);
+  const reconnectTimeoutRef = useRef<number>(0);
   
   // Load event and competition
   useEffect(() => {
@@ -54,7 +60,16 @@ export default function LiveEventParticipant() {
   useEffect(() => {
     if (!eventId) return;
     
+    // Connection timeout detection
+    const connectionTimeout = setTimeout(() => {
+      setIsConnected(false);
+    }, 5000);
+    
     const unsubscribeEvent = listenToEvent(eventId, (updatedEvent) => {
+      clearTimeout(connectionTimeout);
+      setIsConnected(true);
+      reconnectTimeoutRef.current = Date.now();
+      
       if (updatedEvent) {
         setEvent(updatedEvent);
         
@@ -66,10 +81,13 @@ export default function LiveEventParticipant() {
           questionStartTimeRef.current = Date.now();
         }
       }
-      setIsConnected(true);
     });
     
     const unsubscribeLeaderboard = listenToLeaderboard(eventId, (updatedLeaderboard) => {
+      clearTimeout(connectionTimeout);
+      setIsConnected(true);
+      reconnectTimeoutRef.current = Date.now();
+      
       setLeaderboard(updatedLeaderboard);
       
       // Find my score and rank
@@ -78,10 +96,10 @@ export default function LiveEventParticipant() {
         setMyScore(myEntry.score);
         setMyRank(myEntry.rank);
       }
-      setIsConnected(true);
     });
     
     return () => {
+      clearTimeout(connectionTimeout);
       unsubscribeEvent();
       unsubscribeLeaderboard();
     };
@@ -146,6 +164,51 @@ export default function LiveEventParticipant() {
     }
   }, [event?.phase, event?.timerStartedAt]);
   
+  // Retry queued answer on reconnection
+  useEffect(() => {
+    if (!isConnected || !queuedAnswer || !eventId || !sessionId || !event) return;
+    
+    const retryAnswer = async () => {
+      try {
+        // Check if still within time limit
+        const now = Date.now();
+        const timeSinceDisconnect = now - reconnectTimeoutRef.current;
+        
+        if (timeSinceDisconnect > 60000) {
+          // More than 60 seconds offline, session expired
+          alert('Your session has expired. Please rejoin the event.');
+          setQueuedAnswer(null);
+          return;
+        }
+        
+        // Check if timer hasn't expired
+        const elapsed = now - event.timerStartedAt! - event.pausedDuration;
+        const remaining = event.timerDuration - elapsed / 1000;
+        
+        if (remaining > 0) {
+          await submitAnswer(
+            eventId,
+            sessionId,
+            queuedAnswer.questionIndex,
+            queuedAnswer.answer,
+            queuedAnswer.timeToAnswer
+          );
+          
+          setHasAnswered(true);
+          setQueuedAnswer(null);
+        } else {
+          // Timer expired, can't submit
+          alert('Time expired. Your answer could not be submitted.');
+          setQueuedAnswer(null);
+        }
+      } catch (error) {
+        console.error('Error retrying answer:', error);
+      }
+    };
+    
+    retryAnswer();
+  }, [isConnected, queuedAnswer, eventId, sessionId, event]);
+  
   const handleAnswerSelect = async (answer: string) => {
     if (hasAnswered || !event || !eventId || !sessionId) return;
     
@@ -166,8 +229,23 @@ export default function LiveEventParticipant() {
       setHasAnswered(true);
     } catch (error: any) {
       console.error('Error submitting answer:', error);
-      alert(error.message || 'Failed to submit answer');
-      setSelectedAnswer(null);
+      
+      // Queue answer if network error
+      if (!isConnected) {
+        const now = Date.now();
+        const timeToAnswer = (now - questionStartTimeRef.current) / 1000;
+        
+        setQueuedAnswer({
+          answer,
+          timeToAnswer,
+          questionIndex: event.currentQuestionIndex
+        });
+        
+        alert('Connection lost. Your answer will be submitted when connection is restored.');
+      } else {
+        alert(error.message || 'Failed to submit answer');
+        setSelectedAnswer(null);
+      }
     }
   };
   
@@ -216,6 +294,39 @@ export default function LiveEventParticipant() {
       </div>
       
       <div className="max-w-2xl mx-auto p-4">
+        {/* Connection Status Banner */}
+        {!isConnected && (
+          <Card className="mb-4 bg-orange-50 border-2 border-orange-300">
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-3">
+                <WifiOff className="h-6 w-6 text-orange-600 animate-pulse" />
+                <div>
+                  <p className="font-bold text-orange-900">Connection Lost</p>
+                  <p className="text-sm text-orange-700">
+                    Attempting to reconnect... Your answers will be saved.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        
+        {queuedAnswer && (
+          <Card className="mb-4 bg-blue-50 border-2 border-blue-300">
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-3">
+                <Clock className="h-6 w-6 text-blue-600 animate-pulse" />
+                <div>
+                  <p className="font-bold text-blue-900">Answer Queued</p>
+                  <p className="text-sm text-blue-700">
+                    Your answer will be submitted when connection is restored.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        
         {/* Lobby Phase */}
         {event.phase === 'lobby' && (
           <Card className="mt-8">

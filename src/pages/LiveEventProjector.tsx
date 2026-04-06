@@ -108,13 +108,65 @@ export default function LiveEventProjector() {
       const elapsed = now - event.timerStartedAt! - event.pausedDuration;
       const remaining = Math.max(0, event.timerDuration - elapsed / 1000);
       setRemainingTime(Math.ceil(remaining));
+      
+      // Auto-advance when timer expires (if enabled and not paused)
+      if (remaining <= 0 && event.settings.autoAdvanceOnTimer && event.status === 'active') {
+        handleAutoAdvance();
+      }
     };
     
     updateTimer();
     const interval = setInterval(updateTimer, 100);
     
     return () => clearInterval(interval);
-  }, [event?.phase, event?.timerStartedAt, event?.timerDuration, event?.pausedDuration]);
+  }, [event?.phase, event?.timerStartedAt, event?.timerDuration, event?.pausedDuration, event?.status]);
+  
+  const handleAutoAdvance = async () => {
+    if (!event || !competition || !eventId) return;
+    
+    try {
+      // Calculate leaderboard
+      const { calculateLeaderboard } = await import('@/services/liveEventService');
+      await calculateLeaderboard(
+        eventId,
+        competition.questions,
+        event.settings.enableFastestFingerBonus
+      );
+      
+      // Wait 3 seconds before advancing
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
+      // Check if this is the last question
+      if (event.currentQuestionIndex >= competition.questions.length - 1) {
+        // Move to results phase
+        const { updateEvent } = await import('@/services/liveEventService');
+        await updateEvent(eventId, {
+          phase: 'results',
+          status: 'completed',
+          endedAt: Date.now()
+        });
+      } else {
+        // Move to leaderboard phase
+        const { updateEvent } = await import('@/services/liveEventService');
+        await updateEvent(eventId, {
+          phase: 'leaderboard'
+        });
+        
+        // After 4 seconds, move to next question
+        setTimeout(async () => {
+          await updateEvent(eventId, {
+            phase: 'question',
+            currentQuestionIndex: event.currentQuestionIndex + 1,
+            timerStartedAt: Date.now(),
+            pausedDuration: 0,
+            pausedAt: null
+          });
+        }, 4000);
+      }
+    } catch (error) {
+      console.error('Error auto-advancing:', error);
+    }
+  };
   
   if (!event || !competition) {
     return (

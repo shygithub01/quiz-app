@@ -620,3 +620,274 @@ export function listenToAnswerCount(
   
   return () => off(answersRef);
 }
+
+
+// ===== SCORING AND LEADERBOARD FUNCTIONS =====
+
+/**
+ * Calculate score for a participant
+ * Awards 100 points for correct answers + fastest finger bonus
+ */
+export async function calculateScore(
+  eventId: string,
+  sessionId: string,
+  questions: any[],
+  enableFastestFingerBonus: boolean
+): Promise<{ score: number; correctAnswers: number; fastestFingerBonus: number }> {
+  try {
+    let score = 0;
+    let correctAnswers = 0;
+    let fastestFingerBonus = 0;
+    
+    // Get all answers for this participant
+    const answersRef = ref(realtimeDb, `eventAnswers/${eventId}/${sessionId}`);
+    const answersSnapshot = await get(answersRef);
+    
+    if (!answersSnapshot.exists()) {
+      return { score: 0, correctAnswers: 0, fastestFingerBonus: 0 };
+    }
+    
+    const participantAnswers = answersSnapshot.val();
+    
+    // Calculate score for each question
+    for (let i = 0; i < questions.length; i++) {
+      const answer = participantAnswers[i];
+      if (!answer) continue;
+      
+      const question = questions[i];
+      const isCorrect = answer.answer === question.correctAnswer;
+      
+      if (isCorrect) {
+        // Award base points
+        score += 100;
+        correctAnswers++;
+        
+        // Calculate fastest finger bonus if enabled
+        if (enableFastestFingerBonus) {
+          const bonus = await calculateFastestFingerBonus(eventId, i, sessionId, answer.timeToAnswer);
+          score += bonus;
+          fastestFingerBonus += bonus;
+        }
+      }
+    }
+    
+    return { score, correctAnswers, fastestFingerBonus };
+  } catch (error) {
+    console.error('Error calculating score:', error);
+    return { score: 0, correctAnswers: 0, fastestFingerBonus: 0 };
+  }
+}
+
+/**
+ * Calculate fastest finger bonus for a specific question
+ * Awards 50/30/10 points for top 3 fastest correct answers
+ */
+async function calculateFastestFingerBonus(
+  eventId: string,
+  questionIndex: number,
+  sessionId: string,
+  timeToAnswer: number
+): Promise<number> {
+  try {
+    // Get all answers for this question
+    const allAnswersRef = ref(realtimeDb, `eventAnswers/${eventId}`);
+    const allAnswersSnapshot = await get(allAnswersRef);
+    
+    if (!allAnswersSnapshot.exists()) {
+      return 0;
+    }
+    
+    const allAnswers = allAnswersSnapshot.val();
+    
+    // Get the correct answer from the event
+    const eventRef = ref(realtimeDb, `liveEvents/${eventId}`);
+    const eventSnapshot = await get(eventRef);
+    
+    if (!eventSnapshot.exists()) {
+      return 0;
+    }
+    
+    // We'll need to get the competition to know the correct answer
+    // For now, we'll collect all answers with their times
+    const answerTimes: { sessionId: string; timeToAnswer: number }[] = [];
+    
+    Object.entries(allAnswers).forEach(([sid, sessionAnswers]: [string, any]) => {
+      const answer = sessionAnswers[questionIndex];
+      if (answer) {
+        answerTimes.push({
+          sessionId: sid,
+          timeToAnswer: answer.timeToAnswer
+        });
+      }
+    });
+    
+    // Sort by time (fastest first)
+    answerTimes.sort((a, b) => a.timeToAnswer - b.timeToAnswer);
+    
+    // Find rank of this session
+    const rank = answerTimes.findIndex(a => a.sessionId === sessionId);
+    
+    if (rank === -1) return 0;
+    
+    // Award bonus based on rank
+    if (rank === 0) return 50; // Fastest
+    if (rank === 1) return 30; // Second
+    if (rank === 2) return 10; // Third
+    
+    return 0;
+  } catch (error) {
+    console.error('Error calculating fastest finger bonus:', error);
+    return 0;
+  }
+}
+
+/**
+ * Calculate and update leaderboard for all participants
+ */
+export async function calculateLeaderboard(
+  eventId: string,
+  questions: any[],
+  enableFastestFingerBonus: boolean
+): Promise<void> {
+  try {
+    // Get all participants
+    const participantsRef = ref(realtimeDb, `eventParticipants/${eventId}`);
+    const participantsSnapshot = await get(participantsRef);
+    
+    if (!participantsSnapshot.exists()) {
+      return;
+    }
+    
+    const participants = participantsSnapshot.val();
+    
+    // Calculate scores for all participants
+    const scores: Array<{
+      sessionId: string;
+      name: string;
+      score: number;
+      correctAnswers: number;
+      fastestFingerBonus: number;
+      totalTime: number;
+    }> = [];
+    
+    for (const [sessionId, participant] of Object.entries(participants) as [string, any][]) {
+      const { score, correctAnswers, fastestFingerBonus } = await calculateScore(
+        eventId,
+        sessionId,
+        questions,
+        enableFastestFingerBonus
+      );
+      
+      // Calculate total time to answer
+      const answersRef = ref(realtimeDb, `eventAnswers/${eventId}/${sessionId}`);
+      const answersSnapshot = await get(answersRef);
+      
+      let totalTime = 0;
+      if (answersSnapshot.exists()) {
+        const answers = answersSnapshot.val();
+        Object.values(answers).forEach((answer: any) => {
+          totalTime += answer.timeToAnswer || 0;
+        });
+      }
+      
+      scores.push({
+        sessionId,
+        name: participant.name,
+        score,
+        correctAnswers,
+        fastestFingerBonus,
+        totalTime
+      });
+    }
+    
+    // Sort by score (descending), then by total time (ascending)
+    scores.sort((a, b) => {
+      if (b.score !== a.score) {
+        return b.score - a.score;
+      }
+      return a.totalTime - b.totalTime;
+    });
+    
+    // Assign ranks and update leaderboard
+    for (let i = 0; i < scores.length; i++) {
+      const entry = scores[i];
+      await updateLeaderboard(eventId, entry.sessionId, {
+        sessionId: entry.sessionId,
+        name: entry.name,
+        score: entry.score,
+        correctAnswers: entry.correctAnswers,
+        fastestFingerBonus: entry.fastestFingerBonus,
+        rank: i + 1,
+        lastUpdated: Date.now()
+      });
+    }
+    
+    console.log('✅ Leaderboard calculated and updated for', scores.length, 'participants');
+  } catch (error) {
+    console.error('❌ Error calculating leaderboard:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get remaining time for current question
+ * Handles pause/resume logic
+ */
+export function getRemainingTime(event: LiveEvent): number {
+  if (!event.timerStartedAt) return event.timerDuration;
+  
+  if (event.status === 'paused' && event.pausedAt) {
+    const elapsed = event.pausedAt - event.timerStartedAt - event.pausedDuration;
+    return Math.max(0, event.timerDuration - elapsed / 1000);
+  }
+  
+  const now = Date.now();
+  const elapsed = now - event.timerStartedAt - event.pausedDuration;
+  return Math.max(0, event.timerDuration - elapsed / 1000);
+}
+
+/**
+ * Auto-advance to next question or leaderboard after timer expires
+ */
+export async function autoAdvanceQuestion(
+  eventId: string,
+  event: LiveEvent,
+  totalQuestions: number
+): Promise<void> {
+  try {
+    const remainingTime = getRemainingTime(event);
+    
+    if (remainingTime > 0) return; // Timer not expired yet
+    
+    // Wait 3 seconds before advancing
+    await new Promise(resolve => setTimeout(resolve, 3000));
+    
+    // Check if we're on the last question
+    if (event.currentQuestionIndex >= totalQuestions - 1) {
+      // Move to results
+      await updateEvent(eventId, {
+        phase: 'results',
+        status: 'completed',
+        endedAt: Date.now()
+      });
+    } else {
+      // Move to leaderboard phase
+      await updateEvent(eventId, {
+        phase: 'leaderboard'
+      });
+      
+      // After 4 seconds, move to next question
+      setTimeout(async () => {
+        await updateEvent(eventId, {
+          phase: 'question',
+          currentQuestionIndex: event.currentQuestionIndex + 1,
+          timerStartedAt: Date.now(),
+          pausedDuration: 0,
+          pausedAt: null
+        });
+      }, 4000);
+    }
+  } catch (error) {
+    console.error('Error auto-advancing question:', error);
+  }
+}

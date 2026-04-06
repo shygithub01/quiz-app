@@ -217,7 +217,7 @@ This plan implements a real-time quiz competition system for in-person cultural 
     - _Requirements: N/A_
 
 - [ ] 5. Phase 5: Real-Time Sync & Testing
-  - [ ] 5.1 Implement scoring algorithm
+  - [x] 5.1 Implement scoring algorithm
     - Create calculateScore() function in liveEventService.ts
     - Award 100 points for correct answers
     - Award 0 points for incorrect answers
@@ -225,7 +225,7 @@ This plan implements a real-time quiz competition system for in-person cultural 
     - Ensure bonus only applies to correct answers
     - _Requirements: 9.1, 9.2, 9.3, 9.4, 9.5, 9.6_
   
-  - [ ] 5.2 Implement leaderboard calculation
+  - [x] 5.2 Implement leaderboard calculation
     - Create calculateLeaderboard() function
     - Sort by score (descending), then by total time (ascending) for ties
     - Calculate ranks (1, 2, 3, etc.)
@@ -233,7 +233,7 @@ This plan implements a real-time quiz competition system for in-person cultural 
     - Ensure updates complete within 2 seconds
     - _Requirements: 8.2, 8.3, 9.7_
   
-  - [ ] 5.3 Implement timer synchronization
+  - [x] 5.3 Implement timer synchronization
     - Use server timestamp as source of truth
     - Implement getRemainingTime() with pause support
     - Sync timer every 5 seconds to prevent drift
@@ -241,7 +241,7 @@ This plan implements a real-time quiz competition system for in-person cultural 
     - Implement auto-advance after timer expiry (3 second delay)
     - _Requirements: 7.2, 7.6, 14.1, 14.2_
   
-  - [ ] 5.4 Implement network resilience
+  - [x] 5.4 Implement network resilience
     - Display reconnection indicator on connection loss
     - Queue answer submissions during network interruptions
     - Submit queued answers on reconnection if within time limit
@@ -277,7 +277,7 @@ This plan implements a real-time quiz competition system for in-person cultural 
     - Ask the user if questions arise
     - _Requirements: N/A_
   
-  - [ ] 5.9 Git backup: Phase 5 complete
+  - [-] 5.9 Git backup: Phase 5 complete
     - Create git commit with message "Phase 5: Real-time sync and testing complete"
     - Tag as "live-event-phase-5"
     - _Requirements: N/A_

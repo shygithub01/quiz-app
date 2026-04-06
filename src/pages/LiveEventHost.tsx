@@ -134,6 +134,13 @@ export default function LiveEventHost() {
     }
     
     try {
+      // Initialize leaderboard with zero scores
+      const { calculateLeaderboard } = await import('@/services/liveEventService');
+      const competition = competitions.find(c => c.id === event.competitionId);
+      if (competition) {
+        await calculateLeaderboard(event.id, competition.questions, event.settings.enableFastestFingerBonus);
+      }
+      
       await updateEvent(event.id, {
         status: 'active',
         phase: 'countdown',
@@ -182,11 +189,38 @@ export default function LiveEventHost() {
     if (!event) return;
     
     try {
-      await updateEvent(event.id, {
-        currentQuestionIndex: event.currentQuestionIndex + 1,
-        phase: 'question',
-        timerStartedAt: Date.now()
-      });
+      // Get competition to access questions
+      const competition = competitions.find(c => c.id === event.competitionId);
+      if (!competition) {
+        throw new Error('Competition not found');
+      }
+      
+      // Calculate leaderboard before advancing
+      const { calculateLeaderboard } = await import('@/services/liveEventService');
+      await calculateLeaderboard(
+        event.id,
+        competition.questions,
+        event.settings.enableFastestFingerBonus
+      );
+      
+      // Check if this is the last question
+      if (event.currentQuestionIndex >= competition.questions.length - 1) {
+        // Move to results phase
+        await updateEvent(event.id, {
+          phase: 'results',
+          status: 'completed',
+          endedAt: Date.now()
+        });
+      } else {
+        // Move to next question
+        await updateEvent(event.id, {
+          currentQuestionIndex: event.currentQuestionIndex + 1,
+          phase: 'question',
+          timerStartedAt: Date.now(),
+          pausedDuration: 0,
+          pausedAt: null
+        });
+      }
     } catch (error) {
       console.error('Error advancing question:', error);
       alert('Failed to advance question');
