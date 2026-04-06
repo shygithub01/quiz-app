@@ -29,6 +29,8 @@ import Privacy from "./pages/Privacy";
 import ScholarshipRules from "./pages/ScholarshipRules";
 import AIDisclaimer from "./pages/AIDisclaimer";
 import Contact from "./pages/Contact";
+import Pricing from "./pages/Pricing";
+import SubscriptionManagement from "./pages/SubscriptionManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -85,6 +87,9 @@ const App = () => (
                   <Route path="scholarship-rules" element={<ScholarshipRules />} />
                   <Route path="ai-disclaimer" element={<AIDisclaimer />} />
                   <Route path="contact" element={<Contact />} />
+                  {/* Subscription Pages */}
+                  <Route path="pricing" element={<Pricing />} />
+                  <Route path="account/subscription" element={<SubscriptionManagement />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>

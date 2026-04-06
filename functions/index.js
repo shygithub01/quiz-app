@@ -675,6 +675,339 @@ Requirements:
 });
 
 
+// ============================================================================
+// STRIPE INTEGRATION - Subscription Management
+// ============================================================================
+
+// Initialize Stripe only if key is available
+let stripe = null;
+if (process.env.STRIPE_SECRET_KEY) {
+  stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+} else {
+  console.warn('⚠️ STRIPE_SECRET_KEY not configured - Stripe functions will not work');
+}
+
+/**
+ * Create Stripe Checkout Session
+ * Called when user clicks "Subscribe" button
+ */
+exports.createCheckoutSession = onRequest({ region: 'us-central1' }, async (req, res) => {
+  await handleCors(req, res);
+  
+  try {
+    if (!stripe) {
+      return res.status(503).json({ error: 'Stripe not configured' });
+    }
+    
+    // Verify authentication
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const idToken = authHeader.split('Bearer ')[1];
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const userId = decodedToken.uid;
+
+    const { priceId, successUrl, cancelUrl } = req.body;
+    
+    if (!priceId || !successUrl || !cancelUrl) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    console.log(`💳 Creating checkout session for user ${userId}, price ${priceId}`);
+    
+    // Get or create Stripe customer
+    const userDoc = await admin.firestore().collection('users').doc(userId).get();
+    const userData = userDoc.data();
+    
+    if (!userData) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    let customerId = userData.stripeCustomerId;
+    
+    if (!customerId) {
+      console.log('📝 Creating new Stripe customer');
+      const customer = await stripe.customers.create({
+        email: userData.email,
+        metadata: {
+          firebaseUID: userId
+        }
+      });
+      customerId = customer.id;
+      
+      // Save customer ID
+      await admin.firestore().collection('users').doc(userId).update({
+        stripeCustomerId: customerId
+      });
+      console.log(`✅ Stripe customer created: ${customerId}`);
+    }
+    
+    // Determine if user has used trial
+    const hasUsedTrial = userData.hasUsedTrial || false;
+    
+    // Create checkout session
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      mode: 'subscription',
+      payment_method_types: ['card'],
+      line_items: [{
+        price: priceId,
+        quantity: 1
+      }],
+      success_url: successUrl,
+      cancel_url: cancelUrl,
+      subscription_data: {
+        trial_period_days: hasUsedTrial ? 0 : 7,
+        metadata: {
+          firebaseUID: userId
+        }
+      },
+      metadata: {
+        firebaseUID: userId
+      }
+    });
+    
+    console.log(`✅ Checkout session created: ${session.id}`);
+    
+    res.json({ sessionId: session.id });
+  } catch (error) {
+    console.error('❌ Error creating checkout session:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Create Stripe Customer Portal Session
+ * Allows users to manage their subscription
+ */
+exports.createPortalSession = onRequest({ region: 'us-central1' }, async (req, res) => {
+  await handleCors(req, res);
+  
+  try {
+    if (!stripe) {
+      return res.status(503).json({ error: 'Stripe not configured' });
+    }
+    
+    // Verify authentication
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const idToken = authHeader.split('Bearer ')[1];
+    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const userId = decodedToken.uid;
+
+    const { returnUrl } = req.body;
+    
+    if (!returnUrl) {
+      return res.status(400).json({ error: 'Missing returnUrl' });
+    }
+
+    console.log(`🔧 Creating portal session for user ${userId}`);
+    
+    // Get user's Stripe customer ID
+    const userDoc = await admin.firestore().collection('users').doc(userId).get();
+    const userData = userDoc.data();
+    
+    if (!userData || !userData.stripeCustomerId) {
+      return res.status(404).json({ error: 'No Stripe customer found' });
+    }
+    
+    // Create portal session
+    const session = await stripe.billingPortal.sessions.create({
+      customer: userData.stripeCustomerId,
+      return_url: returnUrl
+    });
+    
+    console.log(`✅ Portal session created: ${session.id}`);
+    
+    res.json({ url: session.url });
+  } catch (error) {
+    console.error('❌ Error creating portal session:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Stripe Webhook Handler
+ * Processes subscription events from Stripe
+ */
+exports.handleStripeWebhook = onRequest({ region: 'us-central1' }, async (req, res) => {
+  if (!stripe) {
+    return res.status(503).send('Stripe not configured');
+  }
+  
+  const sig = req.headers['stripe-signature'];
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  
+  if (!webhookSecret) {
+    console.error('❌ STRIPE_WEBHOOK_SECRET not configured');
+    return res.status(500).send('Webhook secret not configured');
+  }
+  
+  let event;
+  
+  try {
+    event = stripe.webhooks.constructEvent(req.rawBody, sig, webhookSecret);
+  } catch (err) {
+    console.error('❌ Webhook signature verification failed:', err.message);
+    return res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+  
+  console.log(`📨 Received Stripe webhook: ${event.type}`);
+  
+  // Handle the event
+  try {
+    switch (event.type) {
+      case 'customer.subscription.created':
+      case 'customer.subscription.updated':
+        await handleSubscriptionUpdate(event.data.object);
+        break;
+        
+      case 'customer.subscription.deleted':
+        await handleSubscriptionCanceled(event.data.object);
+        break;
+        
+      case 'invoice.payment_succeeded':
+        await handlePaymentSucceeded(event.data.object);
+        break;
+        
+      case 'invoice.payment_failed':
+        await handlePaymentFailed(event.data.object);
+        break;
+        
+      default:
+        console.log(`ℹ️ Unhandled event type: ${event.type}`);
+    }
+    
+    res.json({ received: true });
+  } catch (error) {
+    console.error('❌ Error processing webhook:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Handle subscription creation/update
+ */
+async function handleSubscriptionUpdate(subscription) {
+  const userId = subscription.metadata.firebaseUID;
+  const priceId = subscription.items.data[0].price.id;
+  
+  console.log(`🔄 Updating subscription for user ${userId}`);
+  
+  // Determine tier from price ID
+  let tier = 'premium';
+  if (priceId.includes('family')) tier = 'family';
+  if (priceId.includes('teacher')) tier = 'teacher';
+  
+  const status = subscription.status;
+  
+  // Update user document
+  await admin.firestore().collection('users').doc(userId).update({
+    subscriptionTier: tier,
+    subscriptionStatus: status,
+    subscriptionStartDate: admin.firestore.Timestamp.fromMillis(subscription.current_period_start * 1000),
+    subscriptionEndDate: admin.firestore.Timestamp.fromMillis(subscription.current_period_end * 1000),
+    stripeSubscriptionId: subscription.id,
+    quizGenerationsLimit: -1, // Unlimited
+    savedQuizzesLimit: -1, // Unlimited
+    hasUsedTrial: true,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+  });
+  
+  // Create/update subscription document
+  await admin.firestore().collection('subscriptions').doc(subscription.id).set({
+    userId,
+    stripeCustomerId: subscription.customer,
+    stripeSubscriptionId: subscription.id,
+    stripePriceId: priceId,
+    status,
+    tier,
+    currentPeriodStart: admin.firestore.Timestamp.fromMillis(subscription.current_period_start * 1000),
+    currentPeriodEnd: admin.firestore.Timestamp.fromMillis(subscription.current_period_end * 1000),
+    cancelAtPeriodEnd: subscription.cancel_at_period_end,
+    createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+  }, { merge: true });
+  
+  console.log(`✅ Subscription updated: ${tier} - ${status}`);
+}
+
+/**
+ * Handle subscription cancellation
+ */
+async function handleSubscriptionCanceled(subscription) {
+  const userId = subscription.metadata.firebaseUID;
+  
+  console.log(`❌ Subscription canceled for user ${userId}`);
+  
+  await admin.firestore().collection('users').doc(userId).update({
+    subscriptionTier: 'free',
+    subscriptionStatus: 'canceled',
+    quizGenerationsLimit: 5,
+    savedQuizzesLimit: 3,
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+  });
+  
+  // Update subscription document
+  await admin.firestore().collection('subscriptions').doc(subscription.id).update({
+    status: 'canceled',
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+  });
+  
+  console.log(`✅ User downgraded to free tier`);
+}
+
+/**
+ * Handle successful payment
+ */
+async function handlePaymentSucceeded(invoice) {
+  const subscriptionId = invoice.subscription;
+  
+  if (!subscriptionId) return;
+  
+  console.log(`💰 Payment succeeded for subscription ${subscriptionId}`);
+  
+  // Update subscription document
+  await admin.firestore().collection('subscriptions').doc(subscriptionId).update({
+    lastPaymentDate: admin.firestore.FieldValue.serverTimestamp(),
+    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+  });
+}
+
+/**
+ * Handle failed payment
+ */
+async function handlePaymentFailed(invoice) {
+  const subscriptionId = invoice.subscription;
+  
+  if (!subscriptionId) return;
+  
+  console.log(`⚠️ Payment failed for subscription ${subscriptionId}`);
+  
+  // Get subscription to find user
+  const subDoc = await admin.firestore().collection('subscriptions').doc(subscriptionId).get();
+  const subData = subDoc.data();
+  
+  if (subData) {
+    // Update user status to past_due
+    await admin.firestore().collection('users').doc(subData.userId).update({
+      subscriptionStatus: 'past_due',
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    
+    console.log(`⚠️ User ${subData.userId} marked as past_due`);
+  }
+}
+
+// ============================================================================
+// EMAIL NOTIFICATIONS
+// ============================================================================
+
 // Parent Notification Email Function
 // Sends email notifications to parents when their child registers or participates in scholarships
 exports.sendParentNotification = onRequest({ region: 'us-central1' }, async (req, res) => {

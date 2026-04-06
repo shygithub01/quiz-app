@@ -259,4 +259,25 @@ export class SubscriptionService {
       resetDate,
     };
   }
+
+  /**
+   * Check if user is on premium tier
+   */
+  static isPremium(tier: SubscriptionTier): boolean {
+    return ['premium', 'family', 'teacher'].includes(tier);
+  }
+
+  /**
+   * Check if user can download PDFs
+   */
+  static canDownloadPDF(tier: SubscriptionTier): boolean {
+    return this.isPremium(tier);
+  }
+
+  /**
+   * Check if user can access analytics
+   */
+  static canAccessAnalytics(tier: SubscriptionTier): boolean {
+    return this.isPremium(tier);
+  }
 }

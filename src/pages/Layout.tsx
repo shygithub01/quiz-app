@@ -120,6 +120,23 @@ export default function Layout() {
                     </Button>
                   </Link>
                   
+                  <Link to="/pricing">
+                    <Button
+                      variant={location.pathname === '/pricing' ? 'default' : 'ghost'}
+                      size="sm"
+                      className={`
+                        relative group transition-all duration-300 rounded-full
+                        ${location.pathname === '/pricing' 
+                          ? 'bg-white text-purple-600 shadow-glow hover:shadow-glow-lg' 
+                          : 'text-white/80 hover:text-white hover:bg-white/10'
+                        }
+                      `}
+                    >
+                      <Sparkles className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
+                      <span className="hidden sm:inline font-medium ml-2">Pricing</span>
+                    </Button>
+                  </Link>
+                  
                   {/* Admin Navigation - Only visible to admins */}
                   {userIsAdmin && (
                     <>
