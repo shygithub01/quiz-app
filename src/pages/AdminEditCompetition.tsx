@@ -198,6 +198,7 @@ export default function AdminEditCompetition() {
                   Description *
                 </label>
                 <textarea
+                  key={`description-${formData.isPractice}-${formData.isLiveEvent}`}
                   name="description"
                   value={formData.description}
                   onChange={handleInputChange}
@@ -212,6 +213,14 @@ export default function AdminEditCompetition() {
                       : "Describe this scholarship competition (e.g., 'Merit-based scholarship competition for high school students')"
                   }
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  {formData.isPractice
+                    ? "💡 Tip: Explain what topics are covered and how this helps students prepare"
+                    : formData.isLiveEvent
+                    ? "💡 Tip: Mention the event format, venue details, and what participants should expect"
+                    : "💡 Tip: Highlight eligibility criteria, competition format, and what makes this scholarship unique"
+                  }
+                </p>
               </div>
 
               {/* Dates */}
@@ -300,8 +309,22 @@ export default function AdminEditCompetition() {
                   onChange={handleInputChange}
                   rows={4}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Enter competition rules, one per line"
+                  placeholder={
+                    formData.isPractice
+                      ? "Enter practice session rules (e.g., 'No time limit', 'Can retake anytime', 'Instant feedback provided')"
+                      : formData.isLiveEvent
+                      ? "Enter live event rules (e.g., 'All participants must be present', 'No devices allowed', 'Host controls timing')"
+                      : "Enter competition rules (e.g., 'One attempt only', 'Must complete within time limit', 'No external help allowed')"
+                  }
                 />
+                <p className="text-xs text-gray-500 mt-1">
+                  {formData.isPractice
+                    ? "💡 Define guidelines for practice sessions (flexible rules encouraged)"
+                    : formData.isLiveEvent
+                    ? "💡 Specify in-person event rules and participant expectations"
+                    : "💡 Set clear rules for fair competition and eligibility requirements"
+                  }
+                </p>
               </div>
 
               {/* Prizes - Only for Scholarship Competitions */}
@@ -316,8 +339,25 @@ export default function AdminEditCompetition() {
                     onChange={handleInputChange}
                     rows={4}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Enter prizes, one per line (1st place, 2nd place, etc.)"
+                    placeholder="Enter prizes, one per line (e.g., '1st Place: $500 + Trophy', '2nd Place: $300 + Medal')"
                   />
+                  <p className="text-xs text-gray-500 mt-1">
+                    💡 List all prizes and awards for top performers
+                  </p>
+                </div>
+              )}
+
+              {/* Scholarship Benefits - Only for Scholarship Competitions */}
+              {!formData.isPractice && !formData.isLiveEvent && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                  <h3 className="font-medium text-yellow-900 mb-2">🏆 Scholarship Competition Features</h3>
+                  <ul className="text-sm text-yellow-800 space-y-1">
+                    <li>• One attempt only - ensures fair competition</li>
+                    <li>• Official competition with prizes and recognition</li>
+                    <li>• Leaderboard rankings for all participants</li>
+                    <li>• Perfect for merit-based scholarships and awards</li>
+                    <li>• Timed format with strict rules</li>
+                  </ul>
                 </div>
               )}
 
