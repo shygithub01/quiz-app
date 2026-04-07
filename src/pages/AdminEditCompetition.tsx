@@ -113,8 +113,53 @@ export default function AdminEditCompetition() {
       };
 
       await updateCompetition(competitionId, updateData);
-      alert('✅ Competition updated successfully!');
-      navigate(`/competitions/${competitionId}`);
+
+      // Check if this is a Live Event that's becoming active
+      const startDate = new Date(formData.startDate);
+      const endDate = new Date(formData.endDate);
+      const now = new Date();
+      const isNowActive = now >= startDate && now <= endDate;
+
+      // If it's a live event and it's now active, recreate the Realtime Database entry
+      if (formData.isLiveEvent && isNowActive) {
+        try {
+          console.log('🎪 Live Event is now active - creating/recreating Realtime Database entry...');
+          const { createLiveEvent } = await import('../services/liveEventService');
+          
+          // Get live event settings from the competition (or use defaults)
+          const liveEventSettings = competition?.liveEventSettings || {
+            questionTimer: 30,
+            enableFastestFingerBonus: true,
+            autoAdvanceOnTimer: false
+          };
+          
+          const maxParticipants = competition?.liveEventSettings?.maxParticipants || 100;
+          
+          const { eventId, pin } = await createLiveEvent(
+            competitionId,
+            {
+              questionTimer: liveEventSettings.questionTimer,
+              enableFastestFingerBonus: liveEventSettings.enableFastestFingerBonus,
+              autoAdvanceOnTimer: liveEventSettings.autoAdvanceOnTimer
+            },
+            maxParticipants
+          );
+          
+          console.log('✅ Live Event recreated:', eventId, 'PIN:', pin);
+          
+          alert(`✅ Competition updated and Live Event activated!\n\nEvent PIN: ${pin}\nEvent ID: ${eventId}\n\nRedirecting to Host Control Panel...`);
+          
+          // Redirect to Live Event Host control panel
+          navigate(`/live-event/${eventId}/host`);
+        } catch (error: any) {
+          console.error('❌ Failed to create/recreate Live Event:', error);
+          alert(`✅ Competition updated successfully!\n\n⚠️ However, Live Event setup failed: ${error.message}\n\nYou may need to recreate the live event.`);
+          navigate(`/competitions/${competitionId}`);
+        }
+      } else {
+        alert('✅ Competition updated successfully!');
+        navigate(`/competitions/${competitionId}`);
+      }
 
     } catch (error) {
       console.error('Error updating competition:', error);
