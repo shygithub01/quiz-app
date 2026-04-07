@@ -11,12 +11,12 @@ export default function NotFound() {
         <p className="text-lg text-gray-600 mb-8 max-w-md">
           The page you're looking for doesn't exist or has been moved.
         </p>
-        <Button asChild className="bg-indigo-600 hover:bg-indigo-700">
-          <Link to="/">
+        <Link to="/">
+          <Button className="bg-indigo-600 hover:bg-indigo-700">
             <Home className="mr-2 h-4 w-4" />
             Go Home
-          </Link>
-        </Button>
+          </Button>
+        </Link>
       </div>
     </div>
   )

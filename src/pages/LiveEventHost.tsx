@@ -2,7 +2,7 @@
 // Allows hosts to create and manage live events
 
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
@@ -22,13 +22,16 @@ import {
   listenToEvent,
   listenToParticipants,
   updateEvent,
-  checkActiveEvents
+  checkActiveEvents,
+  getEventById
 } from '@/services/liveEventService';
 import { LiveEvent, GuestParticipant } from '@/types/liveEvent';
 import { QRCodeSVG } from 'qrcode.react';
+import { startBackgroundMusic, stopBackgroundMusic } from '@/utils/backgroundMusic';
 
 export default function LiveEventHost() {
   const navigate = useNavigate();
+  const { eventId } = useParams<{ eventId: string }>();
   
   // Step 1: Select Competition
   const [competitions, setCompetitions] = useState<any[]>([]);
@@ -39,12 +42,19 @@ export default function LiveEventHost() {
   const [event, setEvent] = useState<LiveEvent | null>(null);
   const [participants, setParticipants] = useState<GuestParticipant[]>([]);
   const [hasActiveEvent, setHasActiveEvent] = useState(false);
+  const [showJoinFlash, setShowJoinFlash] = useState(false);
+  const [showFullFlash, setShowFullFlash] = useState(false);
+  const [lastParticipantCount, setLastParticipantCount] = useState(0);
   
-  // Load competitions on mount
+  // Load existing event from URL or load competitions
   useEffect(() => {
-    loadCompetitions();
-    checkForActiveEvents();
-  }, []);
+    if (eventId) {
+      loadExistingEvent(eventId);
+    } else {
+      loadCompetitions();
+      checkForActiveEvents();
+    }
+  }, [eventId]);
   
   // Listen to event changes
   useEffect(() => {
@@ -57,14 +67,141 @@ export default function LiveEventHost() {
     });
     
     const unsubscribeParticipants = listenToParticipants(event.id, (updatedParticipants) => {
+      const activeParticipants = updatedParticipants.filter(p => p.isActive);
       setParticipants(updatedParticipants);
+      
+      console.log('👥 Participant update:', {
+        activeCount: activeParticipants.length,
+        lastCount: lastParticipantCount,
+        shouldPlaySound: activeParticipants.length > lastParticipantCount
+      });
+      
+      // Play sound and show flash when new participant joins (only count active participants)
+      if (activeParticipants.length > lastParticipantCount) {
+        console.log('🔊 Playing join sound!');
+        playJoinSound();
+        triggerJoinFlash();
+        
+        // Check if event is now full (only active participants)
+        if (activeParticipants.length >= event.maxParticipants) {
+          console.log('🎉 Event is full!');
+          setTimeout(() => triggerFullFlash(), 300);
+        }
+      }
+      
+      setLastParticipantCount(activeParticipants.length);
     });
     
     return () => {
       unsubscribeEvent();
       unsubscribeParticipants();
     };
-  }, [event?.id]);
+  }, [event?.id, lastParticipantCount]);
+  
+  // Sound effects
+  const playJoinSound = () => {
+    // Create a cheerful "ding" sound
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      // Higher pitch, shorter duration for quick feedback
+      oscillator.frequency.value = 1000;
+      oscillator.type = 'sine';
+      
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.15);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.15);
+    } catch (error) {
+      console.log('Audio not supported');
+    }
+  };
+  
+  const triggerJoinFlash = () => {
+    setShowJoinFlash(true);
+    setTimeout(() => setShowJoinFlash(false), 2000); // Show confetti for 2 seconds
+  };
+  
+  const triggerFullFlash = () => {
+    // Play special "full" sound - three ascending tones
+    try {
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      
+      [800, 1000, 1200].forEach((freq, i) => {
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.frequency.value = freq;
+        oscillator.type = 'sine';
+        
+        const startTime = audioContext.currentTime + (i * 0.1);
+        gainNode.gain.setValueAtTime(0.2, startTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + 0.2);
+        
+        oscillator.start(startTime);
+        oscillator.stop(startTime + 0.2);
+      });
+    } catch (error) {
+      console.log('Audio not supported');
+    }
+    
+    setShowFullFlash(true);
+    setTimeout(() => setShowFullFlash(false), 4000); // Show big confetti for 4 seconds
+  };
+  
+  const loadExistingEvent = async (id: string) => {
+    try {
+      setLoading(true);
+      console.log('Loading existing event:', id);
+      
+      const existingEvent = await getEventById(id);
+      
+      if (existingEvent) {
+        setEvent(existingEvent);
+        setHasActiveEvent(true);
+        
+        // Also load competitions for the control panel
+        const allCompetitions = await getCompetitions();
+        const liveEventCompetitions = allCompetitions.filter(
+          (comp: any) => comp.isLiveEvent === true
+        );
+        setCompetitions(liveEventCompetitions);
+        
+        // Load participants to check if full
+        const { listenToParticipants } = await import('@/services/liveEventService');
+        listenToParticipants(id, (updatedParticipants) => {
+          const activeParticipants = updatedParticipants.filter(p => p.isActive);
+          setParticipants(updatedParticipants);
+          setLastParticipantCount(activeParticipants.length);
+          
+          // Show full notification on initial load if already full (only active participants)
+          if (activeParticipants.length >= existingEvent.maxParticipants && activeParticipants.length > 0) {
+            setTimeout(() => {
+              triggerFullFlash();
+            }, 800);
+          }
+        });
+      } else {
+        alert('Event not found. It may have been deleted or expired.');
+        navigate('/admin/competitions');
+      }
+    } catch (error) {
+      console.error('Error loading event:', error);
+      alert('Failed to load event');
+      navigate('/admin/competitions');
+    } finally {
+      setLoading(false);
+    }
+  };
   
   const loadCompetitions = async () => {
     try {
@@ -133,12 +270,24 @@ export default function LiveEventHost() {
     }
     
     try {
-      // Initialize leaderboard with zero scores
-      const { calculateLeaderboard } = await import('@/services/liveEventService');
+      // Get competition to access questions
       const competition = competitions.find(c => c.id === event.competitionId);
-      if (competition) {
-        await calculateLeaderboard(event.id, competition.questions, event.settings.enableFastestFingerBonus);
+      
+      if (!competition) {
+        throw new Error('Competition not found');
       }
+      
+      console.log('🔍 Starting event with competition:', {
+        id: competition.id,
+        title: competition.title,
+        hasQuestions: !!competition.questions,
+        questionsType: typeof competition.questions,
+        questionsLength: competition.questions?.length
+      });
+      
+      // Initialize leaderboard (will handle missing questions gracefully)
+      const { calculateLeaderboard } = await import('@/services/liveEventService');
+      await calculateLeaderboard(event.id, competition.questions || [], event.settings.enableFastestFingerBonus);
       
       await updateEvent(event.id, {
         status: 'active',
@@ -146,8 +295,22 @@ export default function LiveEventHost() {
         startedAt: Date.now()
       });
       
+      // Start background music
+      startBackgroundMusic();
+      
+      // Auto-transition to first question after countdown (4 seconds: 3-2-1-GO)
+      setTimeout(async () => {
+        await updateEvent(event.id, {
+          phase: 'question',
+          currentQuestionIndex: 0,
+          timerStartedAt: Date.now(),
+          pausedDuration: 0
+        });
+      }, 4000);
+      
       // Open projector view in new window
-      window.open(`/live-event/projector/${event.id}`, '_blank');
+      const projectorUrl = `${window.location.origin}/live-event/${event.id}/projector`;
+      window.open(projectorUrl, '_blank');
     } catch (error) {
       console.error('Error starting event:', error);
       alert('Failed to start event');
@@ -194,16 +357,27 @@ export default function LiveEventHost() {
         throw new Error('Competition not found');
       }
       
-      // Calculate leaderboard before advancing
+      console.log('🔍 Next question - competition data:', {
+        id: competition.id,
+        hasQuestions: !!competition.questions,
+        questionsType: typeof competition.questions,
+        questionsLength: competition.questions?.length
+      });
+      
+      // Calculate leaderboard before advancing (handle missing questions gracefully)
       const { calculateLeaderboard } = await import('@/services/liveEventService');
       await calculateLeaderboard(
         event.id,
-        competition.questions,
+        competition.questions || [],
         event.settings.enableFastestFingerBonus
       );
       
       // Check if this is the last question
-      if (event.currentQuestionIndex >= competition.questions.length - 1) {
+      const questionCount = competition.questions?.length || 0;
+      if (event.currentQuestionIndex >= questionCount - 1) {
+        // Stop background music before moving to results
+        stopBackgroundMusic();
+        
         // Move to results phase
         await updateEvent(event.id, {
           phase: 'results',
@@ -211,7 +385,7 @@ export default function LiveEventHost() {
           endedAt: Date.now()
         });
       } else {
-        // Move to next question
+        // Move to next question (skip leaderboard phase)
         await updateEvent(event.id, {
           currentQuestionIndex: event.currentQuestionIndex + 1,
           phase: 'question',
@@ -251,6 +425,9 @@ export default function LiveEventHost() {
     if (!confirm) return;
     
     try {
+      // Stop background music
+      stopBackgroundMusic();
+      
       // Calculate final leaderboard
       const { calculateLeaderboard } = await import('@/services/liveEventService');
       const competition = competitions.find(c => c.id === event.competitionId);
@@ -281,6 +458,32 @@ export default function LiveEventHost() {
     }
   };
   
+  const handleDeleteEvent = async () => {
+    if (!event) return;
+    
+    const confirm = window.confirm(
+      'Are you sure you want to DELETE this game?\n\nThis will:\n- Permanently delete the event\n- Remove ALL participants (even if they have browser tabs open)\n- Clear all data from Realtime Database\n\nYou can then create a new event from your existing templates.'
+    );
+    
+    if (!confirm) return;
+    
+    try {
+      // Stop background music if playing
+      stopBackgroundMusic();
+      
+      const { deleteEvent } = await import('@/services/liveEventService');
+      await deleteEvent(event.id);
+      
+      alert('✅ Game deleted! All data cleared. Create a new event to continue.');
+      
+      // Navigate to the host page without event ID to create a new event
+      window.location.href = '/admin/live-event-host';
+    } catch (error) {
+      console.error('Error deleting event:', error);
+      alert('Failed to delete event');
+    }
+  };
+  
   const getJoinURL = () => {
     if (!event) return '';
     return `${window.location.origin}/live-event/join?pin=${event.pin}`;
@@ -299,6 +502,62 @@ export default function LiveEventHost() {
   
   return (
     <div className="min-h-screen bg-gray-50 p-6">
+      {/* Join Confetti Effect */}
+      {showJoinFlash && (
+        <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+          {[...Array(20)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute text-3xl animate-fall"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: '-50px',
+                animationDuration: `${1.5 + Math.random()}s`,
+                animationDelay: `${Math.random() * 0.2}s`
+              }}
+            >
+              {['🎉', '⭐', '✨', '🎊'][Math.floor(Math.random() * 4)]}
+            </div>
+          ))}
+        </div>
+      )}
+      
+      {/* Event Full - MASSIVE Confetti Explosion */}
+      {showFullFlash && (
+        <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+          {[...Array(100)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute text-4xl animate-fall"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: '-100px',
+                animationDuration: `${2 + Math.random() * 2}s`,
+                animationDelay: `${Math.random() * 0.5}s`
+              }}
+            >
+              {['🎉', '🎊', '⭐', '✨', '🏆', '🎈', '🌟', '💫'][Math.floor(Math.random() * 8)]}
+            </div>
+          ))}
+        </div>
+      )}
+      
+      <style>{`
+        @keyframes fall {
+          0% {
+            transform: translateY(0) rotate(0deg);
+            opacity: 1;
+          }
+          100% {
+            transform: translateY(100vh) rotate(360deg);
+            opacity: 0.5;
+          }
+        }
+        .animate-fall {
+          animation: fall linear forwards;
+        }
+      `}</style>
+      
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between bg-gradient-to-r from-purple-600 to-pink-600 text-white p-6 rounded-xl shadow-xl">
@@ -324,14 +583,39 @@ export default function LiveEventHost() {
         {hasActiveEvent && !event && (
           <Card className="border-2 border-orange-300 bg-orange-50">
             <CardContent className="pt-6">
-              <div className="flex items-start gap-3">
+              <div className="flex items-start gap-3 mb-4">
                 <AlertCircle className="h-6 w-6 text-orange-600 flex-shrink-0 mt-1" />
-                <div>
+                <div className="flex-1">
                   <h3 className="font-bold text-orange-900 mb-1">Active Event Detected</h3>
-                  <p className="text-sm text-orange-700">
+                  <p className="text-sm text-orange-700 mb-3">
                     There is already an active event running. Only one event can be active at a time. 
                     Please end the current event before creating a new one.
                   </p>
+                  <Button
+                    onClick={async () => {
+                      if (confirm('⚠️ FORCE DELETE ALL EVENTS?\n\nThis will delete ALL live events and related data from the database. This action cannot be undone.\n\nUse this only for testing/debugging.')) {
+                        try {
+                          const { ref, get, remove } = await import('firebase/database');
+                          const { realtimeDb } = await import('@/components/ui/firebase');
+                          
+                          await remove(ref(realtimeDb, 'liveEvents'));
+                          await remove(ref(realtimeDb, 'eventParticipants'));
+                          await remove(ref(realtimeDb, 'eventAnswers'));
+                          await remove(ref(realtimeDb, 'eventLeaderboard'));
+                          
+                          alert('✅ All events deleted. Please refresh the page.');
+                          window.location.reload();
+                        } catch (error) {
+                          console.error('Error force deleting:', error);
+                          alert('Failed to delete events. Check console.');
+                        }
+                      }
+                    }}
+                    variant="destructive"
+                    size="sm"
+                  >
+                    Force Clean Database (Testing Only)
+                  </Button>
                 </div>
               </div>
             </CardContent>
@@ -447,7 +731,12 @@ export default function LiveEventHost() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <Users className="h-5 w-5" />
-                    Participants ({participants.length}/{event.maxParticipants})
+                    Participants ({participants.filter(p => p.isActive).length}/{event.maxParticipants})
+                    {participants.filter(p => p.isActive).length >= event.maxParticipants && (
+                      <span className="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-bold rounded-full animate-pulse">
+                        FULL
+                      </span>
+                    )}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -485,13 +774,41 @@ export default function LiveEventHost() {
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     {event.status === 'lobby' && (
-                      <Button
-                        onClick={handleStartEvent}
-                        className="col-span-2 bg-green-600 hover:bg-green-700 text-white font-bold text-lg py-6"
-                      >
-                        <Play className="h-6 w-6 mr-2" />
-                        Start Event
-                      </Button>
+                      <>
+                        {/* Big Participant Counter */}
+                        <div className="col-span-2 mb-6">
+                          <div className="bg-gradient-to-br from-purple-100 to-pink-100 rounded-2xl p-8 text-center border-4 border-purple-300">
+                            <p className="text-lg text-gray-600 mb-2">Participants Joined</p>
+                            <div className="text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600 mb-2 animate-pulse">
+                              {participants.filter(p => p.isActive).length}
+                            </div>
+                            <p className="text-2xl text-gray-500">
+                              of {event.maxParticipants} maximum
+                            </p>
+                            {participants.filter(p => p.isActive).length >= event.maxParticipants && (
+                              <div className="mt-4 px-6 py-3 bg-yellow-400 text-yellow-900 rounded-full text-xl font-bold inline-block animate-bounce">
+                                🎉 EVENT FULL! 🎉
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <Button
+                          onClick={handleStartEvent}
+                          className="col-span-2 bg-green-600 hover:bg-green-700 text-white font-bold text-lg py-6"
+                        >
+                          <Play className="h-6 w-6 mr-2" />
+                          Start Event
+                        </Button>
+                        
+                        <Button
+                          onClick={handleDeleteEvent}
+                          variant="destructive"
+                          className="col-span-2"
+                        >
+                          🗑️ Delete Event
+                        </Button>
+                      </>
                     )}
                     
                     {event.status === 'active' && (
@@ -554,17 +871,32 @@ export default function LiveEventHost() {
                     )}
                     
                     {event.status === 'completed' && (
-                      <div className="col-span-2 text-center py-8">
-                        <Trophy className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
-                        <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                          Event Completed!
-                        </h3>
-                        <p className="text-gray-600 mb-4">
-                          Results are displayed on the projector view.
-                        </p>
+                      <div className="col-span-2 space-y-4">
+                        <div className="text-center py-8">
+                          <Trophy className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
+                          <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                            🎉 Game Completed! 🎉
+                          </h3>
+                          <p className="text-gray-600 mb-4">
+                            Results are displayed on the projector view.
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            Delete this game to create a new one from your templates.
+                          </p>
+                        </div>
+                        
+                        <Button
+                          onClick={handleDeleteEvent}
+                          variant="destructive"
+                          className="w-full text-lg py-6"
+                        >
+                          🗑️ Delete Game
+                        </Button>
+                        
                         <Button
                           onClick={() => navigate('/admin/competitions')}
                           variant="outline"
+                          className="w-full"
                         >
                           Back to Competitions
                         </Button>
@@ -575,7 +907,7 @@ export default function LiveEventHost() {
                   {event.status !== 'completed' && (
                     <div className="pt-4 border-t">
                       <Button
-                        onClick={() => window.open(`/live-event/projector/${event.id}`, '_blank')}
+                        onClick={() => window.open(`/live-event/${event.id}/projector`, '_blank')}
                         variant="outline"
                         className="w-full"
                       >

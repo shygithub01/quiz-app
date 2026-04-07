@@ -231,7 +231,7 @@ export default function Home() {
             </p>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
             {/* Try Quiz Generator */}
             <Card className="bg-gradient-to-br from-purple-900/30 to-indigo-900/30 border-purple-400/30 text-white">
               <CardHeader className="text-center">
@@ -325,6 +325,54 @@ export default function Home() {
                     className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold"
                   >
                     {user ? 'View Scholarships' : 'Sign In for Scholarships'}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Live Cultural Events */}
+            <Card className="bg-gradient-to-br from-orange-900/30 to-red-900/30 border-orange-400/30 text-white">
+              <CardHeader className="text-center">
+                <Users className="h-16 w-16 mx-auto mb-4 text-orange-400" />
+                <CardTitle className="text-2xl">Live Cultural Events</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 text-orange-400" />
+                    <span>Host cultural quiz competitions</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 text-orange-400" />
+                    <span>QR code & PIN for easy joining</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 text-orange-400" />
+                    <span>Large-screen projector display</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className="h-5 w-5 text-orange-400" />
+                    <span>Live leaderboard & fastest finger</span>
+                  </div>
+                </div>
+                
+                <div className="pt-4">
+                  <Button 
+                    onClick={async () => {
+                      if (user) {
+                        navigate('/admin/create-competition');
+                      } else {
+                        try {
+                          await signIn();
+                          navigate('/admin/create-competition');
+                        } catch (error) {
+                          console.error('Sign-in failed:', error);
+                        }
+                      }
+                    }}
+                    className="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold"
+                  >
+                    {user ? 'Host Cultural Event' : 'Sign In to Host Event'}
                   </Button>
                 </div>
               </CardContent>

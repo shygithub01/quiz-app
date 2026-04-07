@@ -25,6 +25,7 @@ export default function LiveEventParticipant() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [myScore, setMyScore] = useState(0);
   const [myRank, setMyRank] = useState(0);
+  const [myTotalTime, setMyTotalTime] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [hasAnswered, setHasAnswered] = useState(false);
   const [remainingTime, setRemainingTime] = useState(0);
@@ -35,6 +36,8 @@ export default function LiveEventParticipant() {
     timeToAnswer: number;
     questionIndex: number;
   } | null>(null);
+  const [myName, setMyName] = useState<string>('You');
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
   
   const questionStartTimeRef = useRef<number>(0);
   const reconnectTimeoutRef = useRef<number>(0);
@@ -43,18 +46,73 @@ export default function LiveEventParticipant() {
   useEffect(() => {
     if (!eventId) return;
     
+    // Set timeout for loading state
+    const timeout = setTimeout(() => {
+      setLoadingTimeout(true);
+    }, 10000); // 10 seconds
+    
     const loadData = async () => {
-      const eventData = await getEventById(eventId);
-      if (eventData) {
-        setEvent(eventData);
-        
-        const compData = await getCompetitionById(eventData.competitionId);
-        setCompetition(compData);
+      try {
+        const eventData = await getEventById(eventId);
+        if (eventData) {
+          console.log('📊 Participant - Event loaded:', eventData);
+          setEvent(eventData);
+          clearTimeout(timeout);
+          
+          const compData = await getCompetitionById(eventData.competitionId);
+          console.log('📚 Participant - Competition loaded:', compData);
+          console.log('❓ Participant - Questions count:', compData?.questions?.length || 0);
+          setCompetition(compData);
+        } else {
+          // Event doesn't exist
+          clearTimeout(timeout);
+          setEvent(null);
+          setCompetition(null);
+        }
+      } catch (error) {
+        console.error('❌ Participant - Error loading data:', error);
+        clearTimeout(timeout);
       }
     };
     
     loadData();
+    
+    return () => clearTimeout(timeout);
   }, [eventId]);
+  
+  // Load participant name from database
+  useEffect(() => {
+    if (!eventId || !sessionId) return;
+    
+    const loadParticipantName = async () => {
+      try {
+        const { getParticipants } = await import('@/services/liveEventService');
+        const participants = await getParticipants(eventId);
+        const myParticipant = participants.find(p => p.sessionId === sessionId);
+        
+        if (myParticipant) {
+          setMyName(myParticipant.name);
+          // Also store in sessionStorage for faster access
+          sessionStorage.setItem(`liveEvent_${eventId}_name`, myParticipant.name);
+        } else {
+          // Fallback to sessionStorage
+          const storedName = sessionStorage.getItem(`liveEvent_${eventId}_name`);
+          if (storedName) {
+            setMyName(storedName);
+          }
+        }
+      } catch (error) {
+        console.error('Error loading participant name:', error);
+        // Fallback to sessionStorage
+        const storedName = sessionStorage.getItem(`liveEvent_${eventId}_name`);
+        if (storedName) {
+          setMyName(storedName);
+        }
+      }
+    };
+    
+    loadParticipantName();
+  }, [eventId, sessionId]);
   
   // Listen to real-time updates
   useEffect(() => {
@@ -80,6 +138,9 @@ export default function LiveEventParticipant() {
           setHasAnswered(false);
           questionStartTimeRef.current = Date.now();
         }
+      } else {
+        // Event was deleted
+        setEvent(null);
       }
     });
     
@@ -95,6 +156,7 @@ export default function LiveEventParticipant() {
       if (myEntry) {
         setMyScore(myEntry.score);
         setMyRank(myEntry.rank);
+        setMyTotalTime(myEntry.totalTime);
       }
     });
     
@@ -105,7 +167,7 @@ export default function LiveEventParticipant() {
     };
   }, [eventId, sessionId, event?.currentQuestionIndex]);
   
-  // Heartbeat mechanism
+  // Heartbeat mechanism and auto-cleanup on disconnect
   useEffect(() => {
     if (!eventId || !sessionId) return;
     
@@ -119,8 +181,21 @@ export default function LiveEventParticipant() {
     // Send heartbeat every 30 seconds
     const interval = setInterval(sendHeartbeat, 30000);
     
-    return () => clearInterval(interval);
-  }, [eventId, sessionId]);
+    // Set up Firebase onDisconnect to auto-remove participant when browser closes
+    // This only applies during lobby phase
+    const setupDisconnectHandler = async () => {
+      if (event?.phase === 'lobby') {
+        const { setupParticipantDisconnectHandler } = await import('@/services/liveEventService');
+        await setupParticipantDisconnectHandler(eventId, sessionId);
+      }
+    };
+    
+    setupDisconnectHandler();
+    
+    return () => {
+      clearInterval(interval);
+    };
+  }, [eventId, sessionId, event?.phase]);
   
   // Countdown animation
   useEffect(() => {
@@ -210,7 +285,7 @@ export default function LiveEventParticipant() {
   }, [isConnected, queuedAnswer, eventId, sessionId, event]);
   
   const handleAnswerSelect = async (answer: string) => {
-    if (hasAnswered || !event || !eventId || !sessionId) return;
+    if (!event || !eventId || !sessionId) return;
     
     setSelectedAnswer(answer);
     
@@ -249,7 +324,62 @@ export default function LiveEventParticipant() {
     }
   };
   
+  // Check if event was deleted or loading timeout
+  if (event === null && competition === null) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 flex items-center justify-center p-4">
+        <Card className="max-w-md">
+          <CardContent className="pt-6 text-center">
+            <Trophy className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              Event Ended
+            </h2>
+            <p className="text-gray-600 mb-6">
+              This event has been completed and deleted by the host.
+            </p>
+            <Button
+              onClick={() => navigate('/')}
+              className="bg-gradient-to-r from-purple-600 to-indigo-600"
+            >
+              Back to Home
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  
   if (!event || !competition) {
+    if (loadingTimeout) {
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 flex items-center justify-center p-4">
+          <Card className="max-w-md">
+            <CardContent className="pt-6 text-center">
+              <Trophy className="h-16 w-16 text-red-400 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+                Connection Error
+              </h2>
+              <p className="text-gray-600 mb-4">
+                Unable to load event. The event may have been deleted.
+              </p>
+              <Button
+                onClick={() => window.location.reload()}
+                className="bg-gradient-to-r from-purple-600 to-indigo-600 mb-2"
+              >
+                Reload Page
+              </Button>
+              <Button
+                onClick={() => navigate('/')}
+                variant="outline"
+              >
+                Back to Home
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+    
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 flex items-center justify-center p-4">
         <div className="text-center">
@@ -261,7 +391,6 @@ export default function LiveEventParticipant() {
   }
   
   const currentQuestion = competition.questions?.[event.currentQuestionIndex];
-  const myName = localStorage.getItem(`liveEvent_${eventId}_name`) || 'You';
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100">
@@ -392,7 +521,7 @@ export default function LiveEventParticipant() {
                 <Button
                   key={idx}
                   onClick={() => handleAnswerSelect(option)}
-                  disabled={hasAnswered || remainingTime === 0}
+                  disabled={remainingTime === 0}
                   className={`w-full text-left justify-start text-lg font-semibold py-8 px-6 ${
                     selectedAnswer === option
                       ? 'bg-purple-600 hover:bg-purple-700 text-white'
@@ -477,6 +606,11 @@ export default function LiveEventParticipant() {
                 <p className="text-2xl font-semibold text-gray-900">
                   {myScore} points
                 </p>
+                {myTotalTime !== undefined && myTotalTime > 0 && (
+                  <p className="text-lg text-gray-600 mt-2">
+                    {myTotalTime.toFixed(1)}s total time
+                  </p>
+                )}
               </div>
               
               <p className="text-gray-600">

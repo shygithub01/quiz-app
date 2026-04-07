@@ -580,9 +580,21 @@ const getCompetitionById = async (competitionId: string): Promise<any | null> =>
       actualStatus = 'completed';
     }
     
+    // If competition uses a quiz template, fetch questions from the template
+    let questions = data.questions || [];
+    if (data.quizTemplateId && questions.length === 0) {
+      console.log('📚 Competition uses template, fetching questions from:', data.quizTemplateId);
+      const template = await getQuizTemplate(data.quizTemplateId);
+      if (template && template.questions) {
+        questions = template.questions;
+        console.log('✅ Loaded', questions.length, 'questions from template');
+      }
+    }
+    
     return {
       id: competitionDoc.id,
       ...data,
+      questions, // Include questions from template or competition
       startDate,
       endDate,
       status: actualStatus, // Use calculated status

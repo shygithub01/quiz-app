@@ -142,7 +142,7 @@ export const PRICING_PLANS: PricingPlan[] = [
     tier: 'premium',
     price: 12.99,
     interval: 'month',
-    stripePriceId: process.env.VITE_STRIPE_PREMIUM_MONTHLY_PRICE_ID || '',
+    stripePriceId: import.meta.env.VITE_STRIPE_PREMIUM_MONTHLY_PRICE_ID || '',
     features: [
       'Unlimited AI quiz generation',
       'Unlimited saved quizzes',
@@ -160,7 +160,7 @@ export const PRICING_PLANS: PricingPlan[] = [
     tier: 'premium',
     price: 99,
     interval: 'year',
-    stripePriceId: process.env.VITE_STRIPE_PREMIUM_YEARLY_PRICE_ID || '',
+    stripePriceId: import.meta.env.VITE_STRIPE_PREMIUM_YEARLY_PRICE_ID || '',
     features: [
       'Unlimited AI quiz generation',
       'Unlimited saved quizzes',

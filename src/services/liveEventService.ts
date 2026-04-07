@@ -8,7 +8,8 @@ import {
   update, 
   remove,
   onValue,
-  off
+  off,
+  onDisconnect
 } from 'firebase/database';
 import { realtimeDb } from '../components/ui/firebase';
 import { 
@@ -360,6 +361,27 @@ export async function removeParticipant(
 }
 
 /**
+ * Setup automatic participant removal on disconnect (for lobby phase)
+ * Uses Firebase's onDisconnect() to reliably remove participant when browser closes
+ */
+export async function setupParticipantDisconnectHandler(
+  eventId: string,
+  sessionId: string
+): Promise<void> {
+  try {
+    const participantRef = ref(realtimeDb, `eventParticipants/${eventId}/${sessionId}`);
+    
+    // Set up onDisconnect handler - this will automatically execute when connection is lost
+    await onDisconnect(participantRef).remove();
+    
+    console.log('✅ Disconnect handler set up for participant:', sessionId);
+  } catch (error) {
+    console.error('❌ Error setting up disconnect handler:', error);
+    throw error;
+  }
+}
+
+/**
  * Get participant count
  */
 export async function getParticipantCount(eventId: string): Promise<number> {
@@ -402,6 +424,7 @@ export async function getParticipants(eventId: string): Promise<GuestParticipant
 
 /**
  * Submit participant answer
+ * Allows updating answer within the time limit
  */
 export async function submitAnswer(
   eventId: string,
@@ -411,16 +434,10 @@ export async function submitAnswer(
   timeToAnswer: number
 ): Promise<void> {
   try {
-    // Check if answer already exists (immutability)
-    const existingAnswerRef = ref(
+    const answerRef = ref(
       realtimeDb, 
       `eventAnswers/${eventId}/${sessionId}/${questionIndex}`
     );
-    const existingSnapshot = await get(existingAnswerRef);
-    
-    if (existingSnapshot.exists()) {
-      throw new Error('Answer already submitted for this question');
-    }
     
     const answerData: ParticipantAnswer = {
       answer,
@@ -428,7 +445,8 @@ export async function submitAnswer(
       timeToAnswer
     };
     
-    await set(existingAnswerRef, answerData);
+    // Use set to allow updates (overwrites existing answer)
+    await set(answerRef, answerData);
     console.log('✅ Answer submitted:', sessionId, questionIndex);
   } catch (error) {
     console.error('❌ Error submitting answer:', error);
@@ -749,6 +767,18 @@ export async function calculateLeaderboard(
   enableFastestFingerBonus: boolean
 ): Promise<void> {
   try {
+    // Handle missing or invalid questions gracefully
+    if (!questions || !Array.isArray(questions)) {
+      console.warn('⚠️ Questions is not a valid array, using empty array');
+      questions = [];
+    }
+    
+    if (questions.length === 0) {
+      console.warn('⚠️ No questions available, leaderboard will be based on participation only');
+    }
+    
+    console.log('✅ Calculating leaderboard with', questions.length, 'questions');
+    
     // Get all participants
     const participantsRef = ref(realtimeDb, `eventParticipants/${eventId}`);
     const participantsSnapshot = await get(participantsRef);
@@ -777,17 +807,31 @@ export async function calculateLeaderboard(
         enableFastestFingerBonus
       );
       
-      // Calculate total time to answer
+      // Calculate total time to answer (sum of timeToAnswer for all questions)
       const answersRef = ref(realtimeDb, `eventAnswers/${eventId}/${sessionId}`);
       const answersSnapshot = await get(answersRef);
       
       let totalTime = 0;
+      let answeredCount = 0;
+      
       if (answersSnapshot.exists()) {
         const answers = answersSnapshot.val();
         Object.values(answers).forEach((answer: any) => {
           totalTime += answer.timeToAnswer || 0;
+          answeredCount++;
         });
       }
+      
+      // Penalize unanswered questions by adding maximum time (timerDuration) for each missed question
+      const unansweredCount = questions.length - answeredCount;
+      if (unansweredCount > 0) {
+        // Get timer duration from event
+        const eventData = await getEventById(eventId);
+        const timerDuration = eventData?.timerDuration || 30;
+        totalTime += unansweredCount * timerDuration;
+      }
+      
+      console.log(`📊 ${participant.name}: score=${score}, answered=${answeredCount}/${questions.length}, totalTime=${totalTime.toFixed(2)}s`);
       
       scores.push({
         sessionId,
@@ -800,6 +844,7 @@ export async function calculateLeaderboard(
     }
     
     // Sort by score (descending), then by total time (ascending)
+    // If both score and time are equal, they share the same rank
     scores.sort((a, b) => {
       if (b.score !== a.score) {
         return b.score - a.score;
@@ -817,6 +862,7 @@ export async function calculateLeaderboard(
         correctAnswers: entry.correctAnswers,
         fastestFingerBonus: entry.fastestFingerBonus,
         rank: i + 1,
+        totalTime: entry.totalTime,
         lastUpdated: Date.now()
       });
     }
@@ -1066,5 +1112,62 @@ export async function logEventStatistics(eventId: string): Promise<void> {
   } catch (error) {
     console.error('❌ Error logging statistics:', error);
     // Don't throw - statistics logging shouldn't break the flow
+  }
+}
+
+/**
+ * Reset all participant answers and scores for an event
+ * Used when resetting an event back to lobby
+ */
+export async function resetParticipantAnswers(eventId: string): Promise<void> {
+  try {
+    console.log('🔄 Resetting participant answers for event:', eventId);
+    
+    const answersRef = ref(realtimeDb, `eventAnswers/${eventId}`);
+    const leaderboardRef = ref(realtimeDb, `eventLeaderboard/${eventId}`);
+    
+    // Clear all answers
+    await remove(answersRef);
+    
+    // Clear leaderboard
+    await remove(leaderboardRef);
+    
+    console.log('✅ Participant answers and scores reset');
+  } catch (error) {
+    console.error('❌ Error resetting participant answers:', error);
+    throw error;
+  }
+}
+
+/**
+ * Reactivate all participants (set isActive to true)
+ * Used to fix database corruption issues
+ */
+export async function reactivateAllParticipants(eventId: string): Promise<void> {
+  try {
+    console.log('🔄 Reactivating all participants for event:', eventId);
+    
+    const participantsRef = ref(realtimeDb, `eventParticipants/${eventId}`);
+    const snapshot = await get(participantsRef);
+    
+    if (!snapshot.exists()) {
+      console.log('No participants to reactivate');
+      return;
+    }
+    
+    const participants = snapshot.val();
+    const updates: Record<string, any> = {};
+    
+    // Set all participants to active
+    Object.keys(participants).forEach(sessionId => {
+      updates[`${sessionId}/isActive`] = true;
+    });
+    
+    await update(participantsRef, updates);
+    
+    console.log('✅ All participants reactivated');
+  } catch (error) {
+    console.error('❌ Error reactivating participants:', error);
+    throw error;
   }
 }

@@ -65,9 +65,9 @@ export default function LiveEventJoin() {
       // Join the event
       const sessionId = await joinEvent(event.id, name);
       
-      // Store session info in localStorage
-      localStorage.setItem(`liveEvent_${event.id}_session`, sessionId);
-      localStorage.setItem(`liveEvent_${event.id}_name`, name);
+      // Store session info in sessionStorage (per-tab, not per-browser)
+      sessionStorage.setItem(`liveEvent_${event.id}_session`, sessionId);
+      sessionStorage.setItem(`liveEvent_${event.id}_name`, name);
       
       // Redirect to participant view
       navigate(`/live-event/participate/${event.id}/${sessionId}`);

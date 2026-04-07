@@ -37,10 +37,9 @@ export default function AdminCreateCompetition() {
   const [prizePool, setPrizePool] = useState('$300');
   const [duration, setDuration] = useState('60');
   const [eligibleCounty, setEligibleCounty] = useState('henrico');
-  const [competitionType, setCompetitionType] = useState<'practice' | 'competition'>('practice');
+  const [competitionType, setCompetitionType] = useState<'practice' | 'competition' | 'liveEvent'>('practice');
   
-  // Live Event Mode Settings
-  const [isLiveEvent, setIsLiveEvent] = useState(false);
+  // Live Event Mode Settings (only used when competitionType === 'liveEvent')
   const [maxParticipants, setMaxParticipants] = useState(50);
   const [questionTimer, setQuestionTimer] = useState(30);
   const [enableFastestFingerBonus, setEnableFastestFingerBonus] = useState(true);
@@ -88,6 +87,8 @@ export default function AdminCreateCompetition() {
 
   const handleCreateCompetition = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    console.log('🎯 Form submitted!', { competitionType, questionsGenerated, questions: questions.length });
 
     if (!questionsGenerated || questions.length === 0) {
       alert('Please generate questions first!');
@@ -149,26 +150,34 @@ export default function AdminCreateCompetition() {
         throw new Error('Invalid date/time format');
       }
       
+      const isLiveEvent = competitionType === 'liveEvent';
+      
       const competitionData = {
         title: competitionTitle,
         description,
         status: competitionType === 'practice' ? 'active' : 'upcoming',
-        isPractice: competitionType === 'practice', // true for practice, false for scholarship
+        isPractice: competitionType === 'practice', // true for practice, false for scholarship/liveEvent
         startDate: Timestamp.fromDate(start),
         endDate: Timestamp.fromDate(end),
         quizTemplateId: templateId,
-        prizePool,
+        prizePool: competitionType === 'practice' ? '' : prizePool, // No prize pool for practice
         duration: `${duration} minutes`,
-        questionCount: totalQuestions, // Add actual question count
-        eligibleCounty,
-        isLiveEvent, // Live Event Mode flag
+        questionCount: totalQuestions,
+        eligibleCounty: competitionType === 'liveEvent' ? '' : eligibleCounty, // No county for live events
+        isLiveEvent,
         liveEventSettings: isLiveEvent ? {
           maxParticipants,
           questionTimer,
           enableFastestFingerBonus,
           autoAdvanceOnTimer
         } : undefined,
-        rules: [
+        rules: competitionType === 'liveEvent' ? [
+          'In-person event with projector display',
+          'Join using QR code or PIN',
+          'Answer on your mobile device',
+          'Fastest correct answers get bonus points',
+          'Real-time leaderboard updates'
+        ] : [
           competitionType === 'practice' 
             ? 'Unlimited attempts allowed for practice'
             : 'One attempt only - make it count!',
@@ -177,7 +186,7 @@ export default function AdminCreateCompetition() {
           'Each question is worth equal points',
           'Ties are broken by completion time'
         ],
-        prizes: competitionType === 'practice' ? [] : [
+        prizes: competitionType === 'practice' ? [] : competitionType === 'liveEvent' ? [] : [
           '1st Place: $150 + Trophy',
           '2nd Place: $100 + Medal',
           '3rd Place: $50 + Medal'
@@ -191,12 +200,41 @@ export default function AdminCreateCompetition() {
       const competitionId = await createCompetition(competitionData);
       console.log('✅ Competition created:', competitionId);
 
-      alert(`✅ Success!\n\nQuiz Template ID: ${templateId}\nCompetition ID: ${competitionId}\n\n${competitionType === 'practice' ? 'Practice quiz' : 'Competition'} is now live!`);
-      
-      navigate('/admin/competitions');
+      // If Live Event Mode is enabled, create the Live Event in Realtime Database
+      if (isLiveEvent) {
+        try {
+          console.log('🎪 Creating Live Event in Realtime Database...');
+          const { createLiveEvent } = await import('../services/liveEventService');
+          
+          const { eventId, pin } = await createLiveEvent(
+            competitionId,
+            {
+              questionTimer,
+              enableFastestFingerBonus,
+              autoAdvanceOnTimer
+            },
+            maxParticipants
+          );
+          
+          console.log('✅ Live Event created:', eventId, 'PIN:', pin);
+          
+          alert(`✅ Live Event Created Successfully!\n\nEvent PIN: ${pin}\nEvent ID: ${eventId}\n\nRedirecting to Host Control Panel...`);
+          
+          // Redirect to Live Event Host control panel
+          navigate(`/live-event/${eventId}/host`);
+        } catch (error: any) {
+          console.error('❌ Failed to create Live Event:', error);
+          alert(`⚠️ Competition created but Live Event setup failed.\n\nError: ${error.message}\n\nYou can still use this as a regular competition.`);
+          navigate('/admin/competitions');
+        }
+      } else {
+        alert(`✅ Success!\n\nQuiz Template ID: ${templateId}\nCompetition ID: ${competitionId}\n\n${competitionType === 'practice' ? 'Practice quiz' : 'Competition'} is now live!`);
+        
+        navigate('/admin/competitions');
+      }
     } catch (error: any) {
       console.error('❌ Failed to create competition:', error);
-      alert(`❌ Failed to create competition.\n\nError: ${error.message}`);
+      alert(`❌ Failed to create competition.\n\nError: ${error.message}\n\nPlease check the console for details.`);
     }
   };
 
@@ -373,48 +411,39 @@ export default function AdminCreateCompetition() {
                 <label className="block text-sm font-medium mb-1">Competition Type</label>
                 <select
                   value={competitionType}
-                  onChange={(e) => setCompetitionType(e.target.value as 'practice' | 'competition')}
+                  onChange={(e) => setCompetitionType(e.target.value as 'practice' | 'competition' | 'liveEvent')}
                   className="w-full px-3 py-2 border rounded-lg"
                   disabled={!questionsGenerated}
                 >
                   <option value="practice">🎯 Practice Test (Unlimited Attempts)</option>
                   <option value="competition">🏆 Scholarship Competition (One Attempt Only)</option>
+                  <option value="liveEvent">🎪 Live Cultural Event (In-Person with Projector)</option>
                 </select>
                 <p className="text-sm text-gray-500 mt-1">
                   {competitionType === 'practice' 
                     ? 'Practice tests appear on the Competitions page for students to practice anytime.'
-                    : 'Scholarship competitions can be featured on the landing page and have prizes.'}
+                    : competitionType === 'competition'
+                      ? 'Scholarship competitions can be featured on the landing page and have prizes.'
+                      : 'Live events are for in-person cultural programs with projector display, QR code joining, and real-time leaderboards.'}
                 </p>
               </div>
 
-              {/* Live Event Mode Toggle */}
-              <div className="border-2 border-purple-200 rounded-lg p-4 bg-purple-50">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <label className="text-sm font-bold text-purple-900">
-                      🎪 Enable Live Event Mode
-                    </label>
+              {/* Live Event Settings - Only show when Live Event type is selected */}
+              {competitionType === 'liveEvent' && (
+                <div className="border-2 border-purple-200 rounded-lg p-4 bg-purple-50">
+                  <div className="flex items-center gap-2 mb-3">
+                    <h3 className="text-sm font-bold text-purple-900">
+                      🎪 Live Event Settings
+                    </h3>
                     <span className="text-xs bg-purple-200 text-purple-800 px-2 py-1 rounded-full font-semibold">
                       NEW
                     </span>
                   </div>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={isLiveEvent}
-                      onChange={(e) => setIsLiveEvent(e.target.checked)}
-                      className="sr-only peer"
-                      disabled={!questionsGenerated}
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-purple-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-600"></div>
-                  </label>
-                </div>
-                <p className="text-sm text-purple-700 mb-3">
-                  For in-person cultural events with projector display, QR code joining, and real-time leaderboards. Guests can join without registration.
-                </p>
-                
-                {isLiveEvent && (
-                  <div className="space-y-3 mt-4 pt-4 border-t border-purple-200">
+                  <p className="text-sm text-purple-700 mb-4">
+                    Configure settings for your in-person cultural event. Guests can join without registration using QR code or PIN.
+                  </p>
+                  
+                  <div className="space-y-3">
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <label className="block text-xs font-medium text-purple-900 mb-1">
@@ -470,8 +499,8 @@ export default function AdminCreateCompetition() {
                       </label>
                     </div>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-sm font-medium mb-1">Title *</label>
@@ -551,20 +580,24 @@ export default function AdminCreateCompetition() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1 flex items-center gap-2">
-                    <DollarSign className="h-4 w-4" />
-                    Prize Pool
-                  </label>
-                  <input
-                    type="text"
-                    value={prizePool}
-                    onChange={(e) => setPrizePool(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    disabled={!questionsGenerated}
-                  />
-                </div>
+              {/* Conditional fields based on competition type */}
+              <div className="space-y-4">
+                {/* Prize Pool - Only for Scholarship competitions */}
+                {competitionType === 'competition' && (
+                  <div>
+                    <label className="block text-sm font-medium mb-1 flex items-center gap-2">
+                      <DollarSign className="h-4 w-4" />
+                      Prize Pool
+                    </label>
+                    <input
+                      type="text"
+                      value={prizePool}
+                      onChange={(e) => setPrizePool(e.target.value)}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      disabled={!questionsGenerated}
+                    />
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-medium mb-1">Duration (minutes)</label>
@@ -577,23 +610,26 @@ export default function AdminCreateCompetition() {
                   />
                 </div>
 
-                <div>
-                  <label className="block text-sm font-medium mb-1 flex items-center gap-2">
-                    <MapPin className="h-4 w-4" />
-                    Eligible County
-                  </label>
-                  <select
-                    value={eligibleCounty}
-                    onChange={(e) => setEligibleCounty(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    disabled={!questionsGenerated}
-                  >
-                    <option value="henrico">Henrico County</option>
-                    <option value="chesterfield">Chesterfield County</option>
-                    <option value="richmond">Richmond Metro</option>
-                    <option value="all">All Virginia</option>
-                  </select>
-                </div>
+                {/* Eligible County - Only for Practice and Scholarship, not Live Events */}
+                {competitionType !== 'liveEvent' && (
+                  <div>
+                    <label className="block text-sm font-medium mb-1 flex items-center gap-2">
+                      <MapPin className="h-4 w-4" />
+                      Eligible County
+                    </label>
+                    <select
+                      value={eligibleCounty}
+                      onChange={(e) => setEligibleCounty(e.target.value)}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      disabled={!questionsGenerated}
+                    >
+                      <option value="henrico">Henrico County</option>
+                      <option value="chesterfield">Chesterfield County</option>
+                      <option value="richmond">Richmond Metro</option>
+                      <option value="all">All Virginia</option>
+                    </select>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -612,10 +648,19 @@ export default function AdminCreateCompetition() {
               type="submit" 
               className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold text-lg py-6 shadow-xl"
               disabled={!questionsGenerated}
+              onClick={() => {
+                console.log('🔘 Button clicked!', { 
+                  questionsGenerated, 
+                  competitionType, 
+                  competitionTitle,
+                  disabled: !questionsGenerated 
+                });
+                // Don't prevent default - let form submission happen naturally
+              }}
             >
               <Trophy className="h-6 w-6 mr-3" />
               {questionsGenerated 
-                ? `✅ Create ${competitionType === 'practice' ? 'Practice Quiz' : 'Competition'} Now!`
+                ? `✅ Create ${competitionType === 'practice' ? 'Practice Quiz' : competitionType === 'liveEvent' ? 'Live Event' : 'Competition'} Now!`
                 : `⏳ Generate Questions First`
               }
             </Button>

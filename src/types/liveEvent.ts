@@ -67,6 +67,7 @@ export interface LeaderboardEntry {
   correctAnswers: number;
   fastestFingerBonus: number;
   rank: number;
+  totalTime?: number; // Total time in seconds to answer all questions (optional for backward compatibility)
   lastUpdated: number; // Unix timestamp
 }
 
