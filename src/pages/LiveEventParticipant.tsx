@@ -38,6 +38,7 @@ export default function LiveEventParticipant() {
   } | null>(null);
   const [myName, setMyName] = useState<string>('You');
   const [loadingTimeout, setLoadingTimeout] = useState(false);
+  const [eventWasLoaded, setEventWasLoaded] = useState(false);
   
   const questionStartTimeRef = useRef<number>(0);
   const reconnectTimeoutRef = useRef<number>(0);
@@ -130,6 +131,7 @@ export default function LiveEventParticipant() {
       
       if (updatedEvent) {
         setEvent(updatedEvent);
+        setEventWasLoaded(true);
         
         // Reset answer state when question changes
         if (updatedEvent.phase === 'question' && 
@@ -350,6 +352,31 @@ export default function LiveEventParticipant() {
   }
   
   if (!event || !competition) {
+    // If event was previously loaded but now is null, it was deleted
+    if (eventWasLoaded && !event) {
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-purple-600 to-indigo-600 flex items-center justify-center p-4">
+          <Card className="max-w-md bg-purple-700 border-purple-500">
+            <CardContent className="pt-6 text-center">
+              <Trophy className="h-16 w-16 text-yellow-300 mx-auto mb-4" />
+              <h2 className="text-2xl font-bold text-white mb-2">
+                Event Ended
+              </h2>
+              <p className="text-white text-lg mb-4">
+                This event has been deleted by the host.
+              </p>
+              <Button
+                onClick={() => navigate('/')}
+                className="bg-white text-purple-600 hover:bg-gray-100 font-semibold"
+              >
+                Go Home
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+    
     if (loadingTimeout) {
       return (
         <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 flex items-center justify-center p-4">

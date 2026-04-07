@@ -5,6 +5,7 @@ let audioContext: AudioContext | null = null;
 let masterGain: GainNode | null = null;
 let isPlaying = false;
 let oscillators: OscillatorNode[] = [];
+let scheduledTimeouts: number[] = [];
 
 /**
  * Start playing background music
@@ -34,6 +35,14 @@ export function stopBackgroundMusic(): void {
   if (!audioContext && !isPlaying) return; // Nothing to stop
   
   try {
+    console.log('🎵 Stopping background music - clearing', oscillators.length, 'oscillators and', scheduledTimeouts.length, 'timeouts');
+    
+    // Clear all scheduled timeouts first
+    scheduledTimeouts.forEach(timeoutId => {
+      clearTimeout(timeoutId);
+    });
+    scheduledTimeouts = [];
+    
     // Stop all oscillators
     oscillators.forEach(osc => {
       try {
@@ -75,6 +84,7 @@ export function stopBackgroundMusic(): void {
     audioContext = null;
     masterGain = null;
     oscillators = [];
+    scheduledTimeouts = [];
     isPlaying = false;
   }
 }
@@ -136,7 +146,8 @@ function playMusicLoop(): void {
     
     // Schedule next chord
     if (isPlaying) {
-      setTimeout(playChord, beatDuration * 1000);
+      const timeoutId = setTimeout(playChord, beatDuration * 1000) as unknown as number;
+      scheduledTimeouts.push(timeoutId);
     }
   }
   

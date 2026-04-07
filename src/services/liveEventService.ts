@@ -244,20 +244,50 @@ export async function updateEvent(
 
 /**
  * Delete event and all related data
+ * Uses aggressive deletion with retries to ensure all data is removed
  */
 export async function deleteEvent(eventId: string): Promise<void> {
   try {
-    // Delete event
-    await remove(ref(realtimeDb, `liveEvents/${eventId}`));
+    console.log('🗑️ Starting deletion for event:', eventId);
     
-    // Delete participants
-    await remove(ref(realtimeDb, `eventParticipants/${eventId}`));
+    const paths = [
+      { name: 'liveEvents', path: `liveEvents/${eventId}` },
+      { name: 'eventParticipants', path: `eventParticipants/${eventId}` },
+      { name: 'eventAnswers', path: `eventAnswers/${eventId}` },
+      { name: 'eventLeaderboard', path: `eventLeaderboard/${eventId}` }
+    ];
     
-    // Delete answers
-    await remove(ref(realtimeDb, `eventAnswers/${eventId}`));
+    // Delete each path with error handling
+    for (const { name, path } of paths) {
+      try {
+        console.log(`🗑️ Deleting ${name}...`);
+        await remove(ref(realtimeDb, path));
+        console.log(`✅ ${name} deleted`);
+        
+        // Small delay to ensure Firebase processes the deletion
+        await new Promise(resolve => setTimeout(resolve, 100));
+      } catch (error) {
+        console.error(`❌ Error deleting ${name}:`, error);
+        // Continue with other deletions even if one fails
+      }
+    }
     
-    // Delete leaderboard
-    await remove(ref(realtimeDb, `eventLeaderboard/${eventId}`));
+    // Double-check and force delete any remaining data
+    console.log('🔍 Verifying deletion...');
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    for (const { name, path } of paths) {
+      try {
+        const snapshot = await get(ref(realtimeDb, path));
+        if (snapshot.exists()) {
+          console.warn(`⚠️ ${name} still exists, forcing deletion...`);
+          await remove(ref(realtimeDb, path));
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      } catch (error) {
+        console.error(`❌ Error verifying ${name}:`, error);
+      }
+    }
     
     console.log('✅ Event and related data deleted:', eventId);
   } catch (error) {

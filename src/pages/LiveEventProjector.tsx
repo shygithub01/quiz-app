@@ -27,6 +27,7 @@ export default function LiveEventProjector() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [victoryPlayed, setVictoryPlayed] = useState(false);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
+  const [eventWasLoaded, setEventWasLoaded] = useState(false);
   
   // Load event and competition
   useEffect(() => {
@@ -73,6 +74,7 @@ export default function LiveEventProjector() {
     const unsubscribeEvent = listenToEvent(eventId, (updatedEvent) => {
       if (updatedEvent) {
         setEvent(updatedEvent);
+        setEventWasLoaded(true);
         
         // Play victory sound and show confetti when results phase starts
         if (updatedEvent.phase === 'results' && !victoryPlayed) {
@@ -220,6 +222,27 @@ export default function LiveEventProjector() {
   }
   
   if (!event || !competition) {
+    // If event was previously loaded but now is null, it was deleted
+    if (eventWasLoaded && !event) {
+      return (
+        <div className="min-h-screen bg-gray-900 flex items-center justify-center">
+          <div className="text-center text-white">
+            <Trophy className="h-16 w-16 text-yellow-400 mx-auto mb-4" />
+            <h2 className="text-4xl font-bold mb-4">Event Ended</h2>
+            <p className="text-xl text-gray-300 mb-4">
+              This event has been deleted by the host.
+            </p>
+            <button
+              onClick={() => window.location.href = '/'}
+              className="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg text-lg font-semibold"
+            >
+              Go Home
+            </button>
+          </div>
+        </div>
+      );
+    }
+    
     if (loadingTimeout) {
       return (
         <div className="min-h-screen bg-gray-900 flex items-center justify-center">

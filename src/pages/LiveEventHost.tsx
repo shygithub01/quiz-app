@@ -361,19 +361,32 @@ export default function LiveEventHost() {
         id: competition.id,
         hasQuestions: !!competition.questions,
         questionsType: typeof competition.questions,
-        questionsLength: competition.questions?.length
+        questionsLength: competition.questions?.length,
+        currentIndex: event.currentQuestionIndex
       });
       
-      // Calculate leaderboard before advancing (handle missing questions gracefully)
-      const { calculateLeaderboard } = await import('@/services/liveEventService');
-      await calculateLeaderboard(
-        event.id,
-        competition.questions || [],
-        event.settings.enableFastestFingerBonus
-      );
+      // Calculate leaderboard before advancing (don't let this block progression)
+      try {
+        const { calculateLeaderboard } = await import('@/services/liveEventService');
+        await calculateLeaderboard(
+          event.id,
+          competition.questions || [],
+          event.settings.enableFastestFingerBonus
+        );
+        console.log('✅ Leaderboard calculated successfully');
+      } catch (leaderboardError) {
+        console.error('⚠️ Leaderboard calculation failed, but continuing:', leaderboardError);
+        // Don't block progression if leaderboard fails
+      }
       
       // Check if this is the last question
       const questionCount = competition.questions?.length || 0;
+      console.log('📊 Question check:', {
+        currentIndex: event.currentQuestionIndex,
+        questionCount,
+        isLastQuestion: event.currentQuestionIndex >= questionCount - 1
+      });
+      
       if (event.currentQuestionIndex >= questionCount - 1) {
         // Stop background music before moving to results
         stopBackgroundMusic();
@@ -428,15 +441,21 @@ export default function LiveEventHost() {
       // Stop background music
       stopBackgroundMusic();
       
-      // Calculate final leaderboard
-      const { calculateLeaderboard } = await import('@/services/liveEventService');
-      const competition = competitions.find(c => c.id === event.competitionId);
-      if (competition) {
-        await calculateLeaderboard(
-          event.id,
-          competition.questions,
-          event.settings.enableFastestFingerBonus
-        );
+      // Calculate final leaderboard (don't let this block event ending)
+      try {
+        const { calculateLeaderboard } = await import('@/services/liveEventService');
+        const competition = competitions.find(c => c.id === event.competitionId);
+        if (competition && competition.questions) {
+          await calculateLeaderboard(
+            event.id,
+            competition.questions,
+            event.settings.enableFastestFingerBonus
+          );
+          console.log('✅ Final leaderboard calculated');
+        }
+      } catch (leaderboardError) {
+        console.error('⚠️ Final leaderboard calculation failed, but continuing:', leaderboardError);
+        // Don't block event ending if leaderboard fails
       }
       
       // Update event status
@@ -795,7 +814,8 @@ export default function LiveEventHost() {
                         
                         <Button
                           onClick={handleStartEvent}
-                          className="col-span-2 bg-green-600 hover:bg-green-700 text-white font-bold text-lg py-6"
+                          disabled={participants.filter(p => p.isActive).length === 0}
+                          className="col-span-2 bg-green-600 hover:bg-green-700 text-white font-bold text-lg py-6 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           <Play className="h-6 w-6 mr-2" />
                           Start Event
