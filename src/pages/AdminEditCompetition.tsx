@@ -24,6 +24,7 @@ export default function AdminEditCompetition() {
     startDate: '',
     endDate: '',
     isPractice: false,
+    isLiveEvent: false,
     rules: '',
     prizes: ''
   });
@@ -66,6 +67,7 @@ export default function AdminEditCompetition() {
         startDate: startDate.toISOString().slice(0, 16), // Format for datetime-local
         endDate: endDate.toISOString().slice(0, 16),
         isPractice: comp.isPractice || false,
+        isLiveEvent: comp.isLiveEvent || false,
         rules: Array.isArray(comp.rules) ? comp.rules.join('\n') : (comp.rules || ''),
         prizes: Array.isArray(comp.prizes) ? comp.prizes.join('\n') : (comp.prizes || '')
       });
@@ -102,9 +104,10 @@ export default function AdminEditCompetition() {
         startDate: new Date(formData.startDate).toISOString(),
         endDate: new Date(formData.endDate).toISOString(),
         isPractice: formData.isPractice,
+        isLiveEvent: formData.isLiveEvent,
         rules: formData.rules.split('\n').filter(r => r.trim()),
-        // Clear prizes for practice competitions, keep them for scholarship competitions
-        prizes: !formData.isPractice
+        // Clear prizes for practice competitions and live events, keep them for scholarship competitions
+        prizes: !formData.isPractice && !formData.isLiveEvent
           ? formData.prizes.split('\n').filter(p => p.trim())
           : []
       };
@@ -253,18 +256,28 @@ export default function AdminEditCompetition() {
                   Competition Type *
                 </label>
                 <select
-                  name="isPractice"
-                  value={formData.isPractice ? 'practice' : 'scholarship'}
-                  onChange={(e) => setFormData({...formData, isPractice: e.target.value === 'practice'})}
+                  name="competitionType"
+                  value={formData.isPractice ? 'practice' : formData.isLiveEvent ? 'liveEvent' : 'scholarship'}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setFormData({
+                      ...formData, 
+                      isPractice: value === 'practice',
+                      isLiveEvent: value === 'liveEvent'
+                    });
+                  }}
                   required
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="scholarship">🏆 Scholarship Competition (One Attempt)</option>
-                  <option value="practice">📚 Practice Session (Multiple Attempts)</option>
+                  <option value="practice">🎯 Practice Session (Multiple Attempts)</option>
+                  <option value="liveEvent">🎪 Live Event</option>
                 </select>
                 <p className="text-sm text-gray-600 mt-1">
                   {formData.isPractice
                     ? 'Students can retake this multiple times. Perfect for practice and skill building.'
+                    : formData.isLiveEvent
+                    ? 'In-person event with projector display. All participants answer questions simultaneously.'
                     : 'Students can only take this once. Suitable for official competitions with prizes.'
                   }
                 </p>
@@ -286,7 +299,7 @@ export default function AdminEditCompetition() {
               </div>
 
               {/* Prizes - Only for Scholarship Competitions */}
-              {!formData.isPractice && (
+              {!formData.isPractice && !formData.isLiveEvent && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Prizes (one per line)
@@ -311,6 +324,20 @@ export default function AdminEditCompetition() {
                     <li>• Same format as scholarship competitions</li>
                     <li>• Perfect for exam preparation and practice</li>
                     <li>• Students can track their progress over time</li>
+                  </ul>
+                </div>
+              )}
+
+              {/* Live Event Benefits - Only for Live Events */}
+              {formData.isLiveEvent && (
+                <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+                  <h3 className="font-medium text-indigo-900 mb-2">🎪 Live Event Features</h3>
+                  <ul className="text-sm text-indigo-800 space-y-1">
+                    <li>• In-person event with projector display</li>
+                    <li>• All participants answer questions simultaneously</li>
+                    <li>• Real-time leaderboard updates</li>
+                    <li>• Host controls question progression</li>
+                    <li>• Perfect for classroom competitions and events</li>
                   </ul>
                 </div>
               )}
