@@ -2,15 +2,41 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Brain, Sparkles, Trophy, Calendar, DollarSign, Clock, MapPin } from 'lucide-react';
+import { Brain, Sparkles, Trophy, Calendar, DollarSign, Clock, MapPin, Target, Presentation } from 'lucide-react';
 import { saveQuizTemplate, createCompetition } from '@/components/ui/firebase';
 import { generateCompetitionTemplate } from '@/components/api';
 import { Timestamp } from 'firebase/firestore';
+import TypeSelectionCard from '@/components/TypeSelectionCard';
 
 export default function AdminCreateCompetition() {
   const navigate = useNavigate();
   const [generating, setGenerating] = useState(false);
   const [questionsGenerated, setQuestionsGenerated] = useState(false);
+  
+  // Step 0: Competition Type Selection
+  const [competitionType, setCompetitionType] = useState<'practice' | 'scholarship' | 'liveEvent' | null>(null);
+  
+  // Competition type metadata
+  const COMPETITION_TYPES = {
+    practice: {
+      type: 'practice' as const,
+      label: 'Practice Test',
+      description: 'Unlimited attempts for student practice',
+      icon: <Target className="h-5 w-5" />
+    },
+    scholarship: {
+      type: 'scholarship' as const,
+      label: 'Scholarship Competition',
+      description: 'One attempt only with prizes and registration',
+      icon: <Trophy className="h-5 w-5" />
+    },
+    liveEvent: {
+      type: 'liveEvent' as const,
+      label: 'Live Event',
+      description: 'In-person cultural event with projector display',
+      icon: <Presentation className="h-5 w-5" />
+    }
+  };
   
   // Question Generation Settings
   const [subjectDistribution, setSubjectDistribution] = useState({
@@ -23,13 +49,17 @@ export default function AdminCreateCompetition() {
   const [difficulty, setDifficulty] = useState('medium');
   const [questions, setQuestions] = useState<any[]>([]);
   
+  // Topic-based generation (for Live Events)
+  const [topic, setTopic] = useState('');
+  const [numQuestions, setNumQuestions] = useState(10);
+  
   // Competition Details
   // Set default dates to today
   const today = new Date().toISOString().split('T')[0];
   const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
   
   const [competitionTitle, setCompetitionTitle] = useState('');
-  const [description, setDescription] = useState('A guided practice quiz covering all major subjects included in the Merit Scholarship Competition. Students can take unlimited attempts to build confidence, review detailed explanations, and improve their overall performance before the real competition.');
+  const [description, setDescription] = useState('');
   const [startDate, setStartDate] = useState(today);
   const [startTime, setStartTime] = useState('10:00');
   const [endDate, setEndDate] = useState(tomorrow);
@@ -37,7 +67,9 @@ export default function AdminCreateCompetition() {
   const [prizePool, setPrizePool] = useState('$300');
   const [duration, setDuration] = useState('60');
   const [eligibleCounty, setEligibleCounty] = useState('henrico');
-  const [competitionType, setCompetitionType] = useState<'practice' | 'competition' | 'liveEvent'>('practice');
+  
+  // Remove the old competitionType state - now managed in Step 0
+  // const [competitionType, setCompetitionType] = useState<'practice' | 'competition' | 'liveEvent'>('practice');
   
   // Live Event Mode Settings (only used when competitionType === 'liveEvent')
   const [maxParticipants, setMaxParticipants] = useState(50);
@@ -47,21 +79,56 @@ export default function AdminCreateCompetition() {
 
   const totalQuestions = Object.values(subjectDistribution).reduce((a, b) => a + b, 0);
 
+  // Step enablement logic
+  const isStep1Enabled = competitionType !== null;
+  const isStep2Enabled = questionsGenerated;
+
+  const handleTypeSelection = (type: 'practice' | 'scholarship' | 'liveEvent') => {
+    console.log('Competition type selected:', type);
+    console.log('isStep1Enabled will be:', type !== null);
+    setCompetitionType(type);
+  };
+
   const handleGenerateQuestions = async () => {
-    if (totalQuestions === 0) {
-      alert('Please set at least one subject with questions to generate.');
-      return;
+    // Validation based on competition type
+    if (competitionType === 'liveEvent') {
+      if (!topic.trim()) {
+        alert('Please enter a topic for Live Event questions.');
+        return;
+      }
+    } else {
+      if (totalQuestions === 0) {
+        alert('Please set at least one subject with questions to generate.');
+        return;
+      }
     }
     
     try {
       setGenerating(true);
-      console.log('🎓 Generating questions with:', subjectDistribution);
       
-      const result = await generateCompetitionTemplate({
-        subjects: subjectDistribution,
-        difficulty,
-        gradeLevels: ['9', '10', '11', '12']
-      });
+      let result;
+      
+      if (competitionType === 'liveEvent') {
+        // Topic-based generation for Live Events
+        console.log('🎪 Generating Live Event questions with topic:', topic);
+        const { generateNewQuizFromTopic } = await import('@/components/api');
+        
+        result = await generateNewQuizFromTopic({
+          topic,
+          difficulty,
+          quizType: 'multiple-choice',
+          numQuestions
+        });
+      } else {
+        // Subject distribution for Practice/Scholarship
+        console.log('🎓 Generating questions with:', subjectDistribution);
+        
+        result = await generateCompetitionTemplate({
+          subjects: subjectDistribution,
+          difficulty,
+          gradeLevels: ['9', '10', '11', '12']
+        });
+      }
       
       if (result.success && result.quiz) {
         const generatedQuestions = result.quiz.map(q => ({
@@ -151,19 +218,20 @@ export default function AdminCreateCompetition() {
       }
       
       const isLiveEvent = competitionType === 'liveEvent';
+      const isPractice = competitionType === 'practice';
       
       const competitionData = {
         title: competitionTitle,
         description,
-        status: competitionType === 'practice' ? 'active' : 'upcoming',
-        isPractice: competitionType === 'practice', // true for practice, false for scholarship/liveEvent
+        status: isPractice ? 'active' : 'upcoming',
+        isPractice, // true for practice, false for scholarship/liveEvent
         startDate: Timestamp.fromDate(start),
         endDate: Timestamp.fromDate(end),
         quizTemplateId: templateId,
-        prizePool: competitionType === 'practice' ? '' : prizePool, // No prize pool for practice
+        prizePool: isPractice ? '' : prizePool, // No prize pool for practice
         duration: `${duration} minutes`,
-        questionCount: totalQuestions,
-        eligibleCounty: competitionType === 'liveEvent' ? '' : eligibleCounty, // No county for live events
+        questionCount: questions.length, // Use actual generated questions count
+        eligibleCounty: isLiveEvent ? '' : eligibleCounty, // No county for live events
         isLiveEvent,
         liveEventSettings: isLiveEvent ? {
           maxParticipants,
@@ -178,7 +246,7 @@ export default function AdminCreateCompetition() {
           'Fastest correct answers get bonus points',
           'Real-time leaderboard updates'
         ] : [
-          competitionType === 'practice' 
+          isPractice 
             ? 'Unlimited attempts allowed for practice'
             : 'One attempt only - make it count!',
           'Complete all questions within the time limit',
@@ -186,7 +254,7 @@ export default function AdminCreateCompetition() {
           'Each question is worth equal points',
           'Ties are broken by completion time'
         ],
-        prizes: competitionType === 'practice' ? [] : competitionType === 'liveEvent' ? [] : [
+        prizes: isPractice ? [] : isLiveEvent ? [] : [
           '1st Place: $150 + Trophy',
           '2nd Place: $100 + Medal',
           '3rd Place: $50 + Medal'
@@ -228,7 +296,7 @@ export default function AdminCreateCompetition() {
           navigate('/admin/competitions');
         }
       } else {
-        alert(`✅ Success!\n\nQuiz Template ID: ${templateId}\nCompetition ID: ${competitionId}\n\n${competitionType === 'practice' ? 'Practice quiz' : 'Competition'} is now live!`);
+        alert(`✅ Success!\n\nQuiz Template ID: ${templateId}\nCompetition ID: ${competitionId}\n\n${isPractice ? 'Practice quiz' : 'Competition'} is now live!`);
         
         navigate('/admin/competitions');
       }
@@ -249,7 +317,7 @@ export default function AdminCreateCompetition() {
               Create New Competition
             </h1>
             <p className="text-indigo-100 mt-2 text-lg">
-              Step 1: Generate Questions → Step 2: Set Details → Done!
+              Step 0: Choose Type → Step 1: Generate Questions → Step 2: Set Details → Done!
             </p>
           </div>
           <Button 
@@ -262,8 +330,49 @@ export default function AdminCreateCompetition() {
         </div>
 
         <form onSubmit={handleCreateCompetition} className="space-y-6">
+          {/* STEP 0: Choose Competition Type */}
+          <Card className="border-2 border-purple-200 bg-purple-50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-purple-900">
+                <Trophy className="h-5 w-5" />
+                Step 0: Choose Competition Type
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-purple-700 mb-4">
+                Select the type of competition you want to create. This will determine which fields you'll need to fill in later.
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <TypeSelectionCard
+                  type="practice"
+                  title={COMPETITION_TYPES.practice.label}
+                  description={COMPETITION_TYPES.practice.description}
+                  icon={COMPETITION_TYPES.practice.icon}
+                  selected={competitionType === 'practice'}
+                  onSelect={handleTypeSelection}
+                />
+                <TypeSelectionCard
+                  type="scholarship"
+                  title={COMPETITION_TYPES.scholarship.label}
+                  description={COMPETITION_TYPES.scholarship.description}
+                  icon={COMPETITION_TYPES.scholarship.icon}
+                  selected={competitionType === 'scholarship'}
+                  onSelect={handleTypeSelection}
+                />
+                <TypeSelectionCard
+                  type="liveEvent"
+                  title={COMPETITION_TYPES.liveEvent.label}
+                  description={COMPETITION_TYPES.liveEvent.description}
+                  icon={COMPETITION_TYPES.liveEvent.icon}
+                  selected={competitionType === 'liveEvent'}
+                  onSelect={handleTypeSelection}
+                />
+              </div>
+            </CardContent>
+          </Card>
+
           {/* STEP 1: Generate Questions */}
-          <Card className="border-2 border-indigo-200 bg-indigo-50">
+          <Card className={`border-2 border-indigo-200 bg-indigo-50 ${!isStep1Enabled ? 'opacity-50' : ''}`}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-indigo-900">
                 <Sparkles className="h-5 w-5" />
@@ -271,7 +380,63 @@ export default function AdminCreateCompetition() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              {!isStep1Enabled && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                  <p className="text-sm text-yellow-800 font-medium">
+                    ⚠️ Please select a competition type in Step 0 first
+                  </p>
+                </div>
+              )}
+              
+              {/* Live Event: Topic-based generation */}
+              {competitionType === 'liveEvent' ? (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Topic *</label>
+                    <input
+                      type="text"
+                      value={topic}
+                      onChange={(e) => setTopic(e.target.value)}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      placeholder="e.g., Indian History, General Knowledge, Science Facts"
+                      disabled={!isStep1Enabled}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">Enter a topic for AI to generate questions about</p>
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Number of Questions</label>
+                      <input
+                        type="number"
+                        value={numQuestions}
+                        onChange={(e) => setNumQuestions(parseInt(e.target.value) || 10)}
+                        className="w-full px-3 py-2 border rounded-lg"
+                        min="1"
+                        max="50"
+                        disabled={!isStep1Enabled}
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Difficulty</label>
+                      <select
+                        value={difficulty}
+                        onChange={(e) => setDifficulty(e.target.value)}
+                        className="w-full px-3 py-2 border rounded-lg"
+                        disabled={!isStep1Enabled}
+                      >
+                        <option value="easy">Easy</option>
+                        <option value="medium">Medium</option>
+                        <option value="hard">Hard</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* Practice/Scholarship: Subject distribution */
+                <>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1">English</label>
                   <input
@@ -280,6 +445,7 @@ export default function AdminCreateCompetition() {
                     onChange={(e) => setSubjectDistribution({...subjectDistribution, english: parseInt(e.target.value) || 0})}
                     className="w-full px-3 py-2 border rounded-lg"
                     min="0"
+                    disabled={!isStep1Enabled}
                   />
                 </div>
                 
@@ -291,6 +457,7 @@ export default function AdminCreateCompetition() {
                     onChange={(e) => setSubjectDistribution({...subjectDistribution, mathematics: parseInt(e.target.value) || 0})}
                     className="w-full px-3 py-2 border rounded-lg"
                     min="0"
+                    disabled={!isStep1Enabled}
                   />
                 </div>
                 
@@ -302,6 +469,7 @@ export default function AdminCreateCompetition() {
                     onChange={(e) => setSubjectDistribution({...subjectDistribution, science: parseInt(e.target.value) || 0})}
                     className="w-full px-3 py-2 border rounded-lg"
                     min="0"
+                    disabled={!isStep1Enabled}
                   />
                 </div>
                 
@@ -313,6 +481,7 @@ export default function AdminCreateCompetition() {
                     onChange={(e) => setSubjectDistribution({...subjectDistribution, socialStudies: parseInt(e.target.value) || 0})}
                     className="w-full px-3 py-2 border rounded-lg"
                     min="0"
+                    disabled={!isStep1Enabled}
                   />
                 </div>
                 
@@ -324,6 +493,7 @@ export default function AdminCreateCompetition() {
                     onChange={(e) => setSubjectDistribution({...subjectDistribution, healthWellness: parseInt(e.target.value) || 0})}
                     className="w-full px-3 py-2 border rounded-lg"
                     min="0"
+                    disabled={!isStep1Enabled}
                   />
                 </div>
                 
@@ -341,12 +511,15 @@ export default function AdminCreateCompetition() {
                   value={difficulty}
                   onChange={(e) => setDifficulty(e.target.value)}
                   className="w-full px-3 py-2 border rounded-lg"
+                  disabled={!isStep1Enabled}
                 >
                   <option value="easy">Easy</option>
                   <option value="medium">Medium</option>
                   <option value="hard">Hard</option>
                 </select>
               </div>
+            </>
+          )}
               
               {generating && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
@@ -375,13 +548,13 @@ export default function AdminCreateCompetition() {
               <Button
                 type="button"
                 onClick={handleGenerateQuestions}
-                disabled={generating || questionsGenerated}
+                disabled={generating || questionsGenerated || !isStep1Enabled}
                 className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-lg py-6 shadow-xl"
               >
                 {generating ? (
                   <>
                     <Brain className="h-6 w-6 mr-3 animate-spin" />
-                    Generating {totalQuestions} Questions... Please Wait
+                    Generating Questions... Please Wait
                   </>
                 ) : questionsGenerated ? (
                   <>
@@ -391,7 +564,7 @@ export default function AdminCreateCompetition() {
                 ) : (
                   <>
                     <Sparkles className="h-6 w-6 mr-3" />
-                    🚀 Generate {totalQuestions} Questions with AI (Cost: ~$1)
+                    🚀 Generate Questions using AI
                   </>
                 )}
               </Button>
@@ -399,7 +572,7 @@ export default function AdminCreateCompetition() {
           </Card>
 
           {/* STEP 2: Competition Details */}
-          <Card className={!questionsGenerated ? 'opacity-50' : ''}>
+          <Card className={!isStep2Enabled ? 'opacity-50' : ''}>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Trophy className="h-5 w-5" />
@@ -407,101 +580,13 @@ export default function AdminCreateCompetition() {
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Competition Type</label>
-                <select
-                  value={competitionType}
-                  onChange={(e) => setCompetitionType(e.target.value as 'practice' | 'competition' | 'liveEvent')}
-                  className="w-full px-3 py-2 border rounded-lg"
-                  disabled={!questionsGenerated}
-                >
-                  <option value="practice">🎯 Practice Test (Unlimited Attempts)</option>
-                  <option value="competition">🏆 Scholarship Competition (One Attempt Only)</option>
-                  <option value="liveEvent">🎪 Live Cultural Event (In-Person with Projector)</option>
-                </select>
-                <p className="text-sm text-gray-500 mt-1">
-                  {competitionType === 'practice' 
-                    ? 'Practice tests appear on the Competitions page for students to practice anytime.'
-                    : competitionType === 'competition'
-                      ? 'Scholarship competitions can be featured on the landing page and have prizes.'
-                      : 'Live events are for in-person cultural programs with projector display, QR code joining, and real-time leaderboards.'}
-                </p>
-              </div>
-
-              {/* Live Event Settings - Only show when Live Event type is selected */}
-              {competitionType === 'liveEvent' && (
-                <div className="border-2 border-purple-200 rounded-lg p-4 bg-purple-50">
-                  <div className="flex items-center gap-2 mb-3">
-                    <h3 className="text-sm font-bold text-purple-900">
-                      🎪 Live Event Settings
-                    </h3>
-                    <span className="text-xs bg-purple-200 text-purple-800 px-2 py-1 rounded-full font-semibold">
-                      NEW
-                    </span>
-                  </div>
-                  <p className="text-sm text-purple-700 mb-4">
-                    Configure settings for your in-person cultural event. Guests can join without registration using QR code or PIN.
+              {!isStep2Enabled && (
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 mb-4">
+                  <p className="text-sm text-yellow-800 font-medium">
+                    ⚠️ Please generate questions in Step 1 first
                   </p>
-                  
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-xs font-medium text-purple-900 mb-1">
-                          Max Participants (1-100)
-                        </label>
-                        <input
-                          type="number"
-                          value={maxParticipants}
-                          onChange={(e) => setMaxParticipants(Math.min(100, Math.max(1, parseInt(e.target.value) || 50)))}
-                          className="w-full px-3 py-2 border rounded-lg text-sm"
-                          min="1"
-                          max="100"
-                          disabled={!questionsGenerated}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs font-medium text-purple-900 mb-1">
-                          Timer per Question (15-120s)
-                        </label>
-                        <input
-                          type="number"
-                          value={questionTimer}
-                          onChange={(e) => setQuestionTimer(Math.min(120, Math.max(15, parseInt(e.target.value) || 30)))}
-                          className="w-full px-3 py-2 border rounded-lg text-sm"
-                          min="15"
-                          max="120"
-                          disabled={!questionsGenerated}
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <label className="flex items-center gap-2 text-sm text-purple-900">
-                        <input
-                          type="checkbox"
-                          checked={enableFastestFingerBonus}
-                          onChange={(e) => setEnableFastestFingerBonus(e.target.checked)}
-                          className="rounded border-purple-300 text-purple-600 focus:ring-purple-500"
-                          disabled={!questionsGenerated}
-                        />
-                        <span>Enable Fastest Finger Bonus (+50/+30/+10 for top 3)</span>
-                      </label>
-                      
-                      <label className="flex items-center gap-2 text-sm text-purple-900">
-                        <input
-                          type="checkbox"
-                          checked={autoAdvanceOnTimer}
-                          onChange={(e) => setAutoAdvanceOnTimer(e.target.checked)}
-                          className="rounded border-purple-300 text-purple-600 focus:ring-purple-500"
-                          disabled={!questionsGenerated}
-                        />
-                        <span>Auto-advance when timer expires</span>
-                      </label>
-                    </div>
-                  </div>
                 </div>
               )}
-
               <div>
                 <label className="block text-sm font-medium mb-1">Title *</label>
                 <input
@@ -522,6 +607,13 @@ export default function AdminCreateCompetition() {
                   onChange={(e) => setDescription(e.target.value)}
                   className="w-full px-3 py-2 border rounded-lg"
                   rows={3}
+                  placeholder={
+                    competitionType === 'practice' 
+                      ? 'A guided practice quiz to help students prepare and build confidence...'
+                      : competitionType === 'scholarship'
+                      ? 'A competitive scholarship quiz with prizes for top performers...'
+                      : 'An interactive live event where participants compete in real-time...'
+                  }
                   disabled={!questionsGenerated}
                 />
               </div>
@@ -583,7 +675,7 @@ export default function AdminCreateCompetition() {
               {/* Conditional fields based on competition type */}
               <div className="space-y-4">
                 {/* Prize Pool - Only for Scholarship competitions */}
-                {competitionType === 'competition' && (
+                {competitionType === 'scholarship' && (
                   <div>
                     <label className="block text-sm font-medium mb-1 flex items-center gap-2">
                       <DollarSign className="h-4 w-4" />
@@ -596,6 +688,80 @@ export default function AdminCreateCompetition() {
                       className="w-full px-3 py-2 border rounded-lg"
                       disabled={!questionsGenerated}
                     />
+                  </div>
+                )}
+
+                {/* Live Event Settings - Only show when Live Event type is selected */}
+                {competitionType === 'liveEvent' && (
+                  <div className="border-2 border-purple-200 rounded-lg p-4 bg-purple-50">
+                    <div className="flex items-center gap-2 mb-3">
+                      <h3 className="text-sm font-bold text-purple-900">
+                        🎪 Live Event Settings
+                      </h3>
+                      <span className="text-xs bg-purple-200 text-purple-800 px-2 py-1 rounded-full font-semibold">
+                        NEW
+                      </span>
+                    </div>
+                    <p className="text-sm text-purple-700 mb-4">
+                      Configure settings for your in-person cultural event. Guests can join without registration using QR code or PIN.
+                    </p>
+                    
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-purple-900 mb-1">
+                            Max Participants (1-100)
+                          </label>
+                          <input
+                            type="number"
+                            value={maxParticipants}
+                            onChange={(e) => setMaxParticipants(Math.min(100, Math.max(1, parseInt(e.target.value) || 50)))}
+                            className="w-full px-3 py-2 border rounded-lg text-sm"
+                            min="1"
+                            max="100"
+                            disabled={!isStep2Enabled}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-purple-900 mb-1">
+                            Timer per Question (15-120s)
+                          </label>
+                          <input
+                            type="number"
+                            value={questionTimer}
+                            onChange={(e) => setQuestionTimer(Math.min(120, Math.max(15, parseInt(e.target.value) || 30)))}
+                            className="w-full px-3 py-2 border rounded-lg text-sm"
+                            min="15"
+                            max="120"
+                            disabled={!isStep2Enabled}
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <label className="flex items-center gap-2 text-sm text-purple-900">
+                          <input
+                            type="checkbox"
+                            checked={enableFastestFingerBonus}
+                            onChange={(e) => setEnableFastestFingerBonus(e.target.checked)}
+                            className="rounded border-purple-300 text-purple-600 focus:ring-purple-500"
+                            disabled={!isStep2Enabled}
+                          />
+                          <span>Enable Fastest Finger Bonus (+50/+30/+10 for top 3)</span>
+                        </label>
+                        
+                        <label className="flex items-center gap-2 text-sm text-purple-900">
+                          <input
+                            type="checkbox"
+                            checked={autoAdvanceOnTimer}
+                            onChange={(e) => setAutoAdvanceOnTimer(e.target.checked)}
+                            className="rounded border-purple-300 text-purple-600 focus:ring-purple-500"
+                            disabled={!isStep2Enabled}
+                          />
+                          <span>Auto-advance when timer expires</span>
+                        </label>
+                      </div>
+                    </div>
                   </div>
                 )}
 
@@ -647,7 +813,7 @@ export default function AdminCreateCompetition() {
             <Button 
               type="submit" 
               className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold text-lg py-6 shadow-xl"
-              disabled={!questionsGenerated}
+              disabled={!questionsGenerated || !competitionType}
               onClick={() => {
                 console.log('🔘 Button clicked!', { 
                   questionsGenerated, 
@@ -660,7 +826,7 @@ export default function AdminCreateCompetition() {
             >
               <Trophy className="h-6 w-6 mr-3" />
               {questionsGenerated 
-                ? `✅ Create ${competitionType === 'practice' ? 'Practice Quiz' : competitionType === 'liveEvent' ? 'Live Event' : 'Competition'} Now!`
+                ? `✅ Create ${competitionType === 'practice' ? 'Practice Quiz' : competitionType === 'liveEvent' ? 'Live Event' : 'Scholarship Competition'} Now!`
                 : `⏳ Generate Questions First`
               }
             </Button>
