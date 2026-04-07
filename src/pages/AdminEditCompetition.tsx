@@ -204,7 +204,13 @@ export default function AdminEditCompetition() {
                   required
                   rows={4}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Describe the competition"
+                  placeholder={
+                    formData.isPractice
+                      ? "Describe this practice session (e.g., 'Practice test covering all major subjects for exam preparation')"
+                      : formData.isLiveEvent
+                      ? "Describe this live event (e.g., 'In-person quiz competition with real-time scoring and projector display')"
+                      : "Describe this scholarship competition (e.g., 'Merit-based scholarship competition for high school students')"
+                  }
                 />
               </div>
 
