@@ -360,11 +360,44 @@ export default function Home() {
                   <Button 
                     onClick={async () => {
                       if (user) {
-                        navigate('/admin/create-competition');
+                        // Check for active live events first
+                        try {
+                          const { getCompetitions } = await import('@/components/ui/firebase');
+                          const competitions = await getCompetitions();
+                          
+                          // Find active live events
+                          const activeLiveEvent = competitions.find((comp: any) => 
+                            comp.isLiveEvent && comp.status === 'active'
+                          );
+                          
+                          if (activeLiveEvent) {
+                            // Navigate to the host page for the active live event
+                            navigate(`/live-event/${activeLiveEvent.id}/host`);
+                          } else {
+                            // No active live event, go to create competition
+                            navigate('/admin/create-competition');
+                          }
+                        } catch (error) {
+                          console.error('Error checking for active live events:', error);
+                          // Fallback to create competition page
+                          navigate('/admin/create-competition');
+                        }
                       } else {
                         try {
                           await signIn();
-                          navigate('/admin/create-competition');
+                          // After sign-in, check for active live events
+                          const { getCompetitions } = await import('@/components/ui/firebase');
+                          const competitions = await getCompetitions();
+                          
+                          const activeLiveEvent = competitions.find((comp: any) => 
+                            comp.isLiveEvent && comp.status === 'active'
+                          );
+                          
+                          if (activeLiveEvent) {
+                            navigate(`/live-event/${activeLiveEvent.id}/host`);
+                          } else {
+                            navigate('/admin/create-competition');
+                          }
                         } catch (error) {
                           console.error('Sign-in failed:', error);
                         }
