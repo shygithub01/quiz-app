@@ -371,8 +371,18 @@ export default function Home() {
                           );
                           
                           if (activeLiveEvent) {
-                            // Navigate to the host page for the active live event
-                            navigate(`/live-event/${activeLiveEvent.id}/host`);
+                            // Check if the live event exists in Realtime Database
+                            const { getEventById } = await import('../services/liveEventService');
+                            const liveEventData = await getEventById(activeLiveEvent.id);
+                            
+                            if (liveEventData) {
+                              // Live event exists in Realtime DB, navigate to host page
+                              navigate(`/live-event/${activeLiveEvent.id}/host`);
+                            } else {
+                              // Live event doesn't exist in Realtime DB, navigate to edit page to recreate it
+                              console.log('Live event not found in Realtime DB, navigating to edit page');
+                              navigate(`/admin/competitions/${activeLiveEvent.id}/edit`);
+                            }
                           } else {
                             // No active live event, go to create competition
                             navigate('/admin/create-competition');
@@ -394,7 +404,14 @@ export default function Home() {
                           );
                           
                           if (activeLiveEvent) {
-                            navigate(`/live-event/${activeLiveEvent.id}/host`);
+                            const { getEventById } = await import('../services/liveEventService');
+                            const liveEventData = await getEventById(activeLiveEvent.id);
+                            
+                            if (liveEventData) {
+                              navigate(`/live-event/${activeLiveEvent.id}/host`);
+                            } else {
+                              navigate(`/admin/competitions/${activeLiveEvent.id}/edit`);
+                            }
                           } else {
                             navigate('/admin/create-competition');
                           }
