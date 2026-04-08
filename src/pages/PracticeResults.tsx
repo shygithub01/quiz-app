@@ -215,8 +215,8 @@ export default function PracticeResults() {
         {allAttempts.length > 1 && (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
+              <CardTitle className="flex items-center gap-2 text-gray-900">
+                <TrendingUp className="h-5 w-5 text-green-600" />
                 Your Progress
               </CardTitle>
             </CardHeader>
@@ -238,7 +238,7 @@ export default function PracticeResults() {
         {session.settings.showExplanations && (
           <Card>
             <CardHeader>
-              <CardTitle>Question Review</CardTitle>
+              <CardTitle className="text-gray-900">Question Review</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {competition.questions.map((question: any, idx: number) => {
@@ -270,28 +270,28 @@ export default function PracticeResults() {
                         
                         {!answer.isCorrect && (
                           <div className="mb-2">
-                            <p className="text-sm text-red-700">
+                            <p className="text-sm text-red-800">
                               Your answer: <span className="font-semibold">{answer.selectedAnswer}</span>
                             </p>
                           </div>
                         )}
                         
                         <div className="mb-2">
-                          <p className="text-sm text-green-700">
+                          <p className="text-sm text-green-800">
                             Correct answer: <span className="font-semibold">{answer.correctAnswer}</span>
                           </p>
                         </div>
                         
                         {question.explanation && (
                           <div className="mt-3 p-3 bg-white rounded border border-gray-200">
-                            <p className="text-sm text-gray-700">
-                              <span className="font-semibold">Explanation:</span> {question.explanation}
+                            <p className="text-sm text-gray-800">
+                              <span className="font-semibold text-gray-900">Explanation:</span> {question.explanation}
                             </p>
                           </div>
                         )}
                         
                         {wasIncorrectBefore && answer.isCorrect && (
-                          <div className="mt-2 text-sm text-green-600 font-semibold">
+                          <div className="mt-2 text-sm text-green-700 font-semibold">
                             ✨ You got this right this time!
                           </div>
                         )}
@@ -308,8 +308,8 @@ export default function PracticeResults() {
         {session.settings.showLeaderboard && (
           <Card id="leaderboard">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Trophy className="h-5 w-5" />
+              <CardTitle className="flex items-center gap-2 text-gray-900">
+                <Trophy className="h-5 w-5 text-yellow-600" />
                 Leaderboard
               </CardTitle>
             </CardHeader>
@@ -325,11 +325,11 @@ export default function PracticeResults() {
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      <span className="text-xl font-bold w-8 text-center">
+                      <span className="text-xl font-bold w-8 text-center text-gray-900">
                         {entry.rank}
                       </span>
                       <div>
-                        <p className="font-bold">
+                        <p className="font-bold text-gray-900">
                           {entry.name}
                           {entry.name === attempt.studentName && ' (You)'}
                         </p>
@@ -338,7 +338,7 @@ export default function PracticeResults() {
                         </p>
                       </div>
                     </div>
-                    <span className="text-xl font-bold">{entry.bestScore}%</span>
+                    <span className="text-xl font-bold text-indigo-600">{entry.bestScore}%</span>
                   </div>
                 ))}
               </div>
@@ -360,7 +360,7 @@ export default function PracticeResults() {
             <Button
               onClick={handleViewLeaderboard}
               variant="outline"
-              className="flex-1 font-bold text-lg py-6"
+              className="flex-1 font-bold text-lg py-6 text-gray-900 border-gray-300 hover:bg-gray-100"
             >
               <Trophy className="h-5 w-5 mr-2" />
               View Leaderboard

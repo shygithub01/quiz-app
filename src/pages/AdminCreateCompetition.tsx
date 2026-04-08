@@ -14,7 +14,10 @@ export default function AdminCreateCompetition() {
   const [questionsGenerated, setQuestionsGenerated] = useState(false);
   
   // Step 0: Competition Type Selection
-  const [competitionType, setCompetitionType] = useState<'practice' | 'scholarship' | 'liveEvent' | 'practiceLive' | null>(null);
+  const [competitionType, setCompetitionType] = useState<'practice' | 'scholarship' | 'liveEvent' | null>(null);
+  
+  // Live Event Sub-type (only shown when liveEvent is selected)
+  const [liveEventMode, setLiveEventMode] = useState<'realTime' | 'practice'>('realTime');
   
   // Competition type metadata
   const COMPETITION_TYPES = {
@@ -33,14 +36,8 @@ export default function AdminCreateCompetition() {
     liveEvent: {
       type: 'liveEvent' as const,
       label: 'Live Event',
-      description: 'In-person cultural event with projector display',
+      description: 'Real-time or practice sessions with guest access',
       icon: <Presentation className="h-5 w-5" />
-    },
-    practiceLive: {
-      type: 'practiceLive' as const,
-      label: 'Practice Live Mode',
-      description: 'Persistent practice sessions with unlimited attempts',
-      icon: <Target className="h-5 w-5" />
     }
   };
   
@@ -54,6 +51,22 @@ export default function AdminCreateCompetition() {
   });
   const [difficulty, setDifficulty] = useState('medium');
   const [questions, setQuestions] = useState<any[]>([]);
+
+  // Restore generated questions from localStorage on mount
+  useState(() => {
+    try {
+      const savedQuestions = localStorage.getItem('adminCreateCompetition_questions');
+      if (savedQuestions) {
+        const parsed = JSON.parse(savedQuestions);
+        setQuestions(parsed);
+        setQuestionsGenerated(true);
+        console.log('✅ Restored', parsed.length, 'questions from localStorage');
+      }
+    } catch (error) {
+      console.error('❌ Error restoring questions:', error);
+      localStorage.removeItem('adminCreateCompetition_questions');
+    }
+  });
   
   // Topic-based generation (for Live Events)
   const [topic, setTopic] = useState('');
@@ -96,10 +109,15 @@ export default function AdminCreateCompetition() {
   const isStep1Enabled = competitionType !== null;
   const isStep2Enabled = questionsGenerated;
 
-  const handleTypeSelection = (type: 'practice' | 'scholarship' | 'liveEvent' | 'practiceLive') => {
+  const handleTypeSelection = (type: 'practice' | 'scholarship' | 'liveEvent') => {
     console.log('Competition type selected:', type);
     console.log('isStep1Enabled will be:', type !== null);
     setCompetitionType(type);
+    
+    // Reset live event mode when switching types
+    if (type === 'liveEvent') {
+      setLiveEventMode('realTime');
+    }
   };
 
   const handleGenerateQuestions = async () => {
@@ -122,7 +140,7 @@ export default function AdminCreateCompetition() {
       let result;
       
       if (competitionType === 'liveEvent') {
-        // Topic-based generation for Live Events
+        // Topic-based generation for Live Events (both real-time and practice)
         console.log('🎪 Generating Live Event questions with topic:', topic);
         const { generateNewQuizFromTopic } = await import('@/components/api');
         
@@ -230,8 +248,8 @@ export default function AdminCreateCompetition() {
         throw new Error('Invalid date/time format');
       }
       
-      const isLiveEvent = competitionType === 'liveEvent';
-      const isPracticeLive = competitionType === 'practiceLive';
+      const isLiveEvent = competitionType === 'liveEvent' && liveEventMode === 'realTime';
+      const isPracticeLive = competitionType === 'liveEvent' && liveEventMode === 'practice';
       const isPractice = competitionType === 'practice';
       
       const competitionData = {
@@ -248,19 +266,23 @@ export default function AdminCreateCompetition() {
         eligibleCounty: isLiveEvent || isPracticeLive ? '' : eligibleCounty, // No county for live events or practice live
         isLiveEvent,
         isPracticeLive,
-        liveEventSettings: isLiveEvent ? {
-          maxParticipants,
-          questionTimer,
-          enableFastestFingerBonus,
-          autoAdvanceOnTimer
-        } : undefined,
-        practiceLiveSettings: isPracticeLive ? {
-          sessionDuration,
-          customEndDate: sessionDuration === 'custom' ? customEndDate : undefined,
-          showLeaderboard,
-          showExplanations,
-          maxQuestions
-        } : undefined,
+        ...(isLiveEvent && {
+          liveEventSettings: {
+            maxParticipants,
+            questionTimer,
+            enableFastestFingerBonus,
+            autoAdvanceOnTimer
+          }
+        }),
+        ...(isPracticeLive && {
+          practiceLiveSettings: {
+            sessionDuration,
+            ...(sessionDuration === 'custom' && customEndDate && { customEndDate }),
+            showLeaderboard,
+            showExplanations,
+            maxQuestions
+          }
+        }),
         rules: competitionType === 'liveEvent' ? [
           'In-person event with projector display',
           'Join using QR code or PIN',
@@ -324,48 +346,10 @@ export default function AdminCreateCompetition() {
           navigate('/admin/competitions');
         }
       } else if (isPracticeLive) {
-        // If Practice Live Mode is enabled, create the Practice Session in Realtime Database
-        try {
-          console.log('🎯 Creating Practice Live Session in Realtime Database...');
-          const { createPracticeSession } = await import('../services/practiceService');
-          const { auth } = await import('../components/ui/firebase');
-          
-          // Calculate end date based on session duration
-          let calculatedEndDate = Date.now();
-          if (sessionDuration === 'week') {
-            calculatedEndDate += 7 * 24 * 60 * 60 * 1000;
-          } else if (sessionDuration === 'month') {
-            calculatedEndDate += 30 * 24 * 60 * 60 * 1000;
-          } else if (sessionDuration === 'semester') {
-            calculatedEndDate += 120 * 24 * 60 * 60 * 1000; // ~4 months
-          } else if (sessionDuration === 'custom' && customEndDate) {
-            calculatedEndDate = new Date(customEndDate).getTime();
-          }
-          
-          const { sessionId, pin } = await createPracticeSession(
-            competitionId,
-            competitionTitle,
-            description,
-            {
-              showLeaderboard,
-              showExplanations,
-              maxQuestions
-            },
-            auth.currentUser?.uid || '',
-            calculatedEndDate
-          );
-          
-          console.log('✅ Practice Live Session created:', sessionId, 'PIN:', pin);
-          
-          alert(`✅ Practice Live Mode Created Successfully!\n\nSession PIN: ${pin}\nSession ID: ${sessionId}\n\nRedirecting to Teacher Dashboard...`);
-          
-          // Redirect to Practice Teacher Dashboard
-          navigate(`/admin/practice/dashboard/${sessionId}`);
-        } catch (error: any) {
-          console.error('❌ Failed to create Practice Live Session:', error);
-          alert(`⚠️ Competition created but Practice Live setup failed.\n\nError: ${error.message}\n\nYou can still use this as a regular competition.`);
-          navigate('/admin/competitions');
-        }
+        // Practice Live Mode: Save as template only (like Live Event)
+        // Teacher will create sessions from this template later via PracticeLiveHost page
+        alert(`✅ Practice Live Mode Template Created!\n\nTemplate ID: ${competitionId}\n\nGo to "Practice Live Host" to create sessions from this template.`);
+        navigate('/admin/competitions');
       } else {
         alert(`✅ Success!\n\nQuiz Template ID: ${templateId}\nCompetition ID: ${competitionId}\n\n${isPractice ? 'Practice quiz' : 'Competition'} is now live!`);
         
@@ -413,7 +397,7 @@ export default function AdminCreateCompetition() {
               <p className="text-sm text-purple-700 mb-4">
                 Select the type of competition you want to create. This will determine which fields you'll need to fill in later.
               </p>
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <TypeSelectionCard
                   type="practice"
                   title={COMPETITION_TYPES.practice.label}
@@ -438,14 +422,6 @@ export default function AdminCreateCompetition() {
                   selected={competitionType === 'liveEvent'}
                   onSelect={handleTypeSelection}
                 />
-                <TypeSelectionCard
-                  type="practiceLive"
-                  title={COMPETITION_TYPES.practiceLive.label}
-                  description={COMPETITION_TYPES.practiceLive.description}
-                  icon={COMPETITION_TYPES.practiceLive.icon}
-                  selected={competitionType === 'practiceLive'}
-                  onSelect={handleTypeSelection}
-                />
               </div>
             </CardContent>
           </Card>
@@ -464,6 +440,55 @@ export default function AdminCreateCompetition() {
                   <p className="text-sm text-yellow-800 font-medium">
                     ⚠️ Please select a competition type in Step 0 first
                   </p>
+                </div>
+              )}
+              
+              {/* Live Event Mode Selection - Only show when Live Event is selected */}
+              {competitionType === 'liveEvent' && (
+                <div className="border-2 border-purple-200 rounded-lg p-4 bg-purple-50 mb-4">
+                  <h3 className="text-sm font-bold text-purple-900 mb-3">
+                    🎪 Live Event Mode
+                  </h3>
+                  <p className="text-sm text-purple-700 mb-4">
+                    Choose the type of live event you want to create:
+                  </p>
+                  <div className="space-y-3">
+                    <label className="flex items-start p-3 border-2 rounded-lg cursor-pointer transition-all bg-white hover:border-purple-400">
+                      <input
+                        type="radio"
+                        name="liveEventMode"
+                        value="realTime"
+                        checked={liveEventMode === 'realTime'}
+                        onChange={(e) => setLiveEventMode(e.target.value as 'realTime' | 'practice')}
+                        className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500"
+                        disabled={!isStep1Enabled}
+                      />
+                      <div className="ml-3 flex-1">
+                        <div className="font-semibold text-gray-900 mb-1">Real-Time Live Event</div>
+                        <p className="text-sm text-gray-600">
+                          Synchronized event with projector display, timers, and one-time participation. Perfect for in-person cultural events.
+                        </p>
+                      </div>
+                    </label>
+                    
+                    <label className="flex items-start p-3 border-2 rounded-lg cursor-pointer transition-all bg-white hover:border-purple-400">
+                      <input
+                        type="radio"
+                        name="liveEventMode"
+                        value="practice"
+                        checked={liveEventMode === 'practice'}
+                        onChange={(e) => setLiveEventMode(e.target.value as 'realTime' | 'practice')}
+                        className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500"
+                        disabled={!isStep1Enabled}
+                      />
+                      <div className="ml-3 flex-1">
+                        <div className="font-semibold text-gray-900 mb-1">Practice Live Event</div>
+                        <p className="text-sm text-gray-600">
+                          Persistent practice session with unlimited attempts, no timers, and self-paced learning. Students can retry to improve scores.
+                        </p>
+                      </div>
+                    </label>
+                  </div>
                 </div>
               )}
               
@@ -844,8 +869,8 @@ export default function AdminCreateCompetition() {
                   </div>
                 )}
 
-                {/* Practice Live Mode Settings - Only show when Practice Live Mode type is selected */}
-                {competitionType === 'practiceLive' && (
+                {/* Practice Live Mode Settings - Only show when Live Event + Practice mode is selected */}
+                {competitionType === 'liveEvent' && liveEventMode === 'practice' && (
                   <div className="border-2 border-green-200 rounded-lg p-4 bg-green-50">
                     <div className="flex items-center gap-2 mb-3">
                       <h3 className="text-sm font-bold text-green-900">
@@ -997,8 +1022,8 @@ export default function AdminCreateCompetition() {
               {questionsGenerated 
                 ? `✅ Create ${
                     competitionType === 'practice' ? 'Practice Quiz' : 
-                    competitionType === 'liveEvent' ? 'Live Event' : 
-                    competitionType === 'practiceLive' ? 'Practice Live Session' :
+                    competitionType === 'liveEvent' && liveEventMode === 'realTime' ? 'Live Event' :
+                    competitionType === 'liveEvent' && liveEventMode === 'practice' ? 'Practice Live Session' :
                     'Scholarship Competition'
                   } Now!`
                 : `⏳ Generate Questions First`

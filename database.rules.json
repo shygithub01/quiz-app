@@ -3,7 +3,7 @@
     "liveEvents": {
       "$eventId": {
         ".read": true,
-        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'super_admin')"
+        ".write": "auth != null"
       }
     },
     "eventParticipants": {
@@ -16,7 +16,7 @@
     },
     "eventAnswers": {
       "$eventId": {
-        ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'super_admin')",
+        ".read": true,
         "$sessionId": {
           ".write": true
         }
@@ -31,12 +31,12 @@
     "practiceSessions": {
       "$sessionId": {
         ".read": true,
-        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'super_admin')"
+        ".write": "auth != null"
       }
     },
     "practiceAttempts": {
       "$sessionId": {
-        ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'super_admin')",
+        ".read": true,
         "$attemptId": {
           ".write": true
         }

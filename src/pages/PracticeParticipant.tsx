@@ -236,13 +236,13 @@ export default function PracticeParticipant() {
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
               <Target className="h-6 w-6" />
-              <span className="font-bold text-lg">{session.title}</span>
+              <span className="font-bold text-xl">{session.title}</span>
             </div>
           </div>
           
-          <div className="flex items-center justify-between text-sm">
-            <span>{studentName}</span>
-            <span>
+          <div className="flex items-center justify-between text-base">
+            <span className="font-medium">{studentName}</span>
+            <span className="font-medium">
               Progress: {answeredCount}/{competition.questions.length}
             </span>
           </div>
@@ -321,11 +321,7 @@ export default function PracticeParticipant() {
             <Button
               onClick={handleSubmit}
               disabled={submitting}
-              className={`flex-1 ${
-                allAnswered
-                  ? 'bg-gradient-to-r from-green-600 to-emerald-600'
-                  : 'bg-gradient-to-r from-orange-600 to-red-600'
-              }`}
+              className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700"
             >
               {submitting ? (
                 'Submitting...'
@@ -353,12 +349,12 @@ export default function PracticeParticipant() {
                   key={idx}
                   onClick={() => setCurrentQuestionIndex(idx)}
                   variant="outline"
-                  className={`h-12 ${
+                  className={`h-12 font-bold ${
                     idx === currentQuestionIndex
-                      ? 'bg-green-600 text-white border-green-600'
+                      ? 'bg-green-600 text-white border-green-600 hover:bg-green-700'
                       : answers[idx]
-                      ? 'bg-green-100 border-green-300'
-                      : 'bg-white'
+                      ? 'bg-green-100 text-green-800 border-green-300 hover:bg-green-200'
+                      : 'bg-white text-gray-900 hover:bg-gray-50'
                   }`}
                 >
                   {idx + 1}

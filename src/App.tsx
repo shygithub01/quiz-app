@@ -29,6 +29,7 @@ import PracticeJoin from "./pages/PracticeJoin";
 import PracticeParticipant from "./pages/PracticeParticipant";
 import PracticeResults from "./pages/PracticeResults";
 import PracticeTeacherDashboard from "./pages/PracticeTeacherDashboard";
+import PracticeLiveHost from "./pages/PracticeLiveHost";
 import Schools from "./pages/Schools";
 import ScholarshipHome from "./pages/ScholarshipHome";
 import ScholarshipRegister from "./pages/ScholarshipRegister";
@@ -95,6 +96,7 @@ const App = () => (
                   <Route path="live-event/:eventId/results" element={<div className="min-h-screen flex items-center justify-center bg-gray-50 text-gray-900 text-2xl">Results View - Coming in Phase 6</div>} />
                   
                   {/* Practice Live Mode Routes */}
+                  <Route path="admin/practice-live-host" element={<PracticeLiveHost />} />
                   <Route path="practice/join" element={<PracticeJoin />} />
                   <Route path="practice/quiz/:sessionId" element={<PracticeParticipant />} />
                   <Route path="practice/results/:sessionId/:attemptId" element={<PracticeResults />} />

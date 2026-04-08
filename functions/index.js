@@ -126,7 +126,12 @@ const getOpenAIKey = () => {
 let quizHistory = [];
 
 // Main quiz generation endpoint that handles both document and topic requests
-exports.generateQuiz = onRequest({ secrets: [openaiApiKey], region: 'us-central1' }, async (req, res) => {
+exports.generateQuiz = onRequest({ 
+  secrets: [openaiApiKey], 
+  region: 'us-central1',
+  timeoutSeconds: 300, // 5 minutes timeout for large question sets
+  memory: '512MiB'
+}, async (req, res) => {
   await handleCors(req, res);
   
   try {

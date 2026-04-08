@@ -8,8 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
   Target, 
   Users, 
-  TrendingUp, 
-  Download,
+  TrendingUp,
   QrCode,
   StopCircle,
   BarChart3,
@@ -108,16 +107,6 @@ export default function PracticeTeacherDashboard() {
       console.error('Error ending session:', error);
       alert('Failed to end session');
     }
-  };
-  
-  const handleDownloadCSV = () => {
-    // TODO: Implement CSV export in Phase 3 Task 7.4
-    alert('CSV export will be implemented in Phase 3 Task 7.4');
-  };
-  
-  const handleDownloadPDF = () => {
-    // TODO: Implement PDF export in Phase 3 Task 7.5
-    alert('PDF export will be implemented in Phase 3 Task 7.5');
   };
   
   const handleDownloadQR = () => {
@@ -357,38 +346,8 @@ export default function PracticeTeacherDashboard() {
             </Card>
           </div>
           
-          {/* Right Column: Leaderboard & Actions */}
+          {/* Right Column: Leaderboard */}
           <div className="lg:col-span-2 space-y-6">
-            {/* Download Actions */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Download className="h-5 w-5" />
-                  Export Reports
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 gap-4">
-                  <Button
-                    onClick={handleDownloadCSV}
-                    variant="outline"
-                    className="border-2"
-                  >
-                    <Download className="h-5 w-5 mr-2" />
-                    Download CSV
-                  </Button>
-                  <Button
-                    onClick={handleDownloadPDF}
-                    variant="outline"
-                    className="border-2"
-                  >
-                    <Download className="h-5 w-5 mr-2" />
-                    Download PDF
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-            
             {/* Leaderboard */}
             <Card>
               <CardHeader>
