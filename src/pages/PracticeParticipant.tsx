@@ -135,7 +135,7 @@ export default function PracticeParticipant() {
   
   const handleNext = () => {
     if (currentQuestionIndex < competition.questions.length - 1) {
-      setCurrentQuestionIndex(currentQuestionIndex - 1);
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
     }
   };
   
@@ -177,9 +177,9 @@ export default function PracticeParticipant() {
   
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 flex items-center justify-center p-4">
         <div className="text-center">
-          <Target className="h-12 w-12 text-green-600 animate-spin mx-auto mb-4" />
+          <Target className="h-12 w-12 text-purple-600 animate-spin mx-auto mb-4" />
           <p className="text-lg text-gray-700">Loading practice session...</p>
         </div>
       </div>
@@ -193,10 +193,10 @@ export default function PracticeParticipant() {
   // Resume prompt
   if (showResumePrompt) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 flex items-center justify-center p-4">
         <Card className="max-w-md">
           <CardContent className="pt-6 text-center">
-            <Target className="h-16 w-16 text-green-600 mx-auto mb-4" />
+            <Target className="h-16 w-16 text-purple-600 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
               Resume Progress?
             </h2>
@@ -213,7 +213,7 @@ export default function PracticeParticipant() {
               </Button>
               <Button
                 onClick={handleResumeProgress}
-                className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600"
+                className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600"
               >
                 Resume
               </Button>
@@ -229,9 +229,9 @@ export default function PracticeParticipant() {
   const allAnswered = answeredCount === competition.questions.length;
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100">
       {/* Header */}
-      <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-4 shadow-lg">
+      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-4 shadow-lg">
         <div className="max-w-2xl mx-auto">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
@@ -258,7 +258,7 @@ export default function PracticeParticipant() {
           </div>
           <div className="w-full bg-gray-200 rounded-full h-2">
             <div
-              className="bg-gradient-to-r from-green-600 to-emerald-600 h-2 rounded-full transition-all duration-300"
+              className="bg-gradient-to-r from-purple-600 to-indigo-600 h-2 rounded-full transition-all duration-300"
               style={{ width: `${(answeredCount / competition.questions.length) * 100}%` }}
             />
           </div>
@@ -279,7 +279,7 @@ export default function PracticeParticipant() {
                   onClick={() => handleAnswerSelect(option)}
                   className={`w-full text-left justify-start text-lg font-semibold py-6 px-6 ${
                     answers[currentQuestionIndex] === option
-                      ? 'bg-green-600 hover:bg-green-700 text-white'
+                      ? 'bg-purple-600 hover:bg-purple-700 text-white'
                       : 'bg-white hover:bg-gray-50 text-gray-900 border-2 border-gray-200'
                   }`}
                   style={{ minHeight: '44px', touchAction: 'manipulation' }}
@@ -312,7 +312,7 @@ export default function PracticeParticipant() {
           {currentQuestionIndex < competition.questions.length - 1 ? (
             <Button
               onClick={handleNext}
-              className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600"
+              className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600"
             >
               Next
               <ChevronRight className="h-5 w-5 ml-2" />
@@ -321,7 +321,7 @@ export default function PracticeParticipant() {
             <Button
               onClick={handleSubmit}
               disabled={submitting}
-              className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700"
+              className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700"
             >
               {submitting ? (
                 'Submitting...'
@@ -351,9 +351,9 @@ export default function PracticeParticipant() {
                   variant="outline"
                   className={`h-12 font-bold ${
                     idx === currentQuestionIndex
-                      ? 'bg-green-600 text-white border-green-600 hover:bg-green-700'
+                      ? 'bg-purple-600 text-white border-purple-600 hover:bg-purple-700'
                       : answers[idx]
-                      ? 'bg-green-100 text-green-800 border-green-300 hover:bg-green-200'
+                      ? 'bg-purple-100 text-purple-800 border-purple-300 hover:bg-purple-200'
                       : 'bg-white text-gray-900 hover:bg-gray-50'
                   }`}
                 >

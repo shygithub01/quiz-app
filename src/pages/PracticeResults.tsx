@@ -27,7 +27,7 @@ export default function PracticeResults() {
   const [allAttempts, setAllAttempts] = useState<PracticeAttempt[]>([]);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [myRank, setMyRank] = useState(0);
-  const [bestScore, setBestScore] = useState(0);
+  const [averageScore, setAverageScore] = useState(0);
   const [improvement, setImprovement] = useState(0);
   const [loading, setLoading] = useState(true);
   
@@ -68,14 +68,15 @@ export default function PracticeResults() {
         const attempts = await getStudentAttempts(sessionId, attemptData.studentName);
         setAllAttempts(attempts);
         
-        // Calculate best score and improvement
+        // Calculate average score and improvement
         if (attempts.length > 0) {
           const scores = attempts.map(a => a.score);
-          const best = Math.max(...scores);
+          const totalScore = scores.reduce((sum, score) => sum + score, 0);
+          const avg = Math.round(totalScore / scores.length);
           const first = attempts[0].score;
-          const improvementPct = first > 0 ? ((best - first) / first) * 100 : 0;
+          const improvementPct = first > 0 ? ((avg - first) / first) * 100 : 0;
           
-          setBestScore(best);
+          setAverageScore(avg);
           setImprovement(Math.round(improvementPct * 10) / 10);
         }
         
@@ -128,9 +129,9 @@ export default function PracticeResults() {
   
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 flex items-center justify-center p-4">
         <div className="text-center">
-          <Target className="h-12 w-12 text-green-600 animate-spin mx-auto mb-4" />
+          <Target className="h-12 w-12 text-purple-600 animate-spin mx-auto mb-4" />
           <p className="text-lg text-gray-700">Loading results...</p>
         </div>
       </div>
@@ -146,23 +147,23 @@ export default function PracticeResults() {
     score: a.score
   }));
   
-  const isNewBest = attempt.score === bestScore;
+  const isNewBest = attempt.score >= averageScore;
   const isImproved = allAttempts.length > 1 && attempt.score > allAttempts[allAttempts.length - 2].score;
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100">
       {/* Header */}
-      <div className="bg-gradient-to-r from-green-600 to-emerald-600 text-white p-6 shadow-lg">
+      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-6 shadow-lg">
         <div className="max-w-4xl mx-auto text-center">
           <Target className="h-16 w-16 mx-auto mb-4" />
           <h1 className="text-3xl font-bold mb-2">Practice Complete!</h1>
-          <p className="text-green-100">{session.title}</p>
+          <p className="text-purple-100">{session.title}</p>
         </div>
       </div>
       
       <div className="max-w-4xl mx-auto p-4 space-y-6">
         {/* Score Summary */}
-        <Card className="border-2 border-green-200">
+        <Card className="border-2 border-purple-200">
           <CardContent className="pt-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
               <div>
@@ -182,11 +183,11 @@ export default function PracticeResults() {
               </div>
               
               <div>
-                <p className="text-sm text-gray-600 mb-2">Best Score</p>
-                <p className="text-5xl font-bold text-blue-600">{bestScore}%</p>
-                {isNewBest && (
+                <p className="text-sm text-gray-600 mb-2">Average Score</p>
+                <p className="text-5xl font-bold text-blue-600">{averageScore}%</p>
+                {isNewBest && allAttempts.length > 1 && (
                   <p className="text-sm text-green-600 font-semibold mt-2">
-                    🎉 New Personal Best!
+                    🎉 Above Your Average!
                   </p>
                 )}
               </div>
@@ -350,7 +351,7 @@ export default function PracticeResults() {
         <div className="flex gap-3">
           <Button
             onClick={handleTryAgain}
-            className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold text-lg py-6"
+            className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-lg py-6"
           >
             <RotateCcw className="h-5 w-5 mr-2" />
             Try Again

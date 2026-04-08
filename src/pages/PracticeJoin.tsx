@@ -110,16 +110,16 @@ export default function PracticeJoin() {
   };
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 to-emerald-100 flex items-center justify-center p-6">
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 flex items-center justify-center p-6">
       <Card className="w-full max-w-md shadow-2xl">
-        <CardHeader className="text-center bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-t-lg">
+        <CardHeader className="text-center bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-t-lg">
           <div className="flex justify-center mb-4">
             <Target className="h-16 w-16" />
           </div>
           <CardTitle className="text-3xl font-bold">
             Join Practice Session
           </CardTitle>
-          <p className="text-green-100 mt-2">
+          <p className="text-purple-100 mt-2">
             Enter the session PIN and your name to start practicing
           </p>
         </CardHeader>
@@ -146,7 +146,7 @@ export default function PracticeJoin() {
                   setError('');
                 }}
                 placeholder="Enter 6-digit PIN"
-                className="w-full px-4 py-3 text-2xl font-bold text-center tracking-widest border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none"
+                className="w-full px-4 py-3 text-2xl font-bold text-center tracking-widest border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none"
                 maxLength={6}
                 required
                 autoFocus
@@ -168,7 +168,7 @@ export default function PracticeJoin() {
                   setError('');
                 }}
                 placeholder="Enter your name"
-                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-green-500 focus:ring-2 focus:ring-green-200 outline-none"
+                className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg focus:border-purple-500 focus:ring-2 focus:ring-purple-200 outline-none"
                 minLength={2}
                 maxLength={50}
                 required
@@ -181,7 +181,7 @@ export default function PracticeJoin() {
             <Button
               type="submit"
               disabled={loading || pin.length !== 6 || name.trim().length < 2}
-              className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold text-lg py-6"
+              className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-lg py-6"
             >
               {loading ? (
                 <>
@@ -198,11 +198,11 @@ export default function PracticeJoin() {
           </form>
           
           <div className="mt-6 pt-6 border-t">
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-              <h3 className="text-sm font-bold text-green-900 mb-2">
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4">
+              <h3 className="text-sm font-bold text-purple-900 mb-2">
                 🎯 Practice Live Mode Features
               </h3>
-              <ul className="text-xs text-green-700 space-y-1">
+              <ul className="text-xs text-purple-700 space-y-1">
                 <li>✓ Unlimited attempts - practice as many times as you want</li>
                 <li>✓ Same questions each time - track your improvement</li>
                 <li>✓ No time pressure - answer at your own pace</li>

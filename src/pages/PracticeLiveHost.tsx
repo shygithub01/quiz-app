@@ -116,20 +116,20 @@ export default function PracticeLiveHost() {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between bg-gradient-to-r from-green-600 to-emerald-600 text-white p-6 rounded-xl shadow-xl">
+        <div className="flex items-center justify-between bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-6 rounded-xl shadow-xl">
           <div>
             <h1 className="text-4xl font-bold flex items-center gap-3">
               <Target className="h-10 w-10" />
               Practice Live Mode Host
             </h1>
-            <p className="text-green-100 mt-2 text-lg">
+            <p className="text-purple-100 mt-2 text-lg">
               Create practice sessions from your templates
             </p>
           </div>
           <Button 
             variant="outline" 
             onClick={() => navigate('/admin/competitions')}
-            className="bg-white text-green-600 hover:bg-green-50 border-0 font-semibold"
+            className="bg-white text-purple-600 hover:bg-purple-50 border-0 font-semibold"
           >
             ← Back
           </Button>
@@ -213,7 +213,7 @@ export default function PracticeLiveHost() {
                   <Button
                     onClick={handleCreateSession}
                     disabled={!selectedCompetition || creating || (sessionDuration === 'custom' && !customEndDate)}
-                    className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-bold text-lg py-6"
+                    className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-lg py-6"
                   >
                     {creating ? (
                       <>
@@ -234,10 +234,10 @@ export default function PracticeLiveHost() {
         </Card>
         
         {/* Info Card */}
-        <Card className="border-2 border-green-200 bg-green-50">
+        <Card className="border-2 border-purple-200 bg-purple-50">
           <CardContent className="pt-6">
-            <h3 className="font-bold text-green-900 mb-2">How Practice Live Mode Works</h3>
-            <ul className="text-sm text-green-700 space-y-1">
+            <h3 className="font-bold text-purple-900 mb-2">How Practice Live Mode Works</h3>
+            <ul className="text-sm text-purple-700 space-y-1">
               <li>• Select a template you created earlier</li>
               <li>• Choose how long the session should last</li>
               <li>• Students join using PIN or QR code (no sign-in required)</li>

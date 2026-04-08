@@ -173,6 +173,9 @@ export default function AdminCompetitionSettings() {
   };
 
   const getTypeBadge = (type: string) => {
+    if (type === 'practiceLive') {
+      return <span className="px-2 py-1 rounded text-xs font-semibold bg-green-100 text-green-800">🎯 PRACTICE LIVE</span>;
+    }
     if (type === 'practice') {
       return <span className="px-2 py-1 rounded text-xs font-semibold bg-purple-100 text-purple-800">🎯 PRACTICE</span>;
     }
@@ -317,7 +320,7 @@ export default function AdminCompetitionSettings() {
                           <div className="text-sm text-gray-500 truncate max-w-xs">{comp.description}</div>
                         </td>
                         <td className="px-4 py-3">
-                          {getTypeBadge(comp.isPractice ? 'practice' : comp.isLiveEvent ? 'liveEvent' : 'competition')}
+                          {getTypeBadge(comp.isPracticeLive ? 'practiceLive' : comp.isPractice ? 'practice' : comp.isLiveEvent ? 'liveEvent' : 'competition')}
                         </td>
                         <td className="px-4 py-3">
                           {getStatusBadge(comp.status)}
