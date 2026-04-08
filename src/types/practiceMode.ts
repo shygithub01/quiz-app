@@ -47,6 +47,8 @@ export interface AttemptAnswer {
 export interface LeaderboardEntry {
   name: string;
   bestScore: number;
+  worstScore: number;
+  lastScore: number;
   attemptCount: number;
   firstAttemptDate: number;
   lastAttemptDate: number;

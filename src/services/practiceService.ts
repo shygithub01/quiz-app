@@ -9,7 +9,8 @@ import {
   remove,
   onValue,
   off,
-  push
+  push,
+  onDisconnect
 } from 'firebase/database';
 import { realtimeDb } from '../components/ui/firebase';
 import { 
@@ -174,10 +175,10 @@ export async function endPracticeSession(sessionId: string): Promise<void> {
       endDate: Date.now()
     });
     
-    // Archive session data to Firestore
-    await archivePracticeSession(sessionId);
-    
     console.log('✅ Practice session ended:', sessionId);
+    
+    // Note: Archiving to Firestore is disabled for now due to permissions
+    // Will be enabled in a future update when Firestore rules are configured
   } catch (error) {
     console.error('❌ Error ending practice session:', error);
     throw error;
@@ -221,6 +222,93 @@ export async function joinPracticeSession(
     console.error('❌ Error joining practice session:', error);
     throw error;
   }
+}
+
+/**
+ * Setup automatic participant removal on disconnect
+ * Uses Firebase's onDisconnect() to reliably remove participant when browser closes
+ */
+export async function setupParticipantDisconnectHandler(
+  sessionId: string,
+  participantId: string
+): Promise<void> {
+  try {
+    const participantRef = ref(realtimeDb, `practiceParticipants/${sessionId}/${participantId}`);
+    
+    // Set up onDisconnect handler - this will automatically execute when connection is lost
+    await onDisconnect(participantRef).remove();
+    
+    console.log('✅ Disconnect handler set up for participant:', participantId);
+  } catch (error) {
+    console.error('❌ Error setting up disconnect handler:', error);
+    throw error;
+  }
+}
+
+/**
+ * Add participant to active participants list
+ */
+export async function addParticipant(
+  sessionId: string,
+  participantId: string,
+  studentName: string
+): Promise<void> {
+  try {
+    const participantRef = ref(realtimeDb, `practiceParticipants/${sessionId}/${participantId}`);
+    
+    await set(participantRef, {
+      id: participantId,
+      name: studentName,
+      joinedAt: Date.now(),
+      status: 'active'
+    });
+    
+    // Set up automatic removal on disconnect
+    await setupParticipantDisconnectHandler(sessionId, participantId);
+    
+    console.log('✅ Participant added:', studentName);
+  } catch (error) {
+    console.error('❌ Error adding participant:', error);
+    throw error;
+  }
+}
+
+/**
+ * Remove participant from active participants list
+ */
+export async function removeParticipant(
+  sessionId: string,
+  participantId: string
+): Promise<void> {
+  try {
+    const participantRef = ref(realtimeDb, `practiceParticipants/${sessionId}/${participantId}`);
+    await remove(participantRef);
+    console.log('✅ Participant removed:', participantId);
+  } catch (error) {
+    console.error('❌ Error removing participant:', error);
+    throw error;
+  }
+}
+
+/**
+ * Listen to active participants
+ */
+export function listenToParticipants(
+  sessionId: string,
+  callback: (participants: any[]) => void
+): () => void {
+  const participantsRef = ref(realtimeDb, `practiceParticipants/${sessionId}`);
+  
+  onValue(participantsRef, (snapshot) => {
+    if (snapshot.exists()) {
+      const participants = Object.values(snapshot.val());
+      callback(participants);
+    } else {
+      callback([]);
+    }
+  });
+  
+  return () => off(participantsRef);
 }
 
 // ===== ATTEMPT OPERATIONS =====
@@ -362,6 +450,8 @@ export async function updateLeaderboardEntry(
       
       await update(leaderboardRef, {
         bestScore: Math.max(entry.bestScore, newScore),
+        worstScore: Math.min(entry.worstScore || newScore, newScore),
+        lastScore: newScore,
         attemptCount: entry.attemptCount + 1,
         lastAttemptDate: attemptDate,
         improvement
@@ -371,6 +461,8 @@ export async function updateLeaderboardEntry(
       const entryData: LeaderboardEntry = {
         name: studentName,
         bestScore: newScore,
+        worstScore: newScore,
+        lastScore: newScore,
         attemptCount: 1,
         firstAttemptDate: attemptDate,
         lastAttemptDate: attemptDate,

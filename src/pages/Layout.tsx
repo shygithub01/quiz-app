@@ -66,7 +66,7 @@ export default function Layout() {
 
             {/* Enhanced Navigation and User Section */}
             <div className="flex items-center gap-6">
-              {/* Enhanced Navigation Links - FIXED */}
+              {/* Enhanced Navigation Links - Role-based visibility */}
               {isSignedIn && (
                 <nav className="flex gap-2 p-1 bg-white/5 rounded-full backdrop-blur-sm">
                   <Link to="/">
@@ -100,23 +100,6 @@ export default function Layout() {
                     >
                       <BookOpen className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
                       <span className="hidden sm:inline font-medium ml-2">History</span>
-                    </Button>
-                  </Link>
-                  
-                  <Link to="/competitions">
-                    <Button
-                      variant={location.pathname === '/competitions' ? 'default' : 'ghost'}
-                      size="sm"
-                      className={`
-                        relative group transition-all duration-300 rounded-full
-                        ${location.pathname === '/competitions' 
-                          ? 'bg-white text-purple-600 shadow-glow hover:shadow-glow-lg' 
-                          : 'text-white/80 hover:text-white hover:bg-white/10'
-                        }
-                      `}
-                    >
-                      <Trophy className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
-                      <span className="hidden sm:inline font-medium ml-2">Competitions</span>
                     </Button>
                   </Link>
                   
@@ -154,9 +137,26 @@ export default function Layout() {
                     </Button>
                   </Link>
                   
-                  {/* Admin Navigation - Only visible to admins */}
+                  {/* Admin-only Navigation */}
                   {userIsAdmin && (
                     <>
+                      <Link to="/competitions">
+                        <Button
+                          variant={location.pathname === '/competitions' ? 'default' : 'ghost'}
+                          size="sm"
+                          className={`
+                            relative group transition-all duration-300 rounded-full
+                            ${location.pathname === '/competitions' 
+                              ? 'bg-white text-purple-600 shadow-glow hover:shadow-glow-lg' 
+                              : 'text-white/80 hover:text-white hover:bg-white/10'
+                            }
+                          `}
+                        >
+                          <Trophy className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
+                          <span className="hidden sm:inline font-medium ml-2">Competitions</span>
+                        </Button>
+                      </Link>
+                      
                       <Link to="/admin/create-competition">
                         <Button
                           variant={location.pathname === '/admin/create-competition' ? 'default' : 'ghost'}

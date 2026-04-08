@@ -34,6 +34,14 @@
         ".write": "auth != null"
       }
     },
+    "practiceParticipants": {
+      "$sessionId": {
+        ".read": true,
+        "$participantId": {
+          ".write": true
+        }
+      }
+    },
     "practiceAttempts": {
       "$sessionId": {
         ".read": true,

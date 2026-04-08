@@ -14,6 +14,7 @@ import CompetitionLeaderboard from "./pages/CompetitionLeaderboard";
 import CompetitionQuiz from "./pages/CompetitionQuiz";
 import AdminUserManagement from "./pages/AdminUserManagement";
 import AdminUserDetails from "./pages/AdminUserDetails";
+import AdminManagement from "./pages/AdminManagement";
 import AdminCompetitionParticipants from "./pages/AdminCompetitionParticipants";
 import AdminEditCompetition from "./pages/AdminEditCompetition";
 import AdminQuizTemplates from "./pages/AdminQuizTemplates";
@@ -30,6 +31,7 @@ import PracticeParticipant from "./pages/PracticeParticipant";
 import PracticeResults from "./pages/PracticeResults";
 import PracticeTeacherDashboard from "./pages/PracticeTeacherDashboard";
 import PracticeLiveHost from "./pages/PracticeLiveHost";
+import PracticeSessionManager from "./pages/PracticeSessionManager";
 import LiveModesHub from "./pages/LiveModesHub";
 import Schools from "./pages/Schools";
 import ScholarshipHome from "./pages/ScholarshipHome";
@@ -83,6 +85,7 @@ const App = () => (
                   <Route path="admin/competitions/:id/edit" element={<AdminEditCompetition />} />
                   <Route path="admin/users" element={<AdminUserManagement />} />
                   <Route path="admin/users/:userId" element={<AdminUserDetails />} />
+                  <Route path="admin/manage-admins" element={<AdminManagement />} />
                   <Route path="admin/quiz-templates" element={<AdminQuizTemplates />} />
                   <Route path="admin/competition-settings" element={<AdminCompetitionSettings />} />
                   <Route path="admin/debug-competition" element={<AdminDebugCompetition />} />
@@ -98,7 +101,8 @@ const App = () => (
                   
                   {/* Practice Live Mode Routes */}
                   <Route path="live-modes" element={<LiveModesHub />} />
-                  <Route path="admin/practice-live-host" element={<PracticeLiveHost />} />
+                  <Route path="admin/practice/host" element={<PracticeLiveHost />} />
+                  <Route path="admin/practice/manage" element={<PracticeSessionManager />} />
                   <Route path="practice/join" element={<PracticeJoin />} />
                   <Route path="practice/quiz/:sessionId" element={<PracticeParticipant />} />
                   <Route path="practice/results/:sessionId/:attemptId" element={<PracticeResults />} />

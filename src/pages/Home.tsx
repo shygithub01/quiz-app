@@ -2,7 +2,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { getFeaturedCompetition } from '@/components/ui/firebase';
+import { getFeaturedCompetition, isAdmin } from '@/components/ui/firebase';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
@@ -33,10 +33,24 @@ export default function Home() {
   const navigate = useNavigate();
   const [featuredCompetition, setFeaturedCompetition] = useState<FeaturedCompetition | null>(null);
   const [, setLoading] = useState(true);
+  const [userIsAdmin, setUserIsAdmin] = useState(false);
 
   useEffect(() => {
     loadFeaturedCompetition();
   }, []);
+
+  // Check if user is admin
+  useEffect(() => {
+    const checkAdmin = async () => {
+      if (user?.uid) {
+        const adminStatus = await isAdmin(user.uid);
+        setUserIsAdmin(adminStatus);
+      } else {
+        setUserIsAdmin(false);
+      }
+    };
+    checkAdmin();
+  }, [user]);
 
   const loadFeaturedCompetition = async () => {
     try {
@@ -358,71 +372,14 @@ export default function Home() {
                 
                 <div className="pt-4">
                   <Button 
-                    onClick={async () => {
-                      if (user) {
-                        // Check for active live events first
-                        try {
-                          const { getCompetitions } = await import('@/components/ui/firebase');
-                          const competitions = await getCompetitions();
-                          
-                          // Find active live events
-                          const activeLiveEvent = competitions.find((comp: any) => 
-                            comp.isLiveEvent && comp.status === 'active'
-                          );
-                          
-                          if (activeLiveEvent) {
-                            // Check if the live event exists in Realtime Database
-                            const { getEventById } = await import('../services/liveEventService');
-                            const liveEventData = await getEventById(activeLiveEvent.id);
-                            
-                            if (liveEventData) {
-                              // Live event exists in Realtime DB, navigate to host page
-                              navigate(`/live-event/${activeLiveEvent.id}/host`);
-                            } else {
-                              // Live event doesn't exist in Realtime DB, navigate to edit page to recreate it
-                              console.log('Live event not found in Realtime DB, navigating to edit page');
-                              navigate(`/admin/competitions/${activeLiveEvent.id}/edit`);
-                            }
-                          } else {
-                            // No active live event, go to create competition
-                            navigate('/admin/create-competition');
-                          }
-                        } catch (error) {
-                          console.error('Error checking for active live events:', error);
-                          // Fallback to create competition page
-                          navigate('/admin/create-competition');
-                        }
-                      } else {
-                        try {
-                          await signIn();
-                          // After sign-in, check for active live events
-                          const { getCompetitions } = await import('@/components/ui/firebase');
-                          const competitions = await getCompetitions();
-                          
-                          const activeLiveEvent = competitions.find((comp: any) => 
-                            comp.isLiveEvent && comp.status === 'active'
-                          );
-                          
-                          if (activeLiveEvent) {
-                            const { getEventById } = await import('../services/liveEventService');
-                            const liveEventData = await getEventById(activeLiveEvent.id);
-                            
-                            if (liveEventData) {
-                              navigate(`/live-event/${activeLiveEvent.id}/host`);
-                            } else {
-                              navigate(`/admin/competitions/${activeLiveEvent.id}/edit`);
-                            }
-                          } else {
-                            navigate('/admin/create-competition');
-                          }
-                        } catch (error) {
-                          console.error('Sign-in failed:', error);
-                        }
-                      }
+                    onClick={() => {
+                      // Navigate to Live Modes Hub where users can join or host
+                      navigate('/live-modes');
                     }}
                     className="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold"
                   >
-                    {user ? 'Host Cultural Event' : 'Sign In to Host Event'}
+                    Join or Host Live Events
+                    <ArrowRight className="ml-2 h-5 w-5" />
                   </Button>
                 </div>
               </CardContent>

@@ -311,37 +311,57 @@ export default function PracticeResults() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-gray-900">
                 <Trophy className="h-5 w-5 text-yellow-600" />
-                Leaderboard
+                Leaderboard (Top 20)
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2">
-                {leaderboard.slice(0, 20).map((entry) => (
-                  <div
-                    key={entry.name}
-                    className={`flex items-center justify-between p-3 rounded-lg ${
-                      entry.name === attempt.studentName
-                        ? 'bg-green-100 border-2 border-green-400'
-                        : 'bg-gray-50'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-xl font-bold w-8 text-center text-gray-900">
-                        {entry.rank}
-                      </span>
-                      <div>
-                        <p className="font-bold text-gray-900">
-                          {entry.name}
-                          {entry.name === attempt.studentName && ' (You)'}
-                        </p>
-                        <p className="text-sm text-gray-600">
-                          Attempts: {entry.attemptCount}
-                        </p>
-                      </div>
-                    </div>
-                    <span className="text-xl font-bold text-indigo-600">{entry.bestScore}%</span>
-                  </div>
-                ))}
+              <div className="overflow-x-auto">
+                {leaderboard.length === 0 ? (
+                  <p className="text-sm text-gray-500 text-center py-8">
+                    No other participants yet.
+                  </p>
+                ) : (
+                  <table className="w-full">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
+                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Attempts</th>
+                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Worst Score</th>
+                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Best Score</th>
+                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Last Score</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {leaderboard.slice(0, 20).map((entry) => (
+                        <tr 
+                          key={entry.name} 
+                          className={`${
+                            entry.name === attempt.studentName
+                              ? 'bg-green-100 hover:bg-green-200'
+                              : 'hover:bg-gray-50'
+                          }`}
+                        >
+                          <td className="px-4 py-3 font-medium text-gray-900">
+                            {entry.name}
+                            {entry.name === attempt.studentName && ' (You)'}
+                          </td>
+                          <td className="px-4 py-3 text-center text-gray-600">
+                            {entry.attemptCount}
+                          </td>
+                          <td className="px-4 py-3 text-center font-semibold text-red-600">
+                            {entry.worstScore}%
+                          </td>
+                          <td className="px-4 py-3 text-center font-bold text-green-600">
+                            {entry.bestScore}%
+                          </td>
+                          <td className="px-4 py-3 text-center font-semibold text-indigo-600">
+                            {entry.lastScore}%
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
             </CardContent>
           </Card>

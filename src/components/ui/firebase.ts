@@ -69,11 +69,22 @@ const getUserRole = async (userId: string): Promise<UserRole> => {
 };
 
 // Check if a user is an admin (admin or super_admin)
+// Uses the 'role' field in the users collection
 const isAdmin = async (userId: string | null | undefined): Promise<boolean> => {
   if (!userId) return false;
   try {
-    const role = await getUserRole(userId);
-    return role === UserRole.ADMIN || role === UserRole.SUPER_ADMIN;
+    const userDoc = await getDoc(doc(db, 'users', userId));
+    if (userDoc.exists()) {
+      const role = userDoc.data().role;
+      const isAdminUser = role === 'admin' || role === 'super_admin';
+      
+      if (isAdminUser) {
+        console.log('✅ Admin access granted for user:', userId, 'role:', role);
+      }
+      
+      return isAdminUser;
+    }
+    return false;
   } catch (error) {
     console.error('Error checking admin status:', error);
     return false;
@@ -93,6 +104,58 @@ const setUserRole = async (userId: string, role: UserRole, currentUserRole: User
   } catch (error) {
     console.error('Error setting user role:', error);
     throw error;
+  }
+};
+
+// ===== ADMIN MANAGEMENT FUNCTIONS =====
+
+// Add a user to the admins collection
+const addAdmin = async (userId: string, email: string, displayName: string): Promise<void> => {
+  try {
+    console.log('👑 Adding admin:', email);
+    await setDoc(doc(db, 'admins', userId), {
+      email,
+      displayName,
+      addedAt: Timestamp.now(),
+      addedBy: 'system'
+    });
+    console.log('✅ Admin added successfully');
+  } catch (error) {
+    console.error('❌ Error adding admin:', error);
+    throw error;
+  }
+};
+
+// Remove a user from the admins collection
+const removeAdmin = async (userId: string): Promise<void> => {
+  try {
+    console.log('👑 Removing admin:', userId);
+    await deleteDoc(doc(db, 'admins', userId));
+    console.log('✅ Admin removed successfully');
+  } catch (error) {
+    console.error('❌ Error removing admin:', error);
+    throw error;
+  }
+};
+
+// Get all admins
+const getAllAdmins = async (): Promise<any[]> => {
+  try {
+    console.log('👑 Fetching all admins...');
+    const adminsRef = collection(db, 'admins');
+    const querySnapshot = await getDocs(adminsRef);
+    
+    const admins = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+      addedAt: doc.data().addedAt?.toDate()
+    }));
+    
+    console.log('✅ Fetched admins:', admins.length);
+    return admins;
+  } catch (error) {
+    console.error('❌ Error fetching admins:', error);
+    return [];
   }
 };
 
@@ -484,6 +547,11 @@ export {
   setUserStatus,
   getUserCompetitionHistory,
   getUserStatistics,
+  
+  // Admin Management functions
+  addAdmin,
+  removeAdmin,
+  getAllAdmins,
   
   // Scholarship functions
   checkScholarshipRegistration,

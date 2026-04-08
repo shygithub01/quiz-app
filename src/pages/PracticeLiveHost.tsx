@@ -95,7 +95,22 @@ export default function PracticeLiveHost() {
       navigate(`/admin/practice/dashboard/${sessionId}`);
     } catch (error: any) {
       console.error('Error creating session:', error);
-      alert(`Failed to create session: ${error.message}`);
+      
+      // Check if it's the session limit error
+      if (error.message.includes('Maximum of 5 active sessions')) {
+        const goToManager = confirm(
+          '⚠️ Session Limit Reached\n\n' +
+          'You have 5 active practice sessions (maximum allowed).\n\n' +
+          'Would you like to go to the Session Manager to end an existing session?\n\n' +
+          'Click OK to manage sessions, or Cancel to stay here.'
+        );
+        
+        if (goToManager) {
+          navigate('/admin/practice/manage');
+        }
+      } else {
+        alert(`Failed to create session: ${error.message}`);
+      }
     } finally {
       setCreating(false);
     }
@@ -126,13 +141,22 @@ export default function PracticeLiveHost() {
               Create practice sessions from your templates
             </p>
           </div>
-          <Button 
-            variant="outline" 
-            onClick={() => navigate('/admin/competitions')}
-            className="bg-white text-purple-600 hover:bg-purple-50 border-0 font-semibold"
-          >
-            ← Back
-          </Button>
+          <div className="flex gap-3">
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/admin/practice/manage')}
+              className="bg-white text-purple-600 hover:bg-purple-50 border-0 font-semibold"
+            >
+              Manage Sessions
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => navigate('/admin/competitions')}
+              className="bg-white text-purple-600 hover:bg-purple-50 border-0 font-semibold"
+            >
+              ← Back
+            </Button>
+          </div>
         </div>
         
         {/* Create Session Card */}

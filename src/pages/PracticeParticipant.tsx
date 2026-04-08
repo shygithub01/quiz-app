@@ -38,24 +38,34 @@ export default function PracticeParticipant() {
     
     const loadData = async () => {
       try {
+        console.log('🔍 PracticeParticipant: Starting to load session:', sessionId);
+        
         // Get student name from localStorage
         const name = getNameFromLocalStorage(sessionId);
+        console.log('👤 Student name from localStorage:', name);
+        
         if (!name) {
           // No name found, redirect to join page
+          console.log('❌ No name found, redirecting to join page');
           navigate(`/practice/join`);
           return;
         }
         setStudentName(name);
         
         // Load session
+        console.log('📡 Fetching session data...');
         const sessionData = await getSessionById(sessionId);
+        console.log('📊 Session data received:', sessionData);
+        
         if (!sessionData) {
+          console.error('❌ Session not found');
           alert('Session not found');
           navigate('/practice/join');
           return;
         }
         
         if (sessionData.status !== 'active') {
+          console.error('❌ Session is not active:', sessionData.status);
           alert('This practice session has ended');
           navigate('/practice/join');
           return;
@@ -64,23 +74,32 @@ export default function PracticeParticipant() {
         setSession(sessionData);
         
         // Load competition
+        console.log('📡 Fetching competition data for:', sessionData.competitionId);
         const compData = await getCompetitionById(sessionData.competitionId);
+        console.log('📊 Competition data received:', compData);
+        
         if (!compData || !compData.questions) {
+          console.error('❌ Quiz questions not found');
           alert('Quiz questions not found');
           navigate('/practice/join');
           return;
         }
         setCompetition(compData);
         
+        // Note: Participant tracking temporarily disabled due to database permissions
+        // Will be re-enabled after database rules are updated
+        
         // Check for saved progress
         const savedProgress = resumeFromLocalStorage(sessionId);
         if (savedProgress && !savedProgress.isComplete) {
+          console.log('💾 Found saved progress, showing resume prompt');
           setShowResumePrompt(true);
         }
         
+        console.log('✅ Loading complete');
         setLoading(false);
       } catch (error) {
-        console.error('Error loading data:', error);
+        console.error('❌ Error loading data:', error);
         alert('Failed to load practice session');
         navigate('/practice/join');
       }
@@ -302,8 +321,7 @@ export default function PracticeParticipant() {
           <Button
             onClick={handlePrevious}
             disabled={currentQuestionIndex === 0}
-            variant="outline"
-            className="flex-1"
+            className="flex-1 bg-gray-700 text-white hover:bg-gray-600"
           >
             <ChevronLeft className="h-5 w-5 mr-2" />
             Previous
@@ -312,7 +330,7 @@ export default function PracticeParticipant() {
           {currentQuestionIndex < competition.questions.length - 1 ? (
             <Button
               onClick={handleNext}
-              className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600"
+              className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700"
             >
               Next
               <ChevronRight className="h-5 w-5 ml-2" />

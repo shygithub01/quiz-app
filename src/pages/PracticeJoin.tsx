@@ -53,17 +53,23 @@ export default function PracticeJoin() {
   
   const validateSession = async () => {
     try {
+      console.log('🔍 Validating PIN:', pin);
       const session = await getSessionByPIN(pin);
+      console.log('📊 Session found:', session);
+      
       if (session) {
         setSessionId(session.id);
         setError('');
+        console.log('✅ Valid session ID:', session.id);
       } else {
         setSessionId(null);
         setError('Invalid PIN. Session not found.');
+        console.log('❌ No session found for PIN:', pin);
       }
     } catch (error) {
-      console.error('Error validating session:', error);
+      console.error('❌ Error validating session:', error);
       setSessionId(null);
+      setError('Error validating PIN. Please try again.');
     }
   };
   

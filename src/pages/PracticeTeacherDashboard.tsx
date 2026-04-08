@@ -18,6 +18,7 @@ import { QRCodeSVG } from 'qrcode.react';
 import {
   listenToSession,
   listenToLeaderboard,
+  listenToParticipants,
   calculatePracticeAnalytics
 } from '@/services/practiceService';
 import { 
@@ -34,6 +35,7 @@ export default function PracticeTeacherDashboard() {
   const [session, setSession] = useState<PracticeSession | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [analytics, setAnalytics] = useState<PracticeAnalytics | null>(null);
+  const [activeParticipants, setActiveParticipants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -45,12 +47,16 @@ export default function PracticeTeacherDashboard() {
       return;
     }
     
+    console.log('📊 Dashboard loading session:', sessionId);
+    
     // Listen to session updates
     const unsubscribeSession = listenToSession(sessionId, (updatedSession) => {
+      console.log('📊 Session data received:', updatedSession);
       if (updatedSession) {
         setSession(updatedSession);
         setLoading(false);
       } else {
+        console.error('❌ Session not found:', sessionId);
         setError('Session not found');
         setLoading(false);
       }
@@ -61,9 +67,15 @@ export default function PracticeTeacherDashboard() {
       setLeaderboard(updatedLeaderboard);
     });
     
+    // Listen to active participants
+    const unsubscribeParticipants = listenToParticipants(sessionId, (participants: any[]) => {
+      setActiveParticipants(participants);
+    });
+    
     return () => {
       unsubscribeSession();
       unsubscribeLeaderboard();
+      unsubscribeParticipants();
     };
   }, [sessionId]);
   
@@ -329,7 +341,7 @@ export default function PracticeTeacherDashboard() {
                     <span className="text-sm font-medium text-gray-700">Average Score</span>
                   </div>
                   <span className="text-2xl font-bold text-purple-600">
-                    {analytics?.averageScore.toFixed(1) || '0.0'}%
+                    {analytics?.averageScore ? analytics.averageScore.toFixed(1) : '0.0'}%
                   </span>
                 </div>
                 
@@ -339,7 +351,7 @@ export default function PracticeTeacherDashboard() {
                     <span className="text-sm font-medium text-gray-700">Avg Attempts</span>
                   </div>
                   <span className="text-2xl font-bold text-orange-600">
-                    {analytics?.averageAttempts.toFixed(1) || '0.0'}
+                    {analytics?.averageAttempts ? analytics.averageAttempts.toFixed(1) : '0.0'}
                   </span>
                 </div>
               </CardContent>
@@ -366,40 +378,28 @@ export default function PracticeTeacherDashboard() {
                     <table className="w-full">
                       <thead className="bg-gray-50 sticky top-0">
                         <tr>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Rank</th>
                           <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                          <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Best Score</th>
                           <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Attempts</th>
-                          <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Improvement</th>
+                          <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Worst Score</th>
+                          <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Best Score</th>
+                          <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Last Score</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
                         {leaderboard.slice(0, 20).map((entry, index) => (
                           <tr key={entry.name} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 text-center">
-                              <span className={`inline-flex items-center justify-center w-8 h-8 rounded-full font-bold ${
-                                index === 0 ? 'bg-yellow-100 text-yellow-800' :
-                                index === 1 ? 'bg-gray-100 text-gray-800' :
-                                index === 2 ? 'bg-orange-100 text-orange-800' :
-                                'bg-gray-50 text-gray-600'
-                              }`}>
-                                {entry.rank}
-                              </span>
-                            </td>
                             <td className="px-4 py-3 font-medium">{entry.name}</td>
-                            <td className="px-4 py-3 text-center font-bold text-indigo-600">
-                              {entry.bestScore}%
-                            </td>
                             <td className="px-4 py-3 text-center text-gray-600">
                               {entry.attemptCount}
                             </td>
-                            <td className="px-4 py-3 text-center">
-                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-semibold ${
-                                entry.improvement > 0 ? 'bg-green-100 text-green-800' :
-                                'bg-gray-100 text-gray-600'
-                              }`}>
-                                {entry.improvement > 0 ? '+' : ''}{entry.improvement.toFixed(1)}%
-                              </span>
+                            <td className="px-4 py-3 text-center font-semibold text-red-600">
+                              {entry.worstScore}%
+                            </td>
+                            <td className="px-4 py-3 text-center font-bold text-green-600">
+                              {entry.bestScore}%
+                            </td>
+                            <td className="px-4 py-3 text-center font-semibold text-indigo-600">
+                              {entry.lastScore}%
                             </td>
                           </tr>
                         ))}
