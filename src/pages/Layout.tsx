@@ -1,7 +1,7 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
-import { Brain, BookOpen, LogOut, User, Sparkles, Trophy, Users, Settings } from 'lucide-react'
+import { Brain, BookOpen, LogOut, User, Sparkles, Trophy, Users, Settings, Zap } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { isAdmin } from '@/components/ui/firebase'
 
@@ -134,6 +134,23 @@ export default function Layout() {
                     >
                       <Sparkles className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
                       <span className="hidden sm:inline font-medium ml-2">Pricing</span>
+                    </Button>
+                  </Link>
+                  
+                  <Link to="/live-modes">
+                    <Button
+                      variant={location.pathname === '/live-modes' ? 'default' : 'ghost'}
+                      size="sm"
+                      className={`
+                        relative group transition-all duration-300 rounded-full
+                        ${location.pathname === '/live-modes' 
+                          ? 'bg-white text-purple-600 shadow-glow hover:shadow-glow-lg' 
+                          : 'text-white/80 hover:text-white hover:bg-white/10'
+                        }
+                      `}
+                    >
+                      <Zap className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
+                      <span className="hidden sm:inline font-medium ml-2">Live Modes</span>
                     </Button>
                   </Link>
                   
