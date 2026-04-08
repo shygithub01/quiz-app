@@ -14,7 +14,7 @@ export default function AdminCreateCompetition() {
   const [questionsGenerated, setQuestionsGenerated] = useState(false);
   
   // Step 0: Competition Type Selection
-  const [competitionType, setCompetitionType] = useState<'practice' | 'scholarship' | 'liveEvent' | null>(null);
+  const [competitionType, setCompetitionType] = useState<'practice' | 'scholarship' | 'liveEvent' | 'practiceLive' | null>(null);
   
   // Competition type metadata
   const COMPETITION_TYPES = {
@@ -35,6 +35,12 @@ export default function AdminCreateCompetition() {
       label: 'Live Event',
       description: 'In-person cultural event with projector display',
       icon: <Presentation className="h-5 w-5" />
+    },
+    practiceLive: {
+      type: 'practiceLive' as const,
+      label: 'Practice Live Mode',
+      description: 'Persistent practice sessions with unlimited attempts',
+      icon: <Target className="h-5 w-5" />
     }
   };
   
@@ -77,13 +83,20 @@ export default function AdminCreateCompetition() {
   const [enableFastestFingerBonus, setEnableFastestFingerBonus] = useState(true);
   const [autoAdvanceOnTimer, setAutoAdvanceOnTimer] = useState(true);
 
+  // Practice Live Mode Settings (only used when competitionType === 'practiceLive')
+  const [sessionDuration, setSessionDuration] = useState<'week' | 'month' | 'semester' | 'custom'>('month');
+  const [customEndDate, setCustomEndDate] = useState('');
+  const [showLeaderboard, setShowLeaderboard] = useState(true);
+  const [showExplanations, setShowExplanations] = useState(true);
+  const [maxQuestions, setMaxQuestions] = useState(20);
+
   const totalQuestions = Object.values(subjectDistribution).reduce((a, b) => a + b, 0);
 
   // Step enablement logic
   const isStep1Enabled = competitionType !== null;
   const isStep2Enabled = questionsGenerated;
 
-  const handleTypeSelection = (type: 'practice' | 'scholarship' | 'liveEvent') => {
+  const handleTypeSelection = (type: 'practice' | 'scholarship' | 'liveEvent' | 'practiceLive') => {
     console.log('Competition type selected:', type);
     console.log('isStep1Enabled will be:', type !== null);
     setCompetitionType(type);
@@ -218,26 +231,35 @@ export default function AdminCreateCompetition() {
       }
       
       const isLiveEvent = competitionType === 'liveEvent';
+      const isPracticeLive = competitionType === 'practiceLive';
       const isPractice = competitionType === 'practice';
       
       const competitionData = {
         title: competitionTitle,
         description,
-        status: isPractice ? 'active' : 'upcoming',
-        isPractice, // true for practice, false for scholarship/liveEvent
+        status: isPractice || isPracticeLive ? 'active' : 'upcoming',
+        isPractice, // true for practice, false for scholarship/liveEvent/practiceLive
         startDate: Timestamp.fromDate(start),
         endDate: Timestamp.fromDate(end),
         quizTemplateId: templateId,
-        prizePool: isPractice ? '' : prizePool, // No prize pool for practice
+        prizePool: isPractice || isPracticeLive ? '' : prizePool, // No prize pool for practice/practiceLive
         duration: `${duration} minutes`,
         questionCount: questions.length, // Use actual generated questions count
-        eligibleCounty: isLiveEvent ? '' : eligibleCounty, // No county for live events
+        eligibleCounty: isLiveEvent || isPracticeLive ? '' : eligibleCounty, // No county for live events or practice live
         isLiveEvent,
+        isPracticeLive,
         liveEventSettings: isLiveEvent ? {
           maxParticipants,
           questionTimer,
           enableFastestFingerBonus,
           autoAdvanceOnTimer
+        } : undefined,
+        practiceLiveSettings: isPracticeLive ? {
+          sessionDuration,
+          customEndDate: sessionDuration === 'custom' ? customEndDate : undefined,
+          showLeaderboard,
+          showExplanations,
+          maxQuestions
         } : undefined,
         rules: competitionType === 'liveEvent' ? [
           'In-person event with projector display',
@@ -245,6 +267,12 @@ export default function AdminCreateCompetition() {
           'Answer on your mobile device',
           'Fastest correct answers get bonus points',
           'Real-time leaderboard updates'
+        ] : isPracticeLive ? [
+          'Persistent practice session - join anytime',
+          'Unlimited attempts allowed',
+          'Same questions on each retry for improvement tracking',
+          'Leaderboard shows best scores and attempt counts',
+          'No time pressure - practice at your own pace'
         ] : [
           isPractice 
             ? 'Unlimited attempts allowed for practice'
@@ -254,7 +282,7 @@ export default function AdminCreateCompetition() {
           'Each question is worth equal points',
           'Ties are broken by completion time'
         ],
-        prizes: isPractice ? [] : isLiveEvent ? [] : [
+        prizes: isPractice || isPracticeLive ? [] : isLiveEvent ? [] : [
           '1st Place: $150 + Trophy',
           '2nd Place: $100 + Medal',
           '3rd Place: $50 + Medal'
@@ -293,6 +321,49 @@ export default function AdminCreateCompetition() {
         } catch (error: any) {
           console.error('❌ Failed to create Live Event:', error);
           alert(`⚠️ Competition created but Live Event setup failed.\n\nError: ${error.message}\n\nYou can still use this as a regular competition.`);
+          navigate('/admin/competitions');
+        }
+      } else if (isPracticeLive) {
+        // If Practice Live Mode is enabled, create the Practice Session in Realtime Database
+        try {
+          console.log('🎯 Creating Practice Live Session in Realtime Database...');
+          const { createPracticeSession } = await import('../services/practiceService');
+          const { auth } = await import('../components/ui/firebase');
+          
+          // Calculate end date based on session duration
+          let calculatedEndDate = Date.now();
+          if (sessionDuration === 'week') {
+            calculatedEndDate += 7 * 24 * 60 * 60 * 1000;
+          } else if (sessionDuration === 'month') {
+            calculatedEndDate += 30 * 24 * 60 * 60 * 1000;
+          } else if (sessionDuration === 'semester') {
+            calculatedEndDate += 120 * 24 * 60 * 60 * 1000; // ~4 months
+          } else if (sessionDuration === 'custom' && customEndDate) {
+            calculatedEndDate = new Date(customEndDate).getTime();
+          }
+          
+          const { sessionId, pin } = await createPracticeSession(
+            competitionId,
+            competitionTitle,
+            description,
+            {
+              showLeaderboard,
+              showExplanations,
+              maxQuestions
+            },
+            auth.currentUser?.uid || '',
+            calculatedEndDate
+          );
+          
+          console.log('✅ Practice Live Session created:', sessionId, 'PIN:', pin);
+          
+          alert(`✅ Practice Live Mode Created Successfully!\n\nSession PIN: ${pin}\nSession ID: ${sessionId}\n\nRedirecting to Teacher Dashboard...`);
+          
+          // Redirect to Practice Teacher Dashboard
+          navigate(`/admin/practice/dashboard/${sessionId}`);
+        } catch (error: any) {
+          console.error('❌ Failed to create Practice Live Session:', error);
+          alert(`⚠️ Competition created but Practice Live setup failed.\n\nError: ${error.message}\n\nYou can still use this as a regular competition.`);
           navigate('/admin/competitions');
         }
       } else {
@@ -342,7 +413,7 @@ export default function AdminCreateCompetition() {
               <p className="text-sm text-purple-700 mb-4">
                 Select the type of competition you want to create. This will determine which fields you'll need to fill in later.
               </p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <TypeSelectionCard
                   type="practice"
                   title={COMPETITION_TYPES.practice.label}
@@ -365,6 +436,14 @@ export default function AdminCreateCompetition() {
                   description={COMPETITION_TYPES.liveEvent.description}
                   icon={COMPETITION_TYPES.liveEvent.icon}
                   selected={competitionType === 'liveEvent'}
+                  onSelect={handleTypeSelection}
+                />
+                <TypeSelectionCard
+                  type="practiceLive"
+                  title={COMPETITION_TYPES.practiceLive.label}
+                  description={COMPETITION_TYPES.practiceLive.description}
+                  icon={COMPETITION_TYPES.practiceLive.icon}
+                  selected={competitionType === 'practiceLive'}
                   onSelect={handleTypeSelection}
                 />
               </div>
@@ -765,6 +844,96 @@ export default function AdminCreateCompetition() {
                   </div>
                 )}
 
+                {/* Practice Live Mode Settings - Only show when Practice Live Mode type is selected */}
+                {competitionType === 'practiceLive' && (
+                  <div className="border-2 border-green-200 rounded-lg p-4 bg-green-50">
+                    <div className="flex items-center gap-2 mb-3">
+                      <h3 className="text-sm font-bold text-green-900">
+                        🎯 Practice Live Mode Settings
+                      </h3>
+                      <span className="text-xs bg-green-200 text-green-800 px-2 py-1 rounded-full font-semibold">
+                        NEW
+                      </span>
+                    </div>
+                    <p className="text-sm text-green-700 mb-4">
+                      Configure settings for persistent practice sessions. Students can join anytime and attempt multiple times.
+                    </p>
+                    
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-medium text-green-900 mb-1">
+                            Session Duration
+                          </label>
+                          <select
+                            value={sessionDuration}
+                            onChange={(e) => setSessionDuration(e.target.value as any)}
+                            className="w-full px-3 py-2 border rounded-lg text-sm"
+                            disabled={!isStep2Enabled}
+                          >
+                            <option value="week">1 Week</option>
+                            <option value="month">1 Month</option>
+                            <option value="semester">1 Semester</option>
+                            <option value="custom">Custom</option>
+                          </select>
+                        </div>
+                        {sessionDuration === 'custom' && (
+                          <div>
+                            <label className="block text-xs font-medium text-green-900 mb-1">
+                              Custom End Date
+                            </label>
+                            <input
+                              type="date"
+                              value={customEndDate}
+                              onChange={(e) => setCustomEndDate(e.target.value)}
+                              className="w-full px-3 py-2 border rounded-lg text-sm"
+                              disabled={!isStep2Enabled}
+                            />
+                          </div>
+                        )}
+                        <div>
+                          <label className="block text-xs font-medium text-green-900 mb-1">
+                            Max Questions (1-50)
+                          </label>
+                          <input
+                            type="number"
+                            value={maxQuestions}
+                            onChange={(e) => setMaxQuestions(Math.min(50, Math.max(1, parseInt(e.target.value) || 20)))}
+                            className="w-full px-3 py-2 border rounded-lg text-sm"
+                            min="1"
+                            max="50"
+                            disabled={!isStep2Enabled}
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <label className="flex items-center gap-2 text-sm text-green-900">
+                          <input
+                            type="checkbox"
+                            checked={showLeaderboard}
+                            onChange={(e) => setShowLeaderboard(e.target.checked)}
+                            className="rounded border-green-300 text-green-600 focus:ring-green-500"
+                            disabled={!isStep2Enabled}
+                          />
+                          <span>Show leaderboard to students</span>
+                        </label>
+                        
+                        <label className="flex items-center gap-2 text-sm text-green-900">
+                          <input
+                            type="checkbox"
+                            checked={showExplanations}
+                            onChange={(e) => setShowExplanations(e.target.checked)}
+                            className="rounded border-green-300 text-green-600 focus:ring-green-500"
+                            disabled={!isStep2Enabled}
+                          />
+                          <span>Show answer explanations in results</span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm font-medium mb-1">Duration (minutes)</label>
                   <input
@@ -826,7 +995,12 @@ export default function AdminCreateCompetition() {
             >
               <Trophy className="h-6 w-6 mr-3" />
               {questionsGenerated 
-                ? `✅ Create ${competitionType === 'practice' ? 'Practice Quiz' : competitionType === 'liveEvent' ? 'Live Event' : 'Scholarship Competition'} Now!`
+                ? `✅ Create ${
+                    competitionType === 'practice' ? 'Practice Quiz' : 
+                    competitionType === 'liveEvent' ? 'Live Event' : 
+                    competitionType === 'practiceLive' ? 'Practice Live Session' :
+                    'Scholarship Competition'
+                  } Now!`
                 : `⏳ Generate Questions First`
               }
             </Button>
