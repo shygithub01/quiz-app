@@ -1,0 +1,87 @@
+# Implementation Plan
+
+- [x] 1. Write bug condition exploration test
+  - **Property 1: Bug Condition** - Mobile Quiz Content Visibility
+  - **CRITICAL**: This test MUST FAIL on unfixed code - failure confirms the bug exists
+  - **DO NOT attempt to fix the test or the code when it fails**
+  - **NOTE**: This test encodes the expected behavior - it will validate the fix when it passes after implementation
+  - **GOAL**: Surface counterexamples that demonstrate the bug exists on mobile viewports
+  - **Manual Testing Approach**: Use browser DevTools mobile emulation and actual mobile devices to test the quiz-taking experience
+  - Test on iPhone 12 emulation (390px width): Open practice quiz, answer 3-4 questions, observe if content becomes invisible
+  - Test on Samsung Galaxy S21 emulation (360px width): Navigate through questions using Next button, observe if content disappears after scrolling
+  - Test on iPad Mini emulation (768px width): Take full quiz, observe if content visibility is intermittent
+  - Test on actual iOS device (Safari): Use real iPhone to take quiz, observe blank screen issue
+  - Test on actual Android device (Chrome): Use real Android phone to take quiz, observe blank screen issue
+  - Run tests on UNFIXED code
+  - **EXPECTED OUTCOME**: Tests FAIL - quiz content becomes invisible after answering 2-3 questions on mobile viewports, only purple/pink gradient background is visible
+  - Document counterexamples found: specific viewport sizes, number of questions answered before content disappears, browser/device combinations
+  - Examine z-index layering and background gradient conflicts in browser DevTools
+  - Mark task complete when tests are run, failures are documented, and root cause is confirmed
+  - _Requirements: 1.1, 1.2, 1.3_
+
+- [x] 2. Write preservation property tests (BEFORE implementing fix)
+  - **Property 2: Preservation** - Desktop and Other Page Behavior
+  - **IMPORTANT**: Follow observation-first methodology
+  - Observe behavior on UNFIXED code for desktop viewports (width > 768px)
+  - Observe behavior on UNFIXED code for other pages (Home, Competitions, Admin pages)
+  - Test desktop quiz display (1920px width): Verify quiz displays correctly with all styling intact
+  - Test loading state: Verify loading spinner with Target icon and "Loading practice session..." message displays correctly on all viewports
+  - Test resume prompt: Verify "Resume Progress?" dialog displays correctly with "Start Fresh" and "Resume" buttons on all viewports
+  - Test navigation: Verify Previous/Next buttons and question navigator work correctly with proper state management
+  - Test submission: Verify answer selection, localStorage saving, and quiz submission work correctly
+  - Test other pages: Verify Home, Competitions, Admin pages display correctly with global App.tsx background gradient
+  - Run tests on UNFIXED code
+  - **EXPECTED OUTCOME**: Tests PASS - all desktop functionality and other pages work correctly on unfixed code
+  - Document observed behaviors that must be preserved after the fix
+  - Mark task complete when tests are written, run, and passing on unfixed code
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
+
+- [x] 3. Fix for mobile blank screen issue
+
+  - [x] 3.1 Remove conflicting background gradients from PracticeParticipant.tsx
+    - Remove `bg-gradient-to-br from-purple-50 to-indigo-100` class from the main content root div (line ~220)
+    - Remove `bg-gradient-to-br from-purple-50 to-indigo-100` class from the loading state div (line ~200)
+    - Remove `bg-gradient-to-br from-purple-50 to-indigo-100` class from the resume prompt div (line ~230)
+    - The global App.tsx fixed background gradient will provide the visual styling
+    - This eliminates the z-index layering conflict between page-level and global backgrounds
+    - _Bug_Condition: isBugCondition(input) where input.viewport.width <= 768 AND input.page === 'PracticeParticipant' AND input.userInteraction === 'answering questions'_
+    - _Expected_Behavior: allQuizContentVisible(result) AND contentAboveBackground(result) AND userCanInteractWithQuiz(result) from design_
+    - _Preservation: Desktop quiz display, loading states, resume prompts, navigation, submission logic, and other application pages must remain unchanged_
+    - _Requirements: 1.1, 1.2, 1.3, 2.1, 2.2, 2.3, 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
+
+  - [x] 3.2 Verify bug condition exploration test now passes
+    - **Property 1: Expected Behavior** - Mobile Quiz Content Visibility
+    - **IMPORTANT**: Re-run the SAME tests from task 1 - do NOT write new tests
+    - The tests from task 1 encode the expected behavior
+    - When these tests pass, it confirms the expected behavior is satisfied
+    - Test on iPhone 12 emulation (390px width): Verify all quiz content remains visible throughout quiz session
+    - Test on Samsung Galaxy S21 emulation (360px width): Verify content stays visible when navigating and scrolling
+    - Test on iPad Mini emulation (768px width): Verify content visibility is consistent throughout quiz
+    - Test on actual iOS device (Safari): Verify no blank screen issue occurs
+    - Test on actual Android device (Chrome): Verify no blank screen issue occurs
+    - Run tests on FIXED code
+    - **EXPECTED OUTCOME**: Tests PASS - all quiz content (header, question card, answer options, navigation buttons, question navigator) remains visible and interactive on mobile devices
+    - Verify content appears above the global fixed background on all mobile viewport sizes
+    - _Requirements: 2.1, 2.2, 2.3_
+
+  - [x] 3.3 Verify preservation tests still pass
+    - **Property 2: Preservation** - Desktop and Other Page Behavior
+    - **IMPORTANT**: Re-run the SAME tests from task 2 - do NOT write new tests
+    - Run preservation tests from step 2 on FIXED code
+    - Test desktop quiz display (1920px width): Verify quiz displays correctly with all styling intact after fix
+    - Test loading state: Verify loading spinner and message display correctly on all viewports after fix
+    - Test resume prompt: Verify resume dialog displays correctly on all viewports after fix
+    - Test navigation: Verify Previous/Next buttons and question navigator work correctly after fix
+    - Test submission: Verify answer selection, localStorage saving, and quiz submission work correctly after fix
+    - Test other pages: Verify Home, Competitions, Admin pages display correctly with global background after fix
+    - **EXPECTED OUTCOME**: Tests PASS - confirms no regressions in desktop functionality or other pages
+    - Confirm all tests still pass after fix (no regressions)
+    - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
+
+- [x] 4. Checkpoint - Ensure all tests pass
+  - Verify all mobile device tests pass (iPhone 12, Samsung Galaxy S21, iPad Mini, actual iOS/Android devices)
+  - Verify all desktop tests pass (quiz display, loading, resume, navigation, submission)
+  - Verify all other page tests pass (Home, Competitions, Admin pages)
+  - Confirm no visual regressions on any viewport size
+  - Confirm quiz content remains visible throughout entire quiz session on mobile devices
+  - Ask the user if questions arise or if additional testing is needed

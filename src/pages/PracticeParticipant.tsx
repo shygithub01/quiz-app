@@ -196,10 +196,10 @@ export default function PracticeParticipant() {
   
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 flex items-center justify-center p-4">
-        <div className="text-center">
+      <div className="min-h-screen flex items-center justify-center p-4 relative z-20">
+        <div className="text-center relative z-20">
           <Target className="h-12 w-12 text-purple-600 animate-spin mx-auto mb-4" />
-          <p className="text-lg text-gray-700">Loading practice session...</p>
+          <p className="text-lg text-white">Loading practice session...</p>
         </div>
       </div>
     );
@@ -212,9 +212,9 @@ export default function PracticeParticipant() {
   // Resume prompt
   if (showResumePrompt) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 flex items-center justify-center p-4">
-        <Card className="max-w-md">
-          <CardContent className="pt-6 text-center">
+      <div className="min-h-screen flex items-center justify-center p-4 relative z-20">
+        <Card className="max-w-md relative z-20">
+          <CardContent className="pt-6 text-center relative z-20">
             <Target className="h-16 w-16 text-purple-600 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-gray-900 mb-2">
               Resume Progress?
@@ -248,9 +248,9 @@ export default function PracticeParticipant() {
   const allAnswered = answeredCount === competition.questions.length;
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100">
+    <div className="min-h-screen relative z-20">
       {/* Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-4 shadow-lg">
+      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-4 shadow-lg relative z-20">
         <div className="max-w-2xl mx-auto">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
@@ -268,9 +268,9 @@ export default function PracticeParticipant() {
         </div>
       </div>
       
-      <div className="max-w-2xl mx-auto p-4">
+      <div className="max-w-2xl mx-auto p-4 relative z-20">
         {/* Progress Bar */}
-        <div className="mb-4">
+        <div className="mb-4 relative z-20">
           <div className="flex items-center justify-between text-sm text-gray-600 mb-2">
             <span>Question {currentQuestionIndex + 1} of {competition.questions.length}</span>
             <span>{Math.round((answeredCount / competition.questions.length) * 100)}% Complete</span>
@@ -284,8 +284,8 @@ export default function PracticeParticipant() {
         </div>
         
         {/* Question Card */}
-        <Card className="mb-4">
-          <CardContent className="pt-6">
+        <Card className="mb-4 relative z-20">
+          <CardContent className="pt-6 relative z-20">
             <p className="text-xl font-bold text-gray-900 leading-relaxed mb-6">
               {currentQuestion.question}
             </p>
@@ -317,7 +317,7 @@ export default function PracticeParticipant() {
         </Card>
         
         {/* Navigation */}
-        <div className="flex gap-3">
+        <div className="flex gap-3 relative z-20">
           <Button
             onClick={handlePrevious}
             disabled={currentQuestionIndex === 0}
@@ -356,8 +356,8 @@ export default function PracticeParticipant() {
         </div>
         
         {/* Question Navigator */}
-        <Card className="mt-4">
-          <CardContent className="pt-4">
+        <Card className="mt-4 relative z-20">
+          <CardContent className="pt-4 relative z-20">
             <p className="text-sm font-semibold text-gray-700 mb-3">
               Question Navigator
             </p>
