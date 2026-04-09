@@ -1,6 +1,6 @@
 // QuizGenerator.tsx - The original quiz generation functionality
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { 
   generateNewQuizFromDocument,
@@ -71,6 +71,7 @@ const DEFAULT_NUM_QUESTIONS = 5;
 export default function QuizGenerator() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
@@ -95,6 +96,29 @@ export default function QuizGenerator() {
   useEffect(() => {
     const retakeQuizId = searchParams.get('retake');
     const resultsQuizId = searchParams.get('results');
+    
+    // Check if we're receiving approved questions from review page
+    if (location.state?.approvedQuestions) {
+      const { approvedQuestions, metadata } = location.state;
+      const startTime = Date.now();
+      setQuizState({
+        ...initialQuizState,
+        questions: approvedQuestions,
+        quizId: metadata?.quizId,
+        attemptId: metadata?.attemptId,
+        startTime,
+        currentTime: startTime
+      });
+      
+      toast({
+        title: "Quiz Ready!",
+        description: `${approvedQuestions.length} verified questions loaded.`
+      });
+      
+      // Clear the state to prevent re-loading on refresh
+      navigate(location.pathname, { replace: true, state: {} });
+      return;
+    }
     
     if (retakeQuizId) {
       handleRetakeQuiz(retakeQuizId);
@@ -130,14 +154,21 @@ export default function QuizGenerator() {
       }
 
       if (response.success && response.quiz) {
-        const startTime = Date.now();
-        setQuizState({
-          ...initialQuizState,
-          questions: response.quiz,
-          quizId: response.quizId,
-          attemptId: response.attemptId,
-          startTime,
-          currentTime: startTime
+        // Navigate to review page with generated questions
+        navigate('/admin/quiz-review', {
+          state: {
+            questions: response.quiz,
+            metadata: {
+              quizId: response.quizId,
+              attemptId: response.attemptId,
+              source: fromFile ? 'file' : 'topic',
+              fileName: fromFile ? uploadedFile?.name : undefined,
+              topic: !fromFile ? topic : undefined,
+              difficulty,
+              quizType,
+              numQuestions
+            }
+          }
         });
       } else {
         throw new Error(response.message || 'Failed to generate quiz');
@@ -450,11 +481,12 @@ export default function QuizGenerator() {
               <input
                 type="number"
                 value={numQuestions}
-                onChange={(e) => setNumQuestions(Math.max(1, Math.min(20, parseInt(e.target.value) || 1)))}
+                onChange={(e) => setNumQuestions(Math.max(1, Math.min(50, parseInt(e.target.value) || 1)))}
                 min="1"
-                max="20"
+                max="50"
                 className="w-full p-2 rounded-lg bg-white/10 border border-white/20 text-white"
               />
+              <p className="text-xs text-white/50">Note: Generating 30+ questions may take longer</p>
             </div>
           </div>
         </CardContent>

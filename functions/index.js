@@ -123,6 +123,165 @@ const getOpenAIKey = () => {
   return openaiApiKey.value();
 };
 
+// Helper function to detect topic category
+const detectCategory = (topic) => {
+  const topicLower = topic.toLowerCase();
+  
+  // History keywords
+  if (topicLower.match(/history|dynasty|empire|war|ancient|medieval|independence|revolution|historical/i)) {
+    return 'history';
+  }
+  
+  // Geography keywords
+  if (topicLower.match(/geography|country|capital|river|mountain|ocean|continent|city|state|region|place/i)) {
+    return 'geography';
+  }
+  
+  // Culture keywords
+  if (topicLower.match(/culture|tradition|festival|dance|music|art|food|cuisine|custom|ritual/i)) {
+    return 'culture';
+  }
+  
+  // Science keywords
+  if (topicLower.match(/science|biology|chemistry|physics|atom|cell|molecule|energy|force|experiment/i)) {
+    return 'science';
+  }
+  
+  // Literature keywords
+  if (topicLower.match(/literature|author|book|novel|poem|poetry|writer|story|playwright/i)) {
+    return 'literature';
+  }
+  
+  // Sports keywords
+  if (topicLower.match(/sport|cricket|football|tennis|olympic|athlete|game|championship/i)) {
+    return 'sports';
+  }
+  
+  // Default to general
+  return 'general';
+};
+
+// Helper function to get category-specific accuracy rules
+const getCategoryAccuracyRules = (category) => {
+  const rules = {
+    history: `
+HISTORY-SPECIFIC ACCURACY RULES:
+- Verify all dates and timelines carefully
+- Cross-check historical figures and their roles
+- Avoid disputed historical claims
+- Use well-documented events only
+- Be precise with dynasty names and periods
+- Verify ruler names and their reign periods`,
+    
+    geography: `
+GEOGRAPHY-SPECIFIC ACCURACY RULES:
+- Verify current political boundaries (not historical)
+- Use latest population data or avoid population questions
+- Confirm capital cities (they can change)
+- Be precise with river lengths and mountain heights
+- Avoid "largest/smallest" claims unless certain
+- Use recognized geographical names`,
+    
+    culture: `
+CULTURE-SPECIFIC ACCURACY RULES:
+- Verify cultural practices with reliable sources
+- Avoid stereotypes and generalizations
+- Be precise with festival names and dates
+- Confirm traditional food names and ingredients
+- Verify dance forms and their origins
+- Avoid disputed cultural claims`,
+    
+    science: `
+SCIENCE-SPECIFIC ACCURACY RULES:
+- Use established scientific facts only
+- Verify formulas and equations
+- Confirm scientific discoveries and their dates
+- Be precise with scientific terminology
+- Avoid controversial or disputed theories
+- Use standard units and measurements`,
+    
+    literature: `
+LITERATURE-SPECIFIC ACCURACY RULES:
+- Verify author names and their works
+- Confirm publication dates
+- Be precise with book titles and character names
+- Avoid disputed authorship claims
+- Verify literary awards and their years
+- Use recognized literary terms`,
+    
+    sports: `
+SPORTS-SPECIFIC ACCURACY RULES:
+- Verify championship winners and years
+- Confirm record holders and their achievements
+- Be precise with sports terminology
+- Avoid disputed records or claims
+- Verify team names and their locations
+- Use official sports statistics`,
+    
+    general: `
+GENERAL ACCURACY RULES:
+- Verify all facts before including them
+- Avoid ambiguous or disputed topics
+- Be precise with names, dates, and numbers
+- Cross-check information when uncertain
+- Skip questions if not 100% confident`
+  };
+  
+  return rules[category] || rules.general;
+};
+
+// Helper function to verify generated questions (two-step validation)
+const verifyQuestions = async (openai, questions, topic) => {
+  const verificationPrompt = `You are a fact-checker. Review these quiz questions about "${topic}" and identify any factual errors, misleading information, or ambiguous questions.
+
+Questions to verify:
+${JSON.stringify(questions, null, 2)}
+
+For each question, check:
+1. Is the correct answer actually correct?
+2. Are the options clear and unambiguous?
+3. Is the explanation factually accurate?
+4. Are there any misleading or confusing elements?
+
+Return a JSON array with this format:
+[
+  {
+    "questionId": 1,
+    "hasIssue": false,
+    "issueDescription": ""
+  }
+]
+
+If a question has NO issues, set hasIssue to false. If it has issues, set hasIssue to true and describe the problem.
+
+CRITICAL: Return ONLY the JSON array, no additional text.`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        { 
+          role: "system", 
+          content: "You are a meticulous fact-checker. Identify factual errors, ambiguities, and misleading information in quiz questions." 
+        },
+        { role: "user", content: verificationPrompt }
+      ],
+      max_tokens: 2000,
+      temperature: 0.3, // Low temperature for consistent verification
+    });
+
+    const content = response.choices[0].message.content.trim();
+    const cleanContent = content.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const verificationResults = JSON.parse(cleanContent);
+    
+    return verificationResults;
+  } catch (error) {
+    console.error('❌ Verification failed:', error);
+    // If verification fails, return empty array (no issues detected)
+    return [];
+  }
+};
+
 let quizHistory = [];
 
 // Main quiz generation endpoint that handles both document and topic requests
@@ -199,7 +358,7 @@ CRITICAL REQUIREMENTS:
         const response = await openai.chat.completions.create({
           model: "gpt-4o-mini",
           messages: [{ role: "user", content: prompt }],
-          max_tokens: 2000,
+          max_tokens: 8000, // Increased for large question sets (up to 50 questions)
           temperature: 0.8,
           top_p: 0.9,
         });
@@ -261,6 +420,12 @@ CRITICAL REQUIREMENTS:
 
       console.log(`🧠 Generating quiz from topic: ${topic}`);
       
+      // Detect category for specialized prompts
+      const category = detectCategory(topic);
+      const categoryRules = getCategoryAccuracyRules(category);
+      
+      console.log(`📂 Detected category: ${category}`);
+      
       // Enhanced randomization for variety while maintaining accuracy
       const variations = [
         "Focus on practical applications and real-world scenarios",
@@ -282,15 +447,35 @@ CRITICAL REQUIREMENTS:
       
       const prompt = `You are a precise quiz generator for educational competitions. Create exactly ${numQuestions} ${difficulty} difficulty ${quizType} questions about the topic: "${topic}".
 
-CRITICAL INSTRUCTIONS:
+STRICT ACCURACY RULES (CRITICAL):
+1. ONLY include facts that are 100% historically verified and accurate
+2. If you are NOT certain about a fact, DO NOT include it - skip that question
+3. Avoid ambiguous, debated, or controversial topics
+4. DO NOT guess or make assumptions
+5. Cross-check your knowledge before including any fact
+6. For names, dates, and specific facts - be EXTRA careful
+
+${categoryRules}
+
+TOPIC INTERPRETATION:
 1. The topic is: "${topic}" - interpret this LITERALLY and ACCURATELY
-2. If "${topic}" sounds like a person's name (e.g., Gavaskar, Gavasker), it IS a person - create questions about that person
-3. DO NOT confuse names with medical/scientific terms (e.g., "Gavaskar/Gavasker" = Indian cricket legend Sunil Gavaskar, NOT gastroenterology)
+2. If "${topic}" sounds like a person's name, it IS a person - create questions about that person
+3. DO NOT confuse names with medical/scientific terms
 4. If the topic is ambiguous, choose the most famous/well-known interpretation
-5. ${randomVariation}
-6. Generate DIFFERENT questions each time - avoid repetition
-7. All questions must be factually accurate and directly related to "${topic}"
-8. Randomization seed: ${timeSeed}
+
+QUESTION QUALITY:
+1. ${randomVariation}
+2. Generate DIFFERENT questions each time - avoid repetition
+3. All questions must be factually accurate and directly related to "${topic}"
+4. Provide clear, unambiguous correct answers
+5. Add brief factual explanations (not opinions)
+6. Randomization seed: ${timeSeed}
+
+AVOID THESE HIGH-RISK AREAS (unless you are 100% certain):
+- Movies & awards (often inaccurate)
+- Population rankings (frequently outdated)
+- Songs & singers (easy to confuse)
+- "First / oldest / largest" claims (often disputed)
 
 Return ONLY a valid JSON array with this EXACT format:
 [
@@ -304,7 +489,7 @@ Return ONLY a valid JSON array with this EXACT format:
       "D": "Option D text"
     },
     "correctAnswer": "A",
-    "explanation": "Brief explanation here"
+    "explanation": "Brief factual explanation here"
   }
 ]
 
@@ -316,12 +501,12 @@ CRITICAL: Return ONLY the JSON array, no additional text, no markdown formatting
           messages: [
             { 
               role: "system", 
-              content: "You are a precise educational quiz generator. Always interpret topics correctly and never confuse similar-sounding words. Create accurate, factual questions with variety. Each generation should produce different questions on the same topic for practice purposes." 
+              content: "You are a precise educational quiz generator with STRICT accuracy requirements. NEVER guess or hallucinate facts. If you are not 100% certain about a fact, skip that question. Always interpret topics correctly and never confuse similar-sounding words. Create accurate, factual questions with variety. Prioritize accuracy over quantity. Each generation should produce different questions on the same topic for practice purposes." 
             },
             { role: "user", content: prompt }
           ],
-          max_tokens: 2000,
-          temperature: 0.8,  // Higher temperature for variety in questions
+          max_tokens: 8000, // Increased for large question sets (up to 50 questions)
+          temperature: 0.7,  // Slightly lower temperature for better accuracy
           top_p: 0.9,
         });
 
@@ -371,10 +556,35 @@ CRITICAL: Return ONLY the JSON array, no additional text, no markdown formatting
 
         console.log(`✅ Successfully generated ${quizData.length} questions from topic`);
         
+        // TWO-STEP VALIDATION: Verify the generated questions
+        console.log('🔍 Starting two-step validation...');
+        const verificationResults = await verifyQuestions(openai, quizData, topic);
+        
+        // Add verification results to questions
+        if (verificationResults && verificationResults.length > 0) {
+          quizData = quizData.map(q => {
+            const verification = verificationResults.find(v => v.questionId === q.id);
+            if (verification && verification.hasIssue) {
+              console.warn(`⚠️ Question ${q.id} has issue: ${verification.issueDescription}`);
+              return {
+                ...q,
+                verificationIssue: verification.issueDescription,
+                hasIssue: true
+              };
+            }
+            return { ...q, verified: true };
+          });
+          
+          const issueCount = quizData.filter(q => q.hasIssue).length;
+          console.log(`✅ Verification complete: ${issueCount} questions flagged with issues`);
+        }
+        
         res.json({ 
           quiz: quizData,
           success: true,
-          message: 'Quiz generated successfully from topic!'
+          message: 'Quiz generated successfully from topic!',
+          category: category,
+          verificationComplete: true
         });
 
       } catch (aiError) {
