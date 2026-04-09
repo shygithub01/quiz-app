@@ -158,7 +158,7 @@ export default function LiveEventParticipant() {
       if (myEntry) {
         setMyScore(myEntry.score);
         setMyRank(myEntry.rank);
-        setMyTotalTime(myEntry.totalTime);
+        setMyTotalTime(myEntry.totalTime || 0);
       }
     });
     

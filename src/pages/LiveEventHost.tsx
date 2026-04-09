@@ -614,7 +614,7 @@ export default function LiveEventHost() {
                     onClick={async () => {
                       if (confirm('⚠️ FORCE DELETE ALL EVENTS?\n\nThis will delete ALL live events and related data from the database. This action cannot be undone.\n\nUse this only for testing/debugging.')) {
                         try {
-                          const { ref, get, remove } = await import('firebase/database');
+                          const { ref, remove } = await import('firebase/database');
                           const { realtimeDb } = await import('@/components/ui/firebase');
                           
                           await remove(ref(realtimeDb, 'liveEvents'));

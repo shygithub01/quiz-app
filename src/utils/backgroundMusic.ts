@@ -113,7 +113,7 @@ function playMusicLoop(): void {
     const chord = chords[chordIndex % chords.length];
     
     // Play each note in the chord
-    chord.forEach((freq, i) => {
+    chord.forEach((freq) => {
       const osc = audioContext!.createOscillator();
       const gain = audioContext!.createGain();
       

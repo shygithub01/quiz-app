@@ -174,7 +174,7 @@ export default function PracticeParticipant() {
       setSubmitting(true);
       
       // Submit attempt
-      const { attemptId, score } = await submitAttempt(
+      const { attemptId } = await submitAttempt(
         sessionId,
         studentName,
         answers,

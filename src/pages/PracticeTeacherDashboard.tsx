@@ -35,7 +35,7 @@ export default function PracticeTeacherDashboard() {
   const [session, setSession] = useState<PracticeSession | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [analytics, setAnalytics] = useState<PracticeAnalytics | null>(null);
-  const [activeParticipants, setActiveParticipants] = useState<any[]>([]);
+  const [, setActiveParticipants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
@@ -386,7 +386,7 @@ export default function PracticeTeacherDashboard() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-200">
-                        {leaderboard.slice(0, 20).map((entry, index) => (
+                        {leaderboard.slice(0, 20).map((entry) => (
                           <tr key={entry.name} className="hover:bg-gray-50">
                             <td className="px-4 py-3 font-medium">{entry.name}</td>
                             <td className="px-4 py-3 text-center text-gray-600">

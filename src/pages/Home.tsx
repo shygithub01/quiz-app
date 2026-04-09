@@ -33,7 +33,7 @@ export default function Home() {
   const navigate = useNavigate();
   const [featuredCompetition, setFeaturedCompetition] = useState<FeaturedCompetition | null>(null);
   const [, setLoading] = useState(true);
-  const [userIsAdmin, setUserIsAdmin] = useState(false);
+  const [, setUserIsAdmin] = useState(false);
 
   useEffect(() => {
     loadFeaturedCompetition();

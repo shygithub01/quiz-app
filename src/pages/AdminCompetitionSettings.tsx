@@ -15,7 +15,8 @@ import {
   Settings, 
   Star,
   Trophy,
-  Plus
+  Plus,
+  Brain
 } from 'lucide-react';
 
 export default function AdminCompetitionSettings() {
@@ -207,13 +208,23 @@ export default function AdminCompetitionSettings() {
               Manage featured competition and view all competitions
             </p>
           </div>
-          <Button
-            onClick={() => navigate('/admin/create-competition')}
-            className="bg-indigo-600 hover:bg-indigo-700"
-          >
-            <Plus className="h-4 w-4 mr-2" />
-            New Competition
-          </Button>
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={() => navigate('/admin/quiz-templates/list')}
+              className="border-purple-300 text-purple-700 hover:bg-purple-50"
+            >
+              <Brain className="h-4 w-4 mr-2" />
+              Quiz Templates
+            </Button>
+            <Button
+              onClick={() => navigate('/admin/create-competition')}
+              className="bg-indigo-600 hover:bg-indigo-700"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              New Competition
+            </Button>
+          </div>
         </div>
 
         {/* Featured Competition Section */}

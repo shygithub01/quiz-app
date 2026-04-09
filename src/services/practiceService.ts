@@ -18,7 +18,6 @@ import {
   PracticeSettings,
   PracticeAttempt,
   LeaderboardEntry,
-  StudentSummary,
   PracticeAnalytics
 } from '../types/practiceMode';
 
@@ -737,7 +736,7 @@ export function listenToLeaderboard(
 /**
  * Archive practice session to Firestore
  */
-async function archivePracticeSession(sessionId: string): Promise<void> {
+export async function archivePracticeSession(sessionId: string): Promise<void> {
   try {
     console.log('📦 Archiving practice session:', sessionId);
     
