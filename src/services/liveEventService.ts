@@ -1,15 +1,16 @@
 // Live Event Service Layer
 // Handles all Firebase Realtime Database operations for Live Event Mode
 
-import { 
-  ref, 
-  set, 
-  get, 
-  update, 
+import {
+  ref,
+  set,
+  get,
+  update,
   remove,
   onValue,
   off,
-  onDisconnect
+  onDisconnect,
+  runTransaction
 } from 'firebase/database';
 import { realtimeDb } from '../components/ui/firebase';
 import { 
@@ -321,18 +322,29 @@ export async function joinEvent(
       throw new Error('Event has already started');
     }
     
-    // Check participant limit
-    const participantCount = await getParticipantCount(eventId);
-    if (participantCount >= event.maxParticipants) {
+    // Atomically check + increment participant count to prevent race condition
+    // when many users join simultaneously
+    const counterRef = ref(realtimeDb, `liveEvents/${eventId}/participantCount`);
+    const { committed } = await runTransaction(counterRef, (currentCount) => {
+      const count = currentCount ?? 0;
+      if (count >= event.maxParticipants) {
+        return; // Abort — event is full
+      }
+      return count + 1;
+    });
+
+    if (!committed) {
       throw new Error('Event is full');
     }
-    
+
     // Check name uniqueness
     const isUnique = await validateNameUniqueness(eventId, name);
     if (!isUnique) {
+      // Roll back the counter increment since we won't actually join
+      await runTransaction(counterRef, (count) => Math.max(0, (count ?? 1) - 1));
       throw new Error('Name is already taken');
     }
-    
+
     // Create session
     const sessionId = generateSessionId();
     const participantData: GuestParticipant = {
@@ -342,7 +354,7 @@ export async function joinEvent(
       isActive: true,
       lastSeen: Date.now()
     };
-    
+
     await set(
       ref(realtimeDb, `eventParticipants/${eventId}/${sessionId}`),
       participantData
@@ -882,10 +894,14 @@ export async function calculateLeaderboard(
       return a.totalTime - b.totalTime;
     });
     
-    // Assign ranks and update leaderboard
+    // Assign ranks and batch-write the entire leaderboard in one atomic update.
+    // This prevents the N-sequential-write race condition when 50-100 users
+    // all have their scores calculated simultaneously.
+    const now = Date.now();
+    const leaderboardBatch: Record<string, LeaderboardEntry> = {};
     for (let i = 0; i < scores.length; i++) {
       const entry = scores[i];
-      await updateLeaderboard(eventId, entry.sessionId, {
+      leaderboardBatch[entry.sessionId] = {
         sessionId: entry.sessionId,
         name: entry.name,
         score: entry.score,
@@ -893,9 +909,10 @@ export async function calculateLeaderboard(
         fastestFingerBonus: entry.fastestFingerBonus,
         rank: i + 1,
         totalTime: entry.totalTime,
-        lastUpdated: Date.now()
-      });
+        lastUpdated: now
+      };
     }
+    await update(ref(realtimeDb, `eventLeaderboard/${eventId}`), leaderboardBatch);
     
     console.log('✅ Leaderboard calculated and updated for', scores.length, 'participants');
   } catch (error) {

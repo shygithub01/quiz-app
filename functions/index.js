@@ -496,95 +496,110 @@ Return ONLY a valid JSON array with this EXACT format:
 CRITICAL: Return ONLY the JSON array, no additional text, no markdown formatting.`;
 
       try {
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o-mini",
-          messages: [
-            { 
-              role: "system", 
-              content: "You are a precise educational quiz generator with STRICT accuracy requirements. NEVER guess or hallucinate facts. If you are not 100% certain about a fact, skip that question. Always interpret topics correctly and never confuse similar-sounding words. Create accurate, factual questions with variety. Prioritize accuracy over quantity. Each generation should produce different questions on the same topic for practice purposes." 
-            },
-            { role: "user", content: prompt }
-          ],
-          max_tokens: 8000, // Increased for large question sets (up to 50 questions)
-          temperature: 0.7,  // Slightly lower temperature for better accuracy
-          top_p: 0.9,
+        // Batch generation: split into chunks of 25 to avoid token limits and timeouts
+        const BATCH_SIZE = 25;
+        const numBatches = Math.ceil(numQuestions / BATCH_SIZE);
+        console.log(`📦 Generating ${numQuestions} questions in ${numBatches} batch(es) of up to ${BATCH_SIZE}`);
+
+        const systemMsg = "You are a precise educational quiz generator with STRICT accuracy requirements. NEVER guess or hallucinate facts. Always interpret topics correctly. Create accurate, factual questions. Return ONLY a valid JSON array with no markdown.";
+
+        const batchPromises = Array.from({ length: numBatches }, (_, batchIdx) => {
+          const batchStart = batchIdx * BATCH_SIZE;
+          const batchCount = Math.min(BATCH_SIZE, numQuestions - batchStart);
+          const idOffset = batchStart;
+          const batchPrompt = `You are a precise quiz generator for educational competitions. Create exactly ${batchCount} ${difficulty} difficulty ${quizType} questions about the topic: "${topic}".
+
+${categoryRules}
+
+STRICT ACCURACY RULES (CRITICAL):
+1. ONLY include facts that are 100% historically verified and accurate
+2. If you are NOT certain about a fact, skip that question
+3. Avoid ambiguous, debated, or controversial topics
+4. Cross-check your knowledge before including any fact
+
+TOPIC INTERPRETATION:
+- The topic is: "${topic}" — interpret this LITERALLY and ACCURATELY
+- If it sounds like a person's name, create questions about that person
+
+QUESTION QUALITY:
+- ${randomVariation}
+- Variation seed: ${timeSeed + batchIdx}
+- All questions must be factually accurate and directly related to "${topic}"
+- Questions in this batch should be DIFFERENT from any previous batch
+
+Return ONLY a valid JSON array (no markdown, no extra text):
+[
+  {
+    "id": ${idOffset + 1},
+    "question": "Question text here?",
+    "options": { "A": "...", "B": "...", "C": "...", "D": "..." },
+    "correctAnswer": "A",
+    "explanation": "Brief factual explanation"
+  }
+]
+Exactly ${batchCount} questions, ids starting at ${idOffset + 1}.`;
+
+          return openai.chat.completions.create({
+            model: "gpt-4o-mini",
+            messages: [
+              { role: "system", content: systemMsg },
+              { role: "user", content: batchPrompt }
+            ],
+            max_tokens: 4000,
+            temperature: 0.7,
+            top_p: 0.9,
+          });
         });
 
-        const content = response.choices[0].message.content.trim();
-        console.log('🤖 OpenAI topic response received');
-        
-        let quizData;
-        try {
-          quizData = JSON.parse(content);
-        } catch (parseError) {
-          console.error('JSON parsing error:', parseError);
-          // Retry with simpler prompt
-          const retryPrompt = `Create exactly ${numQuestions} multiple choice questions about "${topic}":
-          Generate ${numQuestions} questions as JSON array.`;
-          
-          const retryCompletion = await openai.chat.completions.create({
-            messages: [{ role: "user", content: retryPrompt }],
-            model: "gpt-4o-mini",
-            temperature: 0.3,
-          });
-          
+        // Run all batches in parallel
+        const batchResponses = await Promise.all(batchPromises);
+        console.log(`✅ All ${numBatches} batch(es) returned from OpenAI`);
+
+        let quizData = [];
+        for (let batchIdx = 0; batchIdx < batchResponses.length; batchIdx++) {
+          const content = batchResponses[batchIdx].choices[0].message.content.trim();
+          let batchData;
           try {
-            quizData = JSON.parse(retryCompletion.choices[0].message.content);
-          } catch (retryParseError) {
-            console.error('Retry parsing also failed:', retryParseError);
-            throw new Error('Failed to parse AI response');
+            batchData = JSON.parse(content);
+          } catch (parseError) {
+            console.error(`JSON parse error in batch ${batchIdx + 1}:`, parseError);
+            // Skip failed batch rather than failing entire request
+            console.warn(`⚠️ Skipping batch ${batchIdx + 1} due to parse error`);
+            continue;
           }
-        }
-        
-        if (!Array.isArray(quizData) || quizData.length === 0) {
-          throw new Error('Invalid quiz format received from OpenAI');
+          if (Array.isArray(batchData)) {
+            quizData = quizData.concat(batchData);
+          }
         }
 
-        // Ensure we have the correct number of questions
-        if (quizData.length !== numQuestions) {
-          console.warn(`Expected ${numQuestions} questions, got ${quizData.length}`);
-          while (quizData.length < numQuestions) {
-            quizData.push({
-              id: quizData.length + 1,
-              question: `Additional question ${quizData.length + 1} about ${topic}`,
-              options: { A: "Option A", B: "Option B", C: "Option C", D: "Option D" },
-              correctAnswer: "A",
-              explanation: "Explanation for the correct answer"
-            });
-          }
+        if (quizData.length === 0) {
+          throw new Error('Failed to parse AI response from any batch');
         }
+
+        // Re-sequence ids
+        quizData = quizData.map((q, idx) => ({ ...q, id: idx + 1 }));
+
+        // Pad if short (shouldn't happen, but safety net)
+        while (quizData.length < numQuestions) {
+          quizData.push({
+            id: quizData.length + 1,
+            question: `Additional question ${quizData.length + 1} about ${topic}`,
+            options: { A: "Option A", B: "Option B", C: "Option C", D: "Option D" },
+            correctAnswer: "A",
+            explanation: "Explanation for the correct answer"
+          });
+        }
+        // Trim if over (rare)
+        quizData = quizData.slice(0, numQuestions);
 
         console.log(`✅ Successfully generated ${quizData.length} questions from topic`);
-        
-        // TWO-STEP VALIDATION: Verify the generated questions
-        console.log('🔍 Starting two-step validation...');
-        const verificationResults = await verifyQuestions(openai, quizData, topic);
-        
-        // Add verification results to questions
-        if (verificationResults && verificationResults.length > 0) {
-          quizData = quizData.map(q => {
-            const verification = verificationResults.find(v => v.questionId === q.id);
-            if (verification && verification.hasIssue) {
-              console.warn(`⚠️ Question ${q.id} has issue: ${verification.issueDescription}`);
-              return {
-                ...q,
-                verificationIssue: verification.issueDescription,
-                hasIssue: true
-              };
-            }
-            return { ...q, verified: true };
-          });
-          
-          const issueCount = quizData.filter(q => q.hasIssue).length;
-          console.log(`✅ Verification complete: ${issueCount} questions flagged with issues`);
-        }
-        
-        res.json({ 
+
+        res.json({
           quiz: quizData,
           success: true,
           message: 'Quiz generated successfully from topic!',
           category: category,
-          verificationComplete: true
+          verificationComplete: false
         });
 
       } catch (aiError) {

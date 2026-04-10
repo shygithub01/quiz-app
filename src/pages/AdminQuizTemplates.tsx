@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Brain, Plus, Trash2, Sparkles } from 'lucide-react';
+import { Brain, Plus, Trash2, Sparkles, FileCode } from 'lucide-react';
 import { saveQuizTemplate } from '@/components/ui/firebase';
 import { generateCompetitionTemplate } from '@/components/api';
 
@@ -22,6 +22,8 @@ export default function AdminQuizTemplates() {
     { question: '', options: ['', '', '', ''], correctAnswer: '', explanation: '' }
   ]);
   const [generating, setGenerating] = useState(false);
+  const [jsonImport, setJsonImport] = useState('');
+  const [jsonError, setJsonError] = useState('');
   const [subjectDistribution, setSubjectDistribution] = useState({
     english: 13,
     mathematics: 13,
@@ -100,6 +102,53 @@ export default function AdminQuizTemplates() {
     const updated = [...questions];
     updated[qIndex].options[optIndex] = value;
     setQuestions(updated);
+  };
+
+  const handleJsonImport = () => {
+    setJsonError('');
+    try {
+      const parsed = JSON.parse(jsonImport.trim());
+      const arr = Array.isArray(parsed) ? parsed : parsed.questions || parsed.quiz;
+      if (!Array.isArray(arr) || arr.length === 0) throw new Error('Expected a JSON array of questions');
+
+      const imported: Question[] = arr.map((q: any, idx: number) => {
+        // Normalize options: support array or object {A,B,C,D}
+        let opts: string[];
+        if (Array.isArray(q.options)) {
+          opts = q.options.map(String);
+        } else if (q.options && typeof q.options === 'object') {
+          opts = ['A', 'B', 'C', 'D'].map(k => q.options[k] || '');
+        } else {
+          throw new Error(`Question ${idx + 1}: invalid options format`);
+        }
+        if (opts.length < 2) throw new Error(`Question ${idx + 1}: need at least 2 options`);
+        while (opts.length < 4) opts.push('');
+
+        // Normalize correctAnswer: support letter key ("A") or full text
+        const raw = q.correctAnswer || q.correct_answer || q.answer || '';
+        let correctAnswer = '';
+        if (['A', 'B', 'C', 'D'].includes(String(raw).trim().toUpperCase())) {
+          const idx2 = ['A', 'B', 'C', 'D'].indexOf(String(raw).trim().toUpperCase());
+          correctAnswer = opts[idx2] || '';
+        } else {
+          correctAnswer = String(raw);
+        }
+
+        return {
+          question: q.question || q.text || '',
+          options: opts,
+          correctAnswer,
+          explanation: q.explanation || q.reason || ''
+        };
+      });
+
+      setQuestions(imported);
+      if (!templateTitle) setTemplateTitle(`Imported Quiz - ${new Date().toLocaleDateString()}`);
+      setJsonImport('');
+      alert(`✅ Imported ${imported.length} questions successfully!`);
+    } catch (err: any) {
+      setJsonError(err.message || 'Invalid JSON');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -283,6 +332,51 @@ export default function AdminQuizTemplates() {
                     Generate {Object.values(subjectDistribution).reduce((a, b) => a + b, 0)} Questions with AI
                   </>
                 )}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* JSON Import Section */}
+          <Card className="border-2 border-emerald-200 bg-emerald-50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-emerald-900">
+                <FileCode className="h-5 w-5" />
+                Import from JSON (ChatGPT)
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-gray-700">
+                Paste JSON from ChatGPT or any source. Supports both array options and A/B/C/D object formats.
+              </p>
+              <details className="bg-white rounded-lg border border-emerald-200 p-3">
+                <summary className="text-xs font-semibold text-emerald-800 cursor-pointer">Show expected format</summary>
+                <pre className="text-xs text-gray-600 mt-2 overflow-x-auto whitespace-pre-wrap">{`[
+  {
+    "question": "What is the capital of India?",
+    "options": ["Mumbai", "Delhi", "Chennai", "Kolkata"],
+    "correctAnswer": "B",
+    "explanation": "New Delhi is the capital."
+  }
+]`}</pre>
+              </details>
+              <textarea
+                value={jsonImport}
+                onChange={(e) => { setJsonImport(e.target.value); setJsonError(''); }}
+                className="w-full px-3 py-2 border border-emerald-300 rounded-lg font-mono text-xs"
+                rows={6}
+                placeholder="Paste your JSON array here..."
+              />
+              {jsonError && (
+                <p className="text-red-600 text-sm font-medium">Error: {jsonError}</p>
+              )}
+              <Button
+                type="button"
+                onClick={handleJsonImport}
+                disabled={!jsonImport.trim()}
+                className="w-full bg-emerald-600 hover:bg-emerald-700"
+              >
+                <FileCode className="h-4 w-4 mr-2" />
+                Import Questions
               </Button>
             </CardContent>
           </Card>

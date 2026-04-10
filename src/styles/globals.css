@@ -135,3 +135,33 @@ code {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+/* ── Mobile safe area support (iPhone notch / Dynamic Island / Android gesture bar) ── */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Ensure full dynamic viewport height on mobile (accounts for soft keyboard) */
+.min-h-screen-mobile {
+  min-height: 100dvh;
+}
+
+/* Prevent text size adjustment on iOS orientation change */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+/* Smooth momentum scrolling on iOS */
+.overflow-scroll-touch {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Remove 300ms tap delay on mobile */
+* {
+  touch-action: manipulation;
+}

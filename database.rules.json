@@ -25,7 +25,7 @@
     "eventLeaderboard": {
       "$eventId": {
         ".read": true,
-        ".write": true
+        ".write": "auth != null"
       }
     },
     "practiceSessions": {
@@ -53,7 +53,7 @@
     "practiceLeaderboard": {
       "$sessionId": {
         ".read": true,
-        ".write": true
+        ".write": "auth != null"
       }
     }
   }
