@@ -28,6 +28,10 @@ export default function AdminQuizTemplatesList() {
   const [practiceTitle, setPracticeTitle] = useState('');
   const [practiceEndDays, setPracticeEndDays] = useState(7);
 
+  // Shuffle settings (shared)
+  const [shuffleQuestions, setShuffleQuestions] = useState(false);
+  const [shuffleOptions, setShuffleOptions] = useState(true);
+
   useEffect(() => {
     checkAdminAndLoad();
   }, [user]);
@@ -52,6 +56,26 @@ export default function AdminQuizTemplatesList() {
     }
   };
 
+  const shuffleArray = <T,>(arr: T[]): T[] => {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  };
+
+  const buildQuestions = (rawQuestions: any[]) => {
+    let qs = shuffleQuestions ? shuffleArray(rawQuestions) : [...rawQuestions];
+    if (shuffleOptions) {
+      qs = qs.map(q => {
+        const shuffled = shuffleArray(q.options as string[]);
+        return { ...q, options: shuffled };
+      });
+    }
+    return qs;
+  };
+
   const openLaunchModal = (template: any, mode: 'live' | 'practice') => {
     setLaunchTemplate(template);
     setLaunchMode(mode);
@@ -59,6 +83,8 @@ export default function AdminQuizTemplatesList() {
     setQuestionTimer(30);
     setMaxParticipants(50);
     setPracticeEndDays(7);
+    setShuffleQuestions(false);
+    setShuffleOptions(true);
   };
 
   const closeLaunchModal = () => {
@@ -73,11 +99,12 @@ export default function AdminQuizTemplatesList() {
       setLaunching(true);
 
       // 1. Create a competition record pointing to this template's questions
+      const questions = buildQuestions(launchTemplate.questions || []);
       const competitionData = {
         title: launchTemplate.title,
         subject: launchTemplate.subject || '',
         difficulty: launchTemplate.difficulty || 'medium',
-        questions: launchTemplate.questions || [],
+        questions,
         quizTemplateId: launchTemplate.id,
         type: 'liveEvent',
         status: 'upcoming',
@@ -98,17 +125,30 @@ export default function AdminQuizTemplatesList() {
 
       // 2. Create the live event
       const { createLiveEvent } = await import('@/services/liveEventService');
-      const { pin } = await createLiveEvent(
+      const { eventId, pin } = await createLiveEvent(
         competitionId,
         { questionTimer, enableFastestFingerBonus: true, autoAdvanceOnTimer: true },
         maxParticipants
       );
 
       closeLaunchModal();
-      alert(`✅ Live Event Created!\n\nPIN: ${pin}\n\nShare this PIN with participants. Go to Live Event Host to start.`);
-      navigate(`/live-event/host`);
+      alert(`✅ Live Event Created!\n\nPIN: ${pin}\n\nShare this PIN with participants.`);
+      navigate(`/live-event/${eventId}/host`);
     } catch (err: any) {
-      alert(`❌ Failed to create live event: ${err.message}`);
+      if (err.message?.includes('active event already exists')) {
+        const force = window.confirm(
+          `⚠️ A stale live event is blocking creation.\n\nClick OK to end it and retry, or Cancel to abort.`
+        );
+        if (force) {
+          const { endAllStaleEvents } = await import('@/services/liveEventService');
+          await endAllStaleEvents();
+          setLaunching(false);
+          handleLaunchLive(); // retry
+          return;
+        }
+      } else {
+        alert(`❌ Failed to create live event: ${err.message}`);
+      }
     } finally {
       setLaunching(false);
     }
@@ -121,11 +161,12 @@ export default function AdminQuizTemplatesList() {
       setLaunching(true);
 
       // 1. Create competition record
+      const questions = buildQuestions(launchTemplate.questions || []);
       const competitionData = {
         title: practiceTitle,
         subject: launchTemplate.subject || '',
         difficulty: launchTemplate.difficulty || 'medium',
-        questions: launchTemplate.questions || [],
+        questions,
         quizTemplateId: launchTemplate.id,
         type: 'practice',
         status: 'active',
@@ -182,33 +223,41 @@ export default function AdminQuizTemplatesList() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-              <Brain className="h-8 w-8 text-indigo-600" />
-              Quiz Templates
-            </h1>
-            <p className="text-gray-600 mt-1">Launch as Live Event or Practice from any template</p>
-          </div>
-          <div className="flex gap-3">
-            <Button variant="outline" onClick={() => navigate('/admin/competition-settings')}>
-              Back to Settings
-            </Button>
-            <Button onClick={() => navigate('/admin/quiz-templates')} className="bg-indigo-600 hover:bg-indigo-700">
-              <Plus className="h-4 w-4 mr-2" />
-              Create New Template
-            </Button>
-          </div>
+    <div className="w-full space-y-4">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+            <Brain className="h-6 w-6 text-purple-300" />
+            Quiz Templates
+          </h1>
+          <p className="text-white/60 text-sm mt-0.5">Launch as Live Event or Practice from any template</p>
         </div>
+        <div className="flex gap-2 flex-shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate('/admin/competition-settings')}
+            className="border-white/30 text-white hover:bg-white/10 bg-transparent"
+          >
+            Settings
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => navigate('/admin/quiz-templates')}
+            className="bg-indigo-500 hover:bg-indigo-600 text-white"
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            Create New Template
+          </Button>
+        </div>
+      </div>
 
-        {/* Templates Table */}
-        <Card>
-          <CardHeader>
-            <CardTitle>All Quiz Templates</CardTitle>
-            <p className="text-sm text-gray-600 mt-1">Edit questions, or launch directly as Live Event or Practice session</p>
+      {/* Templates Table */}
+      <Card className="bg-white/95">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-lg text-gray-900">All Quiz Templates</CardTitle>
+            <p className="text-sm text-gray-500">Edit questions, or launch directly as Live Event or Practice session</p>
           </CardHeader>
           <CardContent>
             {templates.length === 0 ? (
@@ -285,7 +334,6 @@ export default function AdminQuizTemplatesList() {
             )}
           </CardContent>
         </Card>
-      </div>
 
       {/* Launch Modal */}
       {launchTemplate && launchMode && (
@@ -383,8 +431,33 @@ export default function AdminQuizTemplatesList() {
               )}
             </div>
 
+            {/* Shuffle options */}
+            <div className="px-6 pb-2 space-y-2 border-t border-gray-100 pt-4">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Randomization</p>
+              <label className="flex items-center justify-between cursor-pointer">
+                <span className="text-sm text-gray-700">Shuffle answer options</span>
+                <button
+                  type="button"
+                  onClick={() => setShuffleOptions(v => !v)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${shuffleOptions ? 'bg-emerald-500' : 'bg-gray-300'}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${shuffleOptions ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </label>
+              <label className="flex items-center justify-between cursor-pointer">
+                <span className="text-sm text-gray-700">Shuffle question order</span>
+                <button
+                  type="button"
+                  onClick={() => setShuffleQuestions(v => !v)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${shuffleQuestions ? 'bg-emerald-500' : 'bg-gray-300'}`}
+                >
+                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${shuffleQuestions ? 'translate-x-6' : 'translate-x-1'}`} />
+                </button>
+              </label>
+            </div>
+
             {/* Actions */}
-            <div className="px-6 pb-6 flex gap-3">
+            <div className="px-6 pb-6 flex gap-3 pt-4">
               <button
                 onClick={closeLaunchModal}
                 className="flex-1 py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-colors"

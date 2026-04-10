@@ -58,7 +58,7 @@ export default function Layout() {
     { to: '/live-modes', label: 'Live Modes', icon: Zap },
     ...(userIsAdmin ? [
       { to: '/competitions', label: 'Competitions', icon: Trophy },
-      { to: '/admin/create-competition', label: 'New Competition', icon: Sparkles },
+      { to: '/admin/quiz-templates/list', label: 'Quiz Templates', icon: Brain },
       { to: '/admin/competition-settings', label: 'Settings', icon: Settings },
       { to: '/admin/users', label: 'Users', icon: Users },
     ] : []),
@@ -266,7 +266,7 @@ export default function Layout() {
       </main>
 
       {/* Mobile Bottom Tab Bar */}
-      {isSignedIn && (
+      {(
         <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden border-t border-white/10 safe-area-bottom"
           style={{ background: 'linear-gradient(135deg, #4c1d95 0%, #3730a3 100%)' }}
         >

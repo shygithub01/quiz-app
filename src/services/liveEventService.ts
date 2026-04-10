@@ -161,20 +161,51 @@ export async function checkActiveEvents(): Promise<boolean> {
   try {
     const eventsRef = ref(realtimeDb, 'liveEvents');
     const snapshot = await get(eventsRef);
-    
+
     if (!snapshot.exists()) {
       return false;
     }
-    
+
     const events = snapshot.val();
     const activeEvents = Object.values(events).filter(
       (event: any) => event.status === 'lobby' || event.status === 'active' || event.status === 'paused'
     );
-    
+
     return activeEvents.length > 0;
   } catch (error) {
     console.error('Error checking active events:', error);
     return false;
+  }
+}
+
+/**
+ * End all stale lobby/active/paused events so a new one can be created
+ */
+export async function endAllStaleEvents(): Promise<number> {
+  try {
+    const eventsRef = ref(realtimeDb, 'liveEvents');
+    const snapshot = await get(eventsRef);
+    if (!snapshot.exists()) return 0;
+
+    const events = snapshot.val() as Record<string, any>;
+    const stale = Object.entries(events).filter(
+      ([, e]) => e.status === 'lobby' || e.status === 'active' || e.status === 'paused'
+    );
+
+    await Promise.all(
+      stale.map(([id]) =>
+        update(ref(realtimeDb, `liveEvents/${id}`), {
+          status: 'completed',
+          phase: 'results',
+          endedAt: Date.now(),
+        })
+      )
+    );
+
+    return stale.length;
+  } catch (error) {
+    console.error('Error ending stale events:', error);
+    throw error;
   }
 }
 
