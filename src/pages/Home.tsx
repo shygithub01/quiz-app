@@ -367,9 +367,9 @@ export default function Home() {
                 <p className="text-white/60 mb-6">New competitions launching soon. Stay tuned!</p>
               )}
               <button
-                onClick={() => navigate(isExpired ? '/competitions' : '/scholarship')}
+                onClick={() => navigate(isExpired ? '/live-modes' : '/scholarship')}
                 className="px-8 py-4 rounded-2xl font-black text-lg transition-all active:scale-95"
-                style={{ background: isExpired ? 'linear-gradient(135deg, #d97706, #b45309)' : 'linear-gradient(135deg, #059669, #065f46)', color: 'white' }}>
+                style={{ background: isExpired ? 'linear-gradient(135deg, #059669, #065f46)' : 'linear-gradient(135deg, #d97706, #b45309)', color: 'white' }}>
                 {isExpired ? 'Practice Now →' : 'Register for Scholarship →'}
               </button>
             </div>

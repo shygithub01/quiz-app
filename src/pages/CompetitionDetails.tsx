@@ -27,6 +27,12 @@ const CompetitionDetails: React.FC = () => {
         setLoading(true);
         const data = await getCompetitionById(id);
         if (data) {
+          // Practice competitions are now handled exclusively by the PIN-based Live Modes system
+          if (data.isPractice) {
+            navigate('/live-modes', { replace: true });
+            return;
+          }
+
           setCompetition(data);
           
           // Fetch question count from quiz template

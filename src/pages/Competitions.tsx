@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getCompetitions, checkUserParticipation, checkPracticeParticipation, getPracticeParticipantCount } from '@/components/ui/firebase';
+import { getCompetitions, checkUserParticipation } from '@/components/ui/firebase';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Trophy, Calendar, Users, DollarSign, BookOpen } from 'lucide-react';
+import { Trophy, Calendar, Users, DollarSign, Target, ArrowRight } from 'lucide-react';
 
 interface Competition {
   id: string;
@@ -36,31 +36,19 @@ export default function Competitions() {
       
       // Check participation and get correct participant counts
       const competitionsWithData = await Promise.all(
-        data.map(async (comp) => {
-          // For practice tests, get unique participant count from practiceAttempts
-          // For scholarship competitions, use the participantCount from competition document
-          const actualCount = comp.isPractice 
-            ? await getPracticeParticipantCount(comp.id)
-            : comp.participantCount || 0;
-          
-          // Add marketing boost to participant count
-          // Practice: +100, Scholarship: +25
-          const participantCount = comp.isPractice 
-            ? actualCount + 100
-            : actualCount + 25;
-          
-          // Check participation for each competition if user is logged in
-          let hasParticipated = false;
-          if (user?.uid) {
-            // For practice tests, check practiceAttempts collection
-            // For scholarship competitions, check leaderboard collection
-            hasParticipated = comp.isPractice 
-              ? await checkPracticeParticipation(user.uid, comp.id)
-              : await checkUserParticipation(user.uid, comp.id);
-          }
-          
-          return { ...comp, hasParticipated, participantCount };
-        })
+        data
+          .filter((comp: any) => !comp.isPractice) // Only scholarship competitions
+          .map(async (comp: any) => {
+            const actualCount = comp.participantCount || 0;
+            const participantCount = actualCount + 25; // marketing boost
+
+            let hasParticipated = false;
+            if (user?.uid) {
+              hasParticipated = await checkUserParticipation(user.uid, comp.id);
+            }
+
+            return { ...comp, hasParticipated, participantCount };
+          })
       );
       
       setCompetitions(competitionsWithData);
@@ -71,7 +59,10 @@ export default function Competitions() {
     }
   };
 
-  const filteredCompetitions = competitions.filter(comp => {
+  // Only show scholarship competitions — practice is handled by the PIN-based Live Modes system
+  const scholarshipCompetitions = competitions.filter(comp => !comp.isPractice);
+
+  const filteredCompetitions = scholarshipCompetitions.filter(comp => {
     if (filter === 'all') return true;
     return comp.status === filter;
   });
@@ -106,76 +97,34 @@ export default function Competitions() {
    * - Button appearance is the same for everyone (status-based only)
    * - No "Already Participated" blocking for practice
    */
-  const renderPracticeButton = (competition: Competition) => {
-    // Determine button state based ONLY on status
-    const isCompleted = competition.status === 'completed';
-    const isActive = competition.status === 'active';
-    const isUpcoming = competition.status === 'upcoming';
-
-    // For completed practice competitions - ALWAYS grey, ALWAYS same text
-    if (isCompleted) {
-      return (
-        <button
-          disabled
-          className="flex-1 font-medium transition-all rounded-md px-4 py-2 cursor-not-allowed"
-          style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.3)', border: '1px solid rgba(255,255,255,0.1)' }}
-        >
-          📅 Practice Ended
-        </button>
-      );
-    }
-
-    // For active practice competitions - same button for everyone
-    if (isActive) {
-      return (
-        <button
-          onClick={() => navigate(`/competitions/${competition.id}`)}
-          className="flex-1 font-medium transition-all rounded-md px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white"
-        >
-          ▶️ Start Practice
-        </button>
-      );
-    }
-
-    // For upcoming practice competitions
-    if (isUpcoming) {
-      return (
-        <button
-          disabled
-          className="flex-1 font-medium transition-all rounded-md px-4 py-2 cursor-not-allowed"
-          style={{ background: 'rgba(234,179,8,0.15)', color: 'rgba(234,179,8,0.7)', border: '1px solid rgba(234,179,8,0.3)' }}
-        >
-          ⏰ Coming Soon
-        </button>
-      );
-    }
-
-    // Fallback (should never reach here)
-    return (
-      <button
-        disabled
-        className="flex-1 font-medium transition-all rounded-md px-4 py-2 cursor-not-allowed"
-        style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.3)', border: '1px solid rgba(255,255,255,0.1)' }}
-      >
-        📅 Practice Ended
-      </button>
-    );
-  };
-
   return (
     <div className="min-h-screen p-6" style={{ background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 50%, #0a1628 100%)' }}>
       <div className="max-w-6xl mx-auto space-y-8">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-4xl font-bold text-white flex items-center gap-3">
-              <Trophy className="h-10 w-10 text-yellow-400" />
-              Scholarship Competitions
-            </h1>
-            <p className="text-white/50 mt-2">
-              Compete for scholarships by demonstrating your knowledge and speed
-            </p>
+        <div>
+          <h1 className="text-4xl font-bold text-white flex items-center gap-3">
+            <Trophy className="h-10 w-10 text-yellow-400" />
+            Scholarship Competitions
+          </h1>
+          <p className="text-white/50 mt-2">
+            Merit-based competitions with real prizes. One attempt per participant.
+          </p>
+        </div>
+
+        {/* Practice redirect banner */}
+        <div
+          className="flex items-center justify-between p-4 rounded-2xl cursor-pointer group"
+          style={{ background: 'rgba(52,211,153,0.1)', border: '1.5px solid rgba(52,211,153,0.3)' }}
+          onClick={() => navigate('/live-modes')}
+        >
+          <div className="flex items-center gap-3">
+            <Target className="h-6 w-6 text-emerald-400 flex-shrink-0" />
+            <div>
+              <p className="font-bold text-emerald-300">Looking for Practice Mode?</p>
+              <p className="text-sm text-emerald-200/60">Join with a PIN at Live Modes — unlimited attempts, self-paced learning.</p>
+            </div>
           </div>
+          <ArrowRight className="h-5 w-5 text-emerald-400 group-hover:translate-x-1 transition-transform" />
         </div>
 
         {/* Filter Tabs */}
@@ -226,100 +175,60 @@ export default function Competitions() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    {/* Show prize only for scholarship competitions */}
-                    {!competition.isPractice && competition.prizePool > 0 && (
+                  <div className="flex flex-wrap gap-4">
+                    {competition.prizePool > 0 && (
                       <div className="flex items-center gap-2 text-sm text-green-400">
                         <DollarSign className="h-4 w-4" />
-                        <span className="font-semibold">
-                          ${competition.prizePool.toLocaleString()}
-                        </span>
+                        <span className="font-semibold">${competition.prizePool.toLocaleString()} prize</span>
                       </div>
                     )}
-
-                    {/* Show practice indicator for practice competitions */}
-                    {competition.isPractice && (
-                      <div className="flex items-center gap-2 text-sm text-blue-400">
-                        <BookOpen className="h-4 w-4" />
-                        <span className="font-semibold">Practice Session</span>
-                      </div>
-                    )}
-
                     <div className="flex items-center gap-2 text-sm text-white/50">
                       <Users className="h-4 w-4" />
                       <span>{competition.participantCount} participants</span>
                     </div>
+                    <div className="flex items-center gap-2 text-sm text-white/50">
+                      <Calendar className="h-4 w-4" />
+                      <span>{formatDate(competition.startDate)} – {formatDate(competition.endDate)}</span>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-2 text-sm text-white/50">
-                    <Calendar className="h-4 w-4" />
-                    <span>
-                      {formatDate(competition.startDate)} - {formatDate(competition.endDate)}
-                    </span>
-                  </div>
-
-                  <div className="flex gap-3 pt-2">
-                    {/* PRACTICE COMPETITIONS - FIXED BUTTON LOGIC */}
-                    {competition.isPractice && renderPracticeButton(competition)}
- 
-                    {/* SCHOLARSHIP COMPETITIONS - ONE-TIME PARTICIPATION ONLY */}
-                    {!competition.isPractice && (
-                      <>
-                        {/* Main Competition Button */}
-                        {!competition.hasParticipated && competition.status === 'active' ? (
-                          // User hasn't participated yet AND competition is active - allow joining
-                          <button
-                            onClick={() => navigate(`/competitions/${competition.id}`)}
-                            className="flex-1 font-medium transition-all rounded-md px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white"
-                          >
-                            🚀 Join Competition
-                          </button>
-                        ) : competition.hasParticipated ? (
-                          // User already participated - show disabled button
-                          <button
-                            disabled
-                            className="flex-1 font-medium cursor-not-allowed rounded-md px-4 py-2"
-                            style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.3)', border: '1px solid rgba(255,255,255,0.1)' }}
-                          >
-                            ✅ Already Participated
-                          </button>
-                        ) : competition.status === 'completed' ? (
-                          // Competition is completed
-                          <button
-                            disabled
-                            className="flex-1 font-medium cursor-not-allowed rounded-md px-4 py-2"
-                            style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.3)', border: '1px solid rgba(255,255,255,0.1)' }}
-                          >
-                            📅 Completed
-                          </button>
-                        ) : (
-                          // Competition is upcoming
-                          <button
-                            disabled
-                            className="flex-1 font-medium cursor-not-allowed rounded-md px-4 py-2"
-                            style={{ background: 'rgba(234,179,8,0.15)', color: 'rgba(234,179,8,0.7)', border: '1px solid rgba(234,179,8,0.3)' }}
-                          >
-                            ⏰ Upcoming
-                          </button>
-                        )}
-                        
-                        {/* View Details Button - Always Available */}
-                        <button 
-                          onClick={() => navigate(`/competitions/${competition.id}`)}
-                          className="flex-1 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white font-medium shadow-lg hover:shadow-xl transition-all rounded-md px-4 py-2"
-                        >
-                          📋 View Details
-                        </button>
-                        
-                        {/* Leaderboard Button - Always Available */}
-                        <button 
-                          onClick={() => navigate(`/competitions/${competition.id}/leaderboard`)}
-                          className="flex-1 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-medium shadow-lg hover:shadow-xl transition-all rounded-md px-4 py-2"
-                        >
-                          🏆 Leaderboard
-                        </button>
-                      </>
+                  <div className="flex gap-2 pt-1 flex-wrap">
+                    {/* Join/status button */}
+                    {!competition.hasParticipated && competition.status === 'active' ? (
+                      <button
+                        onClick={() => navigate(`/competitions/${competition.id}`)}
+                        className="flex-1 font-medium transition-all rounded-md px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-600 hover:to-indigo-700 text-white"
+                      >
+                        🚀 Join Competition
+                      </button>
+                    ) : competition.hasParticipated ? (
+                      <button disabled className="flex-1 font-medium cursor-not-allowed rounded-md px-4 py-2"
+                        style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.3)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        ✅ Already Participated
+                      </button>
+                    ) : competition.status === 'completed' ? (
+                      <button disabled className="flex-1 font-medium cursor-not-allowed rounded-md px-4 py-2"
+                        style={{ background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.3)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                        📅 Completed
+                      </button>
+                    ) : (
+                      <button disabled className="flex-1 font-medium cursor-not-allowed rounded-md px-4 py-2"
+                        style={{ background: 'rgba(234,179,8,0.15)', color: 'rgba(234,179,8,0.7)', border: '1px solid rgba(234,179,8,0.3)' }}>
+                        ⏰ Upcoming
+                      </button>
                     )}
+                    <button
+                      onClick={() => navigate(`/competitions/${competition.id}`)}
+                      className="flex-1 font-medium transition-all rounded-md px-4 py-2 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white"
+                    >
+                      📋 Details
+                    </button>
+                    <button
+                      onClick={() => navigate(`/competitions/${competition.id}/leaderboard`)}
+                      className="flex-1 font-medium transition-all rounded-md px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white"
+                    >
+                      🏆 Board
+                    </button>
                   </div>
                 </CardContent>
               </Card>
