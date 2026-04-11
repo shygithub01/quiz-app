@@ -1,25 +1,10 @@
-// Home.tsx
-import { useState, useEffect } from 'react';
+// Home.tsx — Kahoot-style redesign
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
-import { getFeaturedCompetition, isAdmin } from '@/components/ui/firebase';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { 
-  Brain, 
-  FileText, 
-  Trophy,
-  Users,
-  Zap,
-  GraduationCap,
-  ArrowRight,
-  CheckCircle,
-  Star,
-  DollarSign,
-  Calendar
-} from 'lucide-react';
+import { getFeaturedCompetition } from '@/components/ui/firebase';
+import { Zap, Trophy, Target, Brain, ArrowRight, Star, ChevronRight } from 'lucide-react';
 
-// Types & Interfaces
 interface FeaturedCompetition {
   id: string;
   title: string;
@@ -28,442 +13,419 @@ interface FeaturedCompetition {
   participantCount: number;
 }
 
+// Floating particle component
+function Particle({ x, y, size, color, duration }: { x: number; y: number; size: number; color: string; duration: number }) {
+  return (
+    <div
+      className="absolute rounded-full pointer-events-none"
+      style={{
+        left: `${x}%`, top: `${y}%`,
+        width: size, height: size,
+        background: color, opacity: 0.6,
+        animation: `float-particle ${duration}s ease-in-out infinite`,
+      }}
+    />
+  );
+}
+
+const PARTICLES = Array.from({ length: 20 }, (_, i) => ({
+  id: i,
+  x: Math.random() * 100,
+  y: Math.random() * 100,
+  size: 4 + Math.random() * 10,
+  color: ['#a78bfa', '#f472b6', '#34d399', '#fbbf24', '#60a5fa'][Math.floor(Math.random() * 5)],
+  duration: 4 + Math.random() * 6,
+}));
+
+const STATS = [
+  { value: '75+', label: 'Questions per quiz' },
+  { value: '100+', label: 'Participants supported' },
+  { value: '3', label: 'Modes: Live, Practice, AI' },
+  { value: '∞', label: 'Practice attempts' },
+];
+
 export default function Home() {
   const { user, signIn } = useAuth();
   const navigate = useNavigate();
   const [featuredCompetition, setFeaturedCompetition] = useState<FeaturedCompetition | null>(null);
-  const [, setLoading] = useState(true);
-  const [, setUserIsAdmin] = useState(false);
+  const [pin, setPin] = useState('');
+  const [practicePin, setPracticePin] = useState('');
+  const [activeTab, setActiveTab] = useState<'live' | 'practice'>('live');
+  const pinRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => {
-    loadFeaturedCompetition();
-  }, []);
-
-  // Check if user is admin
-  useEffect(() => {
-    const checkAdmin = async () => {
-      if (user?.uid) {
-        const adminStatus = await isAdmin(user.uid);
-        setUserIsAdmin(adminStatus);
-      } else {
-        setUserIsAdmin(false);
-      }
-    };
-    checkAdmin();
-  }, [user]);
+  useEffect(() => { loadFeaturedCompetition(); }, []);
 
   const loadFeaturedCompetition = async () => {
     try {
       const competition = await getFeaturedCompetition();
-      
       if (competition) {
-        // Check if competition has ended by comparing end date
         const now = new Date();
         const endDate = new Date(competition.endDate);
-        
-        console.log('📅 Featured competition:', competition.title);
-        console.log('📅 End date:', endDate);
-        console.log('📅 Current date:', now);
-        console.log('📅 Has ended:', endDate < now);
-        
         if (endDate < now) {
-          // Featured competition has ended - show "Coming Soon"
-          console.log('⚠️ Featured competition has ended, showing Coming Soon');
-          setFeaturedCompetition({
-            id: 'expired',
-            title: 'Competition Coming Soon!',
-            prizePool: '$300',
-            startDate: new Date(),
-            participantCount: 0
-          });
+          setFeaturedCompetition({ id: 'expired', title: 'Competition Coming Soon!', prizePool: '$300', startDate: new Date(), participantCount: 0 });
         } else {
-          // Featured competition is still active/upcoming - show it
-          console.log('✅ Featured competition is active, showing details');
-          setFeaturedCompetition({
-            id: competition.id,
-            title: competition.title,
-            prizePool: competition.prizePool || '$300',
-            startDate: competition.startDate,
-            participantCount: competition.participantCount || 0
-          });
+          setFeaturedCompetition({ id: competition.id, title: competition.title, prizePool: competition.prizePool || '$300', startDate: competition.startDate, participantCount: competition.participantCount || 0 });
         }
       } else {
-        // No featured competition set - show "Coming Soon"
-        console.log('⚠️ No featured competition set, showing Coming Soon');
-        setFeaturedCompetition({
-          id: 'none',
-          title: 'Competition Coming Soon!',
-          prizePool: '$300',
-          startDate: new Date(),
-          participantCount: 0
-        });
+        setFeaturedCompetition({ id: 'none', title: 'Competition Coming Soon!', prizePool: '$300', startDate: new Date(), participantCount: 0 });
       }
-    } catch (error) {
-      console.error('❌ Error loading featured competition:', error);
-      // On error, show "Coming Soon"
-      setFeaturedCompetition({
-        id: 'error',
-        title: 'Competition Coming Soon!',
-        prizePool: '$300',
-        startDate: new Date(),
-        participantCount: 0
-      });
-    } finally {
-      setLoading(false);
+    } catch {
+      setFeaturedCompetition({ id: 'error', title: 'Competition Coming Soon!', prizePool: '$300', startDate: new Date(), participantCount: 0 });
     }
   };
 
-  const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      year: 'numeric'
-    });
+  const handleJoinLive = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (pin.length === 6) navigate(`/live-event/join?pin=${pin}`);
   };
 
+  const handleJoinPractice = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (practicePin.length === 6) navigate(`/practice/join?pin=${practicePin}`);
+  };
 
+  const isExpired = !featuredCompetition || ['expired', 'none', 'error'].includes(featuredCompetition.id);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900">
-      {/* Hero Section */}
-      <div className="relative overflow-hidden">
-        {/* Background Elements */}
-        <div className="absolute inset-0">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl animate-pulse" />
-          <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+    <div className="w-full overflow-hidden">
+      <style>{`
+        @keyframes float-particle {
+          0%, 100% { transform: translateY(0) scale(1); opacity: 0.5; }
+          50% { transform: translateY(-20px) scale(1.2); opacity: 0.9; }
+        }
+        @keyframes slide-up {
+          from { transform: translateY(40px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+        @keyframes pulse-glow {
+          0%, 100% { box-shadow: 0 0 20px rgba(167,139,250,0.4); }
+          50% { box-shadow: 0 0 40px rgba(167,139,250,0.8), 0 0 80px rgba(167,139,250,0.3); }
+        }
+        .slide-up { animation: slide-up 0.6s ease-out forwards; }
+        .slide-up-2 { animation: slide-up 0.6s 0.15s ease-out both; }
+        .slide-up-3 { animation: slide-up 0.6s 0.3s ease-out both; }
+        .pulse-glow { animation: pulse-glow 2.5s ease-in-out infinite; }
+        .pin-input::placeholder { color: rgba(255,255,255,0.25); letter-spacing: 0.5em; }
+      `}</style>
+
+      {/* ── HERO ── */}
+      <section className="relative min-h-[85vh] flex flex-col items-center justify-center px-4 py-16 overflow-hidden"
+        style={{ background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 40%, #0a1628 100%)' }}>
+
+        {/* Particles */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          {PARTICLES.map(p => <Particle key={p.id} {...p} />)}
+          <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse 80% 60% at 50% 40%, rgba(124,58,237,0.15) 0%, transparent 70%)' }} />
         </div>
 
-        <div className="relative max-w-7xl mx-auto px-4 py-16">
-          {/* Main Hero */}
-          <div className="text-center mb-16">
-            <div className="inline-flex items-center gap-2 bg-white/10 backdrop-blur-sm rounded-full px-6 py-2 mb-6">
-              <Zap className="h-4 w-4 text-yellow-300" />
-              <span className="text-purple-100 font-medium">AI-Powered Quiz Generation Platform</span>
-            </div>
-            
-            <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 leading-tight">
-              <span className="bg-gradient-to-r from-purple-300 to-pink-300 bg-clip-text text-transparent">
-                Quizist.AI
-              </span>
-              <br />
-              <span className="text-3xl md:text-4xl text-purple-200">
-                Where Knowledge Meets Innovation
-              </span>
-            </h1>
-            
-            <p className="text-xl md:text-2xl text-purple-100 mb-8 max-w-3xl mx-auto">
-              Transform any document or topic into intelligent quizzes. Win scholarships. Build knowledge.
-            </p>
+        {/* Badge */}
+        <div className="slide-up flex items-center gap-2 px-5 py-2 rounded-full mb-6 text-sm font-bold"
+          style={{ background: 'rgba(167,139,250,0.15)', border: '1px solid rgba(167,139,250,0.4)', color: '#c4b5fd' }}>
+          <Zap className="h-4 w-4 text-yellow-400" />
+          AI-Powered · Live · Competitive
+        </div>
 
+        {/* Headline */}
+        <div className="slide-up-2 text-center mb-4 relative z-10">
+          <h1 className="font-black leading-none mb-3" style={{ fontSize: 'clamp(3rem, 10vw, 7rem)' }}>
+            <span style={{ background: 'linear-gradient(135deg, #c084fc, #f472b6, #fb923c)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              Quizist
+            </span>
+            <span style={{ background: 'linear-gradient(135deg, #60a5fa, #34d399)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+              .AI
+            </span>
+          </h1>
+          <p className="text-white/60 font-medium max-w-xl mx-auto" style={{ fontSize: 'clamp(1rem, 2.5vw, 1.4rem)' }}>
+            The smartest way to quiz. Create with AI. Compete live. Win scholarships.
+          </p>
+        </div>
 
+        {/* ── PIN JOIN BOX ── */}
+        <div className="slide-up-3 w-full max-w-md relative z-10 mt-6">
+          {/* Tab switcher */}
+          <div className="flex rounded-2xl p-1 mb-4" style={{ background: 'rgba(255,255,255,0.08)' }}>
+            <button
+              onClick={() => setActiveTab('live')}
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all"
+              style={{
+                background: activeTab === 'live' ? 'linear-gradient(135deg, #7c3aed, #4f46e5)' : 'transparent',
+                color: activeTab === 'live' ? 'white' : 'rgba(255,255,255,0.5)',
+              }}>
+              <Zap className="h-4 w-4" /> Join Live Event
+            </button>
+            <button
+              onClick={() => setActiveTab('practice')}
+              className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all"
+              style={{
+                background: activeTab === 'practice' ? 'linear-gradient(135deg, #059669, #065f46)' : 'transparent',
+                color: activeTab === 'practice' ? 'white' : 'rgba(255,255,255,0.5)',
+              }}>
+              <Target className="h-4 w-4" /> Join Practice
+            </button>
           </div>
 
-          {/* Featured Competition Banner */}
-          {featuredCompetition && (
-            <div className={`backdrop-blur-sm rounded-2xl p-8 border mb-16 ${
-              featuredCompetition.id === 'expired' || featuredCompetition.id === 'none'
-                ? 'bg-gradient-to-r from-orange-900/30 to-yellow-900/30 border-orange-400/30'
-                : 'bg-gradient-to-r from-green-900/30 to-emerald-900/30 border-green-400/30'
-            }`}>
-              <div className="text-center">
-                <div className={`inline-flex items-center gap-2 rounded-full px-4 py-2 mb-4 ${
-                  featuredCompetition.id === 'expired' || featuredCompetition.id === 'none'
-                    ? 'bg-orange-500/20'
-                    : 'bg-green-500/20'
-                }`}>
-                  <Star className="h-4 w-4 text-yellow-300" />
-                  <span className={`font-medium ${
-                    featuredCompetition.id === 'expired' || featuredCompetition.id === 'none'
-                      ? 'text-orange-100'
-                      : 'text-green-100'
-                  }`}>Featured Scholarship Competition</span>
-                </div>
-                
-                <h2 className="text-3xl font-bold text-white mb-4">{featuredCompetition.title}</h2>
-                
-                {featuredCompetition.id === 'expired' || featuredCompetition.id === 'none' ? (
-                  <div className="max-w-2xl mx-auto mb-6">
-                    <Trophy className="h-16 w-16 mx-auto mb-4 text-orange-300 opacity-50" />
-                    <p className="text-xl text-orange-100">
-                      The latest competition has ended. New competitions coming soon!
-                    </p>
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-2xl mx-auto mb-6">
-                    <div className="text-center">
-                      <DollarSign className="h-8 w-8 mx-auto mb-2 text-green-400" />
-                      <div className="text-2xl font-bold text-white">{featuredCompetition.prizePool}</div>
-                      <div className="text-green-200">Prize Pool</div>
-                    </div>
-                    <div className="text-center">
-                      <Calendar className="h-8 w-8 mx-auto mb-2 text-blue-400" />
-                      <div className="text-2xl font-bold text-white">{formatDate(featuredCompetition.startDate)}</div>
-                      <div className="text-green-200">Competition Date</div>
-                    </div>
-                    <div className="text-center">
-                      <Users className="h-8 w-8 mx-auto mb-2 text-purple-400" />
-                      <div className="text-2xl font-bold text-white">{featuredCompetition.participantCount}</div>
-                      <div className="text-green-200">Registered</div>
-                    </div>
-                  </div>
-                )}
-
-                {featuredCompetition.id === 'expired' || featuredCompetition.id === 'none' || featuredCompetition.id === 'error' ? (
-                  user && (
-                    <Button 
-                      onClick={() => navigate('/competitions')}
-                      className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3 rounded-full"
-                    >
-                      Practice Now
-                      <ArrowRight className="ml-2 h-5 w-5" />
-                    </Button>
-                  )
-                ) : (
-                  <Button 
-                    onClick={() => navigate('/scholarship')}
-                    className="bg-green-600 hover:bg-green-700 text-white font-semibold px-8 py-3 rounded-full"
-                  >
-                    Register for Scholarship
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </Button>
-                )}
-              </div>
-            </div>
+          {/* PIN form */}
+          {activeTab === 'live' ? (
+            <form onSubmit={handleJoinLive} className="space-y-3">
+              <input
+                ref={pinRef}
+                type="tel"
+                inputMode="numeric"
+                value={pin}
+                onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="Enter PIN"
+                className="pin-input w-full text-center font-black text-5xl py-6 px-4 rounded-2xl outline-none transition-all"
+                style={{
+                  background: 'rgba(255,255,255,0.08)',
+                  border: pin.length === 6 ? '2px solid #a78bfa' : '2px solid rgba(255,255,255,0.15)',
+                  color: 'white',
+                  letterSpacing: '0.3em',
+                }}
+              />
+              <button
+                type="submit"
+                disabled={pin.length !== 6}
+                className="w-full py-5 rounded-2xl font-black text-xl transition-all active:scale-95"
+                style={{
+                  background: pin.length === 6 ? 'linear-gradient(135deg, #7c3aed, #4f46e5)' : 'rgba(255,255,255,0.08)',
+                  color: pin.length === 6 ? 'white' : 'rgba(255,255,255,0.3)',
+                  cursor: pin.length === 6 ? 'pointer' : 'not-allowed',
+                  ...(pin.length === 6 ? { animation: 'pulse-glow 2s ease-in-out infinite' } : {}),
+                }}>
+                Enter! <ChevronRight className="inline h-6 w-6" />
+              </button>
+            </form>
+          ) : (
+            <form onSubmit={handleJoinPractice} className="space-y-3">
+              <input
+                type="tel"
+                inputMode="numeric"
+                value={practicePin}
+                onChange={e => setPracticePin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="Enter PIN"
+                className="pin-input w-full text-center font-black text-5xl py-6 px-4 rounded-2xl outline-none transition-all"
+                style={{
+                  background: 'rgba(255,255,255,0.08)',
+                  border: practicePin.length === 6 ? '2px solid #34d399' : '2px solid rgba(255,255,255,0.15)',
+                  color: 'white',
+                  letterSpacing: '0.3em',
+                }}
+              />
+              <button
+                type="submit"
+                disabled={practicePin.length !== 6}
+                className="w-full py-5 rounded-2xl font-black text-xl transition-all active:scale-95"
+                style={{
+                  background: practicePin.length === 6 ? 'linear-gradient(135deg, #059669, #065f46)' : 'rgba(255,255,255,0.08)',
+                  color: practicePin.length === 6 ? 'white' : 'rgba(255,255,255,0.3)',
+                  cursor: practicePin.length === 6 ? 'pointer' : 'not-allowed',
+                }}>
+                Enter! <ChevronRight className="inline h-6 w-6" />
+              </button>
+            </form>
           )}
-        </div>
-      </div>
 
-      {/* Choose Your Path Section */}
-      <div className="py-16">
-        <div className="max-w-7xl mx-auto px-4">
+          <p className="text-center text-white/30 text-sm mt-3">
+            Get the PIN from your teacher or event host
+          </p>
+        </div>
+
+        {/* Divider */}
+        <div className="relative z-10 flex items-center gap-4 w-full max-w-md mt-6">
+          <div className="flex-1 h-px bg-white/10" />
+          <span className="text-white/30 text-sm font-semibold">or</span>
+          <div className="flex-1 h-px bg-white/10" />
+        </div>
+
+        {/* Host / Create CTA */}
+        <div className="relative z-10 flex flex-col sm:flex-row gap-3 w-full max-w-md mt-4">
+          <button
+            onClick={() => user ? navigate('/admin/quiz-templates/list') : signIn()}
+            className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-base transition-all active:scale-95 border"
+            style={{ border: '2px solid rgba(167,139,250,0.4)', color: '#c4b5fd', background: 'rgba(124,58,237,0.1)' }}>
+            <Brain className="h-5 w-5" />
+            {user ? 'Create a Quiz' : 'Sign in to Create'}
+          </button>
+          <button
+            onClick={() => navigate('/live-modes')}
+            className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-base transition-all active:scale-95 border"
+            style={{ border: '2px solid rgba(251,191,36,0.4)', color: '#fde68a', background: 'rgba(245,158,11,0.1)' }}>
+            <Trophy className="h-5 w-5" />
+            Host an Event
+          </button>
+        </div>
+      </section>
+
+      {/* ── STATS TICKER ── */}
+      <section className="py-10 border-y" style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)' }}>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto px-6">
+          {STATS.map((s, i) => (
+            <div key={i} className="text-center">
+              <p className="font-black text-4xl" style={{ background: 'linear-gradient(135deg, #c084fc, #f472b6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                {s.value}
+              </p>
+              <p className="text-white/50 text-sm font-medium mt-1">{s.label}</p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* ── 3 MODE CARDS ── */}
+      <section className="py-16 px-4" style={{ background: 'linear-gradient(180deg, #0f0a1e 0%, #1a0533 100%)' }}>
+        <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-white mb-4">
-              Choose Your Path
+            <h2 className="font-black text-white mb-3" style={{ fontSize: 'clamp(1.8rem, 4vw, 3rem)' }}>
+              Three ways to play
             </h2>
-            <p className="text-xl text-purple-200">
-              Generate intelligent quizzes or compete for scholarships
-            </p>
+            <p className="text-white/50 text-lg">Pick your mode. Jump in. Have fun.</p>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto">
-            {/* Try Quiz Generator */}
-            <Card className="bg-gradient-to-br from-purple-900/30 to-indigo-900/30 border-purple-400/30 text-white">
-              <CardHeader className="text-center">
-                <Brain className="h-16 w-16 mx-auto mb-4 text-purple-400" />
-                <CardTitle className="text-2xl">Try Quiz Generator</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="h-5 w-5 text-purple-400" />
-                    <span>Upload documents or enter topics</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="h-5 w-5 text-purple-400" />
-                    <span>AI-generated intelligent questions</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="h-5 w-5 text-purple-400" />
-                    <span>Multiple difficulty levels</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="h-5 w-5 text-purple-400" />
-                    <span>Instant results and explanations</span>
-                  </div>
-                </div>
-                
-                <div className="pt-4">
-                  <Button 
-                    onClick={async () => {
-                      if (user) {
-                        navigate('/quiz-generator');
-                      } else {
-                        try {
-                          await signIn();
-                          // After successful sign-in, navigate to quiz generator
-                          navigate('/quiz-generator');
-                        } catch (error) {
-                          console.error('Sign-in failed:', error);
-                        }
-                      }
-                    }}
-                    className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold"
-                  >
-                    {user ? 'Start Creating Quizzes' : 'Sign In to Try Generator'}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
 
-            {/* For Students */}
-            <Card className="bg-gradient-to-br from-green-900/30 to-emerald-900/30 border-green-400/30 text-white">
-              <CardHeader className="text-center">
-                <GraduationCap className="h-16 w-16 mx-auto mb-4 text-green-400" />
-                <CardTitle className="text-2xl">For Students</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="h-5 w-5 text-green-400" />
-                    <span>Win real money scholarships</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="h-5 w-5 text-green-400" />
-                    <span>Practice with unlimited attempts</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="h-5 w-5 text-green-400" />
-                    <span>Track your progress over time</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="h-5 w-5 text-green-400" />
-                    <span>Compete in timed competitions</span>
-                  </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            {[
+              {
+                icon: '⚡',
+                title: 'Live Event',
+                subtitle: 'Real-time competition',
+                desc: 'Host a room. Everyone answers at the same time. Fastest wins.',
+                color: '#f59e0b',
+                gradient: 'linear-gradient(135deg, #78350f, #92400e)',
+                border: 'rgba(245,158,11,0.4)',
+                action: () => navigate('/live-event/join'),
+                label: 'Join a Live Event',
+              },
+              {
+                icon: '🎯',
+                title: 'Practice Mode',
+                subtitle: 'Self-paced learning',
+                desc: 'Attempt as many times as you want. Learn and improve at your pace.',
+                color: '#34d399',
+                gradient: 'linear-gradient(135deg, #064e3b, #065f46)',
+                border: 'rgba(52,211,153,0.4)',
+                action: () => navigate('/practice/join'),
+                label: 'Join Practice',
+              },
+              {
+                icon: '🧠',
+                title: 'AI Generator',
+                subtitle: 'Create instantly',
+                desc: 'Upload a doc or type a topic. AI builds 75+ questions in seconds.',
+                color: '#a78bfa',
+                gradient: 'linear-gradient(135deg, #2e1065, #4c1d95)',
+                border: 'rgba(167,139,250,0.4)',
+                action: () => user ? navigate('/quiz-generator') : signIn(),
+                label: user ? 'Generate Now' : 'Sign in to Create',
+              },
+            ].map((card, i) => (
+              <button
+                key={i}
+                onClick={card.action}
+                className="group text-left rounded-3xl p-6 transition-all duration-200 active:scale-95 hover:scale-[1.02]"
+                style={{ background: card.gradient, border: `2px solid ${card.border}`, boxShadow: `0 8px 32px ${card.color}22` }}>
+                <div className="text-5xl mb-4">{card.icon}</div>
+                <h3 className="font-black text-white text-2xl mb-1">{card.title}</h3>
+                <p className="font-semibold mb-3" style={{ color: card.color }}>{card.subtitle}</p>
+                <p className="text-white/60 text-sm leading-relaxed mb-5">{card.desc}</p>
+                <div className="flex items-center gap-2 font-bold text-sm" style={{ color: card.color }}>
+                  {card.label} <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                 </div>
-                
-                <div className="pt-4">
-                  <Button 
-                    onClick={async () => {
-                      if (user) {
-                        navigate('/scholarship');
-                      } else {
-                        try {
-                          await signIn();
-                          // After successful sign-in, navigate to scholarship
-                          navigate('/scholarship');
-                        } catch (error) {
-                          console.error('Sign-in failed:', error);
-                        }
-                      }
-                    }}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold"
-                  >
-                    {user ? 'View Scholarships' : 'Sign In for Scholarships'}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Live Cultural Events */}
-            <Card className="bg-gradient-to-br from-orange-900/30 to-red-900/30 border-orange-400/30 text-white">
-              <CardHeader className="text-center">
-                <Users className="h-16 w-16 mx-auto mb-4 text-orange-400" />
-                <CardTitle className="text-2xl">Live Cultural Events</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="h-5 w-5 text-orange-400" />
-                    <span>Host cultural quiz competitions</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="h-5 w-5 text-orange-400" />
-                    <span>QR code & PIN for easy joining</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="h-5 w-5 text-orange-400" />
-                    <span>Large-screen projector display</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="h-5 w-5 text-orange-400" />
-                    <span>Live leaderboard & fastest finger</span>
-                  </div>
-                </div>
-                
-                <div className="pt-4">
-                  <Button 
-                    onClick={() => {
-                      // Navigate to Live Modes Hub where users can join or host
-                      navigate('/live-modes');
-                    }}
-                    className="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold"
-                  >
-                    Join or Host Live Events
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
+              </button>
+            ))}
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Features Section */}
-      <div className="bg-white/5 backdrop-blur-sm py-16">
-        <div className="max-w-7xl mx-auto px-4">
-          <div className="text-center mb-12">
-            <h2 className="text-4xl font-bold text-white mb-4">
-              Powerful Features for Every User
-            </h2>
-            <p className="text-xl text-purple-200 max-w-2xl mx-auto">
-              From students to educators, our AI-powered platform serves everyone's learning needs
-            </p>
+      {/* ── FEATURED COMPETITION BANNER ── */}
+      {featuredCompetition && (
+        <section className="py-12 px-4" style={{ background: 'linear-gradient(135deg, #1a0533, #0f0a1e)' }}>
+          <div className="max-w-3xl mx-auto rounded-3xl p-8 text-center relative overflow-hidden"
+            style={{
+              background: isExpired
+                ? 'linear-gradient(135deg, rgba(120,53,15,0.4), rgba(78,52,46,0.4))'
+                : 'linear-gradient(135deg, rgba(4,120,87,0.4), rgba(5,150,105,0.3))',
+              border: isExpired ? '2px solid rgba(245,158,11,0.3)' : '2px solid rgba(52,211,153,0.3)',
+            }}>
+            <div className="absolute inset-0 pointer-events-none"
+              style={{ background: 'radial-gradient(ellipse at 50% 0%, rgba(167,139,250,0.1) 0%, transparent 70%)' }} />
+            <div className="relative z-10">
+              <div className="inline-flex items-center gap-2 rounded-full px-4 py-1.5 mb-4 text-sm font-bold"
+                style={{ background: 'rgba(255,255,255,0.1)', color: '#fde68a' }}>
+                <Star className="h-4 w-4" /> Featured Scholarship Competition
+              </div>
+              <h2 className="font-black text-white text-3xl mb-4">{featuredCompetition.title}</h2>
+              {!isExpired ? (
+                <div className="flex justify-center gap-8 mb-6">
+                  <div>
+                    <p className="font-black text-2xl text-green-400">{featuredCompetition.prizePool}</p>
+                    <p className="text-white/50 text-sm">Prize Pool</p>
+                  </div>
+                  <div>
+                    <p className="font-black text-2xl text-blue-400">{featuredCompetition.participantCount}</p>
+                    <p className="text-white/50 text-sm">Registered</p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-white/60 mb-6">New competitions launching soon. Stay tuned!</p>
+              )}
+              <button
+                onClick={() => navigate(isExpired ? '/competitions' : '/scholarship')}
+                className="px-8 py-4 rounded-2xl font-black text-lg transition-all active:scale-95"
+                style={{ background: isExpired ? 'linear-gradient(135deg, #d97706, #b45309)' : 'linear-gradient(135deg, #059669, #065f46)', color: 'white' }}>
+                {isExpired ? 'Practice Now →' : 'Register for Scholarship →'}
+              </button>
+            </div>
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {/* Document Upload */}
-            <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/15 transition-all duration-300">
-              <CardHeader className="text-center">
-                <FileText className="h-12 w-12 mx-auto mb-4 text-blue-400" />
-                <CardTitle className="text-xl">Document to Quiz</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-purple-100 text-center mb-4">
-                  Upload PDFs, Word docs, or text files and instantly generate intelligent quizzes from your content.
-                </p>
-                <div className="flex flex-wrap gap-2 justify-center">
-                  <span className="bg-blue-500/20 text-blue-200 px-2 py-1 rounded text-sm">PDF</span>
-                  <span className="bg-blue-500/20 text-blue-200 px-2 py-1 rounded text-sm">DOCX</span>
-                  <span className="bg-blue-500/20 text-blue-200 px-2 py-1 rounded text-sm">TXT</span>
+        </section>
+      )}
+
+      {/* ── HOW IT WORKS ── */}
+      <section className="py-16 px-4" style={{ background: '#0f0a1e' }}>
+        <div className="max-w-4xl mx-auto">
+          <h2 className="font-black text-white text-center mb-12" style={{ fontSize: 'clamp(1.8rem, 4vw, 3rem)' }}>
+            How it works
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {[
+              { step: '01', icon: '📝', title: 'Create or Join', desc: 'Build a quiz with AI in seconds — or jump into a live session with just a PIN.' },
+              { step: '02', icon: '🏆', title: 'Compete Live', desc: 'Answer fast. Climb the real-time leaderboard. Fastest correct answer wins.' },
+              { step: '03', icon: '🎉', title: 'Win & Learn', desc: 'See the podium, review correct answers, and track your progress over time.' },
+            ].map((s, i) => (
+              <div key={i} className="relative">
+                <div className="font-black text-8xl absolute -top-4 -left-2 select-none pointer-events-none"
+                  style={{ color: 'rgba(167,139,250,0.08)' }}>{s.step}</div>
+                <div className="relative z-10 pt-6">
+                  <div className="text-4xl mb-3">{s.icon}</div>
+                  <h3 className="font-black text-white text-xl mb-2">{s.title}</h3>
+                  <p className="text-white/50 leading-relaxed">{s.desc}</p>
                 </div>
-              </CardContent>
-            </Card>
-
-            {/* Topic-Based Generation */}
-            <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/15 transition-all duration-300">
-              <CardHeader className="text-center">
-                <Brain className="h-12 w-12 mx-auto mb-4 text-purple-400" />
-                <CardTitle className="text-xl">Topic-Based Quizzes</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-purple-100 text-center mb-4">
-                  Enter any topic and our AI generates comprehensive quizzes with multiple difficulty levels.
-                </p>
-                <div className="flex flex-wrap gap-2 justify-center">
-                  <span className="bg-purple-500/20 text-purple-200 px-2 py-1 rounded text-sm">Math</span>
-                  <span className="bg-purple-500/20 text-purple-200 px-2 py-1 rounded text-sm">Science</span>
-                  <span className="bg-purple-500/20 text-purple-200 px-2 py-1 rounded text-sm">History</span>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Scholarship Competitions */}
-            <Card className="bg-white/10 backdrop-blur-sm border-white/20 text-white hover:bg-white/15 transition-all duration-300">
-              <CardHeader className="text-center">
-                <Trophy className="h-12 w-12 mx-auto mb-4 text-yellow-400" />
-                <CardTitle className="text-xl">Merit Scholarships</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-purple-100 text-center mb-4">
-                  Compete in timed competitions and win real money scholarships based on your knowledge and speed.
-                </p>
-                <div className="flex flex-wrap gap-2 justify-center">
-                  <span className="bg-yellow-500/20 text-yellow-200 px-2 py-1 rounded text-sm">Cash Prizes</span>
-                  <span className="bg-yellow-500/20 text-yellow-200 px-2 py-1 rounded text-sm">Fair Competition</span>
-                </div>
-              </CardContent>
-            </Card>
-
-
-
-
+              </div>
+            ))}
           </div>
         </div>
-      </div>
+      </section>
 
-
-
-
+      {/* ── BOTTOM CTA ── */}
+      <section className="py-16 px-4 text-center" style={{ background: 'linear-gradient(135deg, #1e0a3c, #0f0a1e)' }}>
+        <div className="max-w-2xl mx-auto">
+          <h2 className="font-black text-white mb-4" style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)' }}>
+            Ready to play?
+          </h2>
+          <p className="text-white/50 text-lg mb-8">No download. No setup. Just enter a PIN and go.</p>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button
+              onClick={() => { setActiveTab('live'); pinRef.current?.focus(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+              className="px-10 py-5 rounded-2xl font-black text-xl transition-all active:scale-95"
+              style={{ background: 'linear-gradient(135deg, #7c3aed, #4f46e5)', color: 'white' }}>
+              <Zap className="inline h-6 w-6 mr-2" /> Join a Game
+            </button>
+            <button
+              onClick={() => user ? navigate('/quiz-generator') : signIn()}
+              className="px-10 py-5 rounded-2xl font-black text-xl transition-all active:scale-95 border"
+              style={{ border: '2px solid rgba(167,139,250,0.4)', color: '#c4b5fd', background: 'transparent' }}>
+              <Brain className="inline h-6 w-6 mr-2" /> Create a Quiz
+            </button>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

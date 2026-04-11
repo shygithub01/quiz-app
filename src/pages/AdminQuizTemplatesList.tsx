@@ -271,36 +271,36 @@ export default function AdminQuizTemplatesList() {
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-gray-50 border-b">
+                  <thead style={{ background: 'rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Subject</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Questions</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Difficulty</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase">Title</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase">Subject</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase">Questions</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase">Difficulty</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase">Created</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody className="divide-y divide-white/5">
                     {templates.map((template) => (
-                      <tr key={template.id} className="hover:bg-gray-50">
+                      <tr key={template.id} className="hover:bg-white/5">
                         <td className="px-4 py-3">
-                          <div className="font-medium text-gray-900">{template.title}</div>
+                          <div className="font-medium text-white">{template.title}</div>
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{template.subject || 'N/A'}</td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
-                          <span className="font-semibold">{template.questions?.length || 0}</span> questions
+                        <td className="px-4 py-3 text-sm text-white/60">{template.subject || 'N/A'}</td>
+                        <td className="px-4 py-3 text-sm text-white/60">
+                          <span className="font-semibold text-white">{template.questions?.length || 0}</span> questions
                         </td>
                         <td className="px-4 py-3">
                           <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                            template.difficulty === 'easy' ? 'bg-green-100 text-green-800' :
-                            template.difficulty === 'hard' ? 'bg-red-100 text-red-800' :
-                            'bg-yellow-100 text-yellow-800'
+                            template.difficulty === 'easy' ? 'bg-green-500/20 text-green-300' :
+                            template.difficulty === 'hard' ? 'bg-red-500/20 text-red-300' :
+                            'bg-yellow-500/20 text-yellow-300'
                           }`}>
                             {template.difficulty?.toUpperCase() || 'MEDIUM'}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">{formatDate(template.createdAt)}</td>
+                        <td className="px-4 py-3 text-sm text-white/60">{formatDate(template.createdAt)}</td>
                         <td className="px-4 py-3">
                           <div className="flex gap-2 flex-wrap">
                             <button
@@ -337,8 +337,8 @@ export default function AdminQuizTemplatesList() {
 
       {/* Launch Modal */}
       {launchTemplate && launchMode && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
+          <div className="rounded-2xl shadow-2xl w-full max-w-md" style={{ background: 'linear-gradient(160deg, #1e0a3c 0%, #0f0a1e 100%)', border: '1.5px solid rgba(255,255,255,0.1)' }}>
             {/* Modal Header */}
             <div className={`flex items-center justify-between px-6 py-4 rounded-t-2xl ${
               launchMode === 'live' ? 'bg-purple-600' : 'bg-emerald-600'
@@ -362,7 +362,7 @@ export default function AdminQuizTemplatesList() {
 
             {/* Template summary */}
             <div className="px-6 pt-4">
-              <div className="flex gap-3 bg-gray-50 rounded-xl p-3 text-sm text-gray-600">
+              <div className="flex gap-3 rounded-xl p-3 text-sm text-white/60" style={{ background: 'rgba(255,255,255,0.06)' }}>
                 <span className="flex items-center gap-1">
                   <Trophy className="h-4 w-4 text-indigo-500" />
                   <strong>{launchTemplate.questions?.length || 0}</strong> questions
@@ -379,7 +379,7 @@ export default function AdminQuizTemplatesList() {
               {launchMode === 'live' ? (
                 <>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">
+                    <label className="block text-sm font-semibold text-white/70 mb-1">
                       <Clock className="h-4 w-4 inline mr-1" />
                       Seconds per question
                     </label>
@@ -390,40 +390,43 @@ export default function AdminQuizTemplatesList() {
                         onChange={e => setQuestionTimer(Number(e.target.value))}
                         className="flex-1"
                       />
-                      <span className="w-12 text-center font-bold text-purple-700 text-lg">{questionTimer}s</span>
+                      <span className="w-12 text-center font-bold text-purple-400 text-lg">{questionTimer}s</span>
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Max participants</label>
+                    <label className="block text-sm font-semibold text-white/70 mb-1">Max participants</label>
                     <input
                       type="number" min={2} max={500}
                       value={maxParticipants}
                       onChange={e => setMaxParticipants(Number(e.target.value))}
-                      className="w-full px-3 py-2 border rounded-lg"
+                      className="w-full px-3 py-2 rounded-lg text-white"
+                      style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}
                     />
                   </div>
                 </>
               ) : (
                 <>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Session title</label>
+                    <label className="block text-sm font-semibold text-white/70 mb-1">Session title</label>
                     <input
                       type="text"
                       value={practiceTitle}
                       onChange={e => setPracticeTitle(e.target.value)}
-                      className="w-full px-3 py-2 border rounded-lg"
+                      className="w-full px-3 py-2 rounded-lg text-white"
+                      style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}
                       placeholder="e.g. Odia Culture Practice — April 2026"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-1">Session open for (days)</label>
+                    <label className="block text-sm font-semibold text-white/70 mb-1">Session open for (days)</label>
                     <input
                       type="number" min={1} max={90}
                       value={practiceEndDays}
                       onChange={e => setPracticeEndDays(Number(e.target.value))}
-                      className="w-full px-3 py-2 border rounded-lg"
+                      className="w-full px-3 py-2 rounded-lg text-white"
+                      style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}
                     />
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-white/40 mt-1">
                       Closes on {new Date(Date.now() + practiceEndDays * 86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
                     </p>
                   </div>
@@ -432,24 +435,24 @@ export default function AdminQuizTemplatesList() {
             </div>
 
             {/* Shuffle options */}
-            <div className="px-6 pb-2 space-y-2 border-t border-gray-100 pt-4">
-              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Randomization</p>
+            <div className="px-6 pb-2 space-y-2 pt-4" style={{ borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+              <p className="text-xs font-semibold text-white/40 uppercase tracking-wide mb-2">Randomization</p>
               <label className="flex items-center justify-between cursor-pointer">
-                <span className="text-sm text-gray-700">Shuffle answer options</span>
+                <span className="text-sm text-white/70">Shuffle answer options</span>
                 <button
                   type="button"
                   onClick={() => setShuffleOptions(v => !v)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${shuffleOptions ? 'bg-emerald-500' : 'bg-gray-300'}`}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${shuffleOptions ? 'bg-emerald-500' : 'bg-white/20'}`}
                 >
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${shuffleOptions ? 'translate-x-6' : 'translate-x-1'}`} />
                 </button>
               </label>
               <label className="flex items-center justify-between cursor-pointer">
-                <span className="text-sm text-gray-700">Shuffle question order</span>
+                <span className="text-sm text-white/70">Shuffle question order</span>
                 <button
                   type="button"
                   onClick={() => setShuffleQuestions(v => !v)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${shuffleQuestions ? 'bg-emerald-500' : 'bg-gray-300'}`}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${shuffleQuestions ? 'bg-emerald-500' : 'bg-white/20'}`}
                 >
                   <span className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${shuffleQuestions ? 'translate-x-6' : 'translate-x-1'}`} />
                 </button>
@@ -460,7 +463,8 @@ export default function AdminQuizTemplatesList() {
             <div className="px-6 pb-6 flex gap-3 pt-4">
               <button
                 onClick={closeLaunchModal}
-                className="flex-1 py-3 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-colors"
+                className="flex-1 py-3 rounded-xl font-semibold transition-colors text-white/70 hover:text-white"
+                style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.15)' }}
               >
                 Cancel
               </button>

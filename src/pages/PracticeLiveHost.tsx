@@ -118,17 +118,17 @@ export default function PracticeLiveHost() {
   
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 50%, #0a1628 100%)' }}>
         <div className="text-center">
-          <Target className="h-12 w-12 text-indigo-600 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Loading templates...</p>
+          <Target className="h-12 w-12 text-purple-400 animate-spin mx-auto mb-4" />
+          <p className="text-white/50">Loading templates...</p>
         </div>
       </div>
     );
   }
-  
+
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen p-6" style={{ background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 50%, #0a1628 100%)' }}>
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-6 rounded-xl shadow-xl">
@@ -162,19 +162,19 @@ export default function PracticeLiveHost() {
         {/* Create Session Card */}
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Trophy className="h-5 w-5" />
+            <CardTitle className="flex items-center gap-2 text-white">
+              <Trophy className="h-5 w-5 text-yellow-400" />
               Create New Practice Session
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             {competitions.length === 0 ? (
               <div className="text-center py-8">
-                <Target className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600 mb-4">
+                <Target className="h-12 w-12 text-white/30 mx-auto mb-4" />
+                <p className="text-white/60 mb-4">
                   No Practice Live Mode templates found.
                 </p>
-                <p className="text-sm text-gray-500 mb-4">
+                <p className="text-sm text-white/40 mb-4">
                   Create a competition with "Practice Live Mode" type first.
                 </p>
                 <Button onClick={() => navigate('/admin/create-competition')}>
@@ -184,50 +184,53 @@ export default function PracticeLiveHost() {
             ) : (
               <>
                 <div>
-                  <label className="block text-sm font-medium mb-2">
+                  <label className="block text-sm font-medium text-white/70 mb-2">
                     Select Template
                   </label>
                   <select
                     value={selectedCompetition}
                     onChange={(e) => setSelectedCompetition(e.target.value)}
-                    className="w-full px-3 py-2 border rounded-lg"
+                    className="w-full px-3 py-2 rounded-lg text-white"
+                    style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}
                   >
-                    <option value="">-- Select a template --</option>
+                    <option value="" style={{ background: '#1e0a3c' }}>-- Select a template --</option>
                     {competitions.map((comp) => (
-                      <option key={comp.id} value={comp.id}>
+                      <option key={comp.id} value={comp.id} style={{ background: '#1e0a3c' }}>
                         {comp.title} ({comp.questionCount} questions)
                       </option>
                     ))}
                   </select>
                 </div>
-                
+
                 <div>
-                  <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+                  <label className="block text-sm font-medium text-white/70 mb-2 flex items-center gap-2">
                     <Calendar className="h-4 w-4" />
                     Session Duration
                   </label>
                   <select
                     value={sessionDuration}
                     onChange={(e) => setSessionDuration(e.target.value as any)}
-                    className="w-full px-3 py-2 border rounded-lg"
+                    className="w-full px-3 py-2 rounded-lg text-white"
+                    style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}
                   >
-                    <option value="week">1 Week</option>
-                    <option value="month">1 Month</option>
-                    <option value="semester">1 Semester (~4 months)</option>
-                    <option value="custom">Custom</option>
+                    <option value="week" style={{ background: '#1e0a3c' }}>1 Week</option>
+                    <option value="month" style={{ background: '#1e0a3c' }}>1 Month</option>
+                    <option value="semester" style={{ background: '#1e0a3c' }}>1 Semester (~4 months)</option>
+                    <option value="custom" style={{ background: '#1e0a3c' }}>Custom</option>
                   </select>
                 </div>
-                
+
                 {sessionDuration === 'custom' && (
                   <div>
-                    <label className="block text-sm font-medium mb-2">
+                    <label className="block text-sm font-medium text-white/70 mb-2">
                       Custom End Date
                     </label>
                     <input
                       type="date"
                       value={customEndDate}
                       onChange={(e) => setCustomEndDate(e.target.value)}
-                      className="w-full px-3 py-2 border rounded-lg"
+                      className="w-full px-3 py-2 rounded-lg text-white"
+                      style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}
                       min={new Date().toISOString().split('T')[0]}
                     />
                   </div>
@@ -258,19 +261,17 @@ export default function PracticeLiveHost() {
         </Card>
         
         {/* Info Card */}
-        <Card className="border-2 border-purple-200 bg-purple-50">
-          <CardContent className="pt-6">
-            <h3 className="font-bold text-purple-900 mb-2">How Practice Live Mode Works</h3>
-            <ul className="text-sm text-purple-700 space-y-1">
-              <li>• Select a template you created earlier</li>
-              <li>• Choose how long the session should last</li>
-              <li>• Students join using PIN or QR code (no sign-in required)</li>
-              <li>• Students can attempt the quiz multiple times</li>
-              <li>• Same questions on each retry for improvement tracking</li>
-              <li>• Monitor progress in real-time on the dashboard</li>
-            </ul>
-          </CardContent>
-        </Card>
+        <div className="rounded-2xl p-5" style={{ background: 'rgba(124,58,237,0.12)', border: '1.5px solid rgba(124,58,237,0.3)' }}>
+          <h3 className="font-bold text-purple-300 mb-2">How Practice Live Mode Works</h3>
+          <ul className="text-sm text-purple-200/70 space-y-1">
+            <li>• Select a template you created earlier</li>
+            <li>• Choose how long the session should last</li>
+            <li>• Students join using PIN or QR code (no sign-in required)</li>
+            <li>• Students can attempt the quiz multiple times</li>
+            <li>• Same questions on each retry for improvement tracking</li>
+            <li>• Monitor progress in real-time on the dashboard</li>
+          </ul>
+        </div>
       </div>
     </div>
   );

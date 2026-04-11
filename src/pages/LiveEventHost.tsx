@@ -510,17 +510,17 @@ export default function LiveEventHost() {
   
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 50%, #0a1628 100%)' }}>
         <div className="text-center">
-          <Trophy className="h-12 w-12 text-indigo-600 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Loading competitions...</p>
+          <Trophy className="h-12 w-12 text-purple-400 animate-spin mx-auto mb-4" />
+          <p className="text-white/50">Loading competitions...</p>
         </div>
       </div>
     );
   }
-  
+
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen p-6" style={{ background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 50%, #0a1628 100%)' }}>
       {/* Join Confetti Effect */}
       {showJoinFlash && (
         <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
@@ -600,13 +600,12 @@ export default function LiveEventHost() {
         
         {/* Active Event Warning */}
         {hasActiveEvent && !event && (
-          <Card className="border-2 border-orange-300 bg-orange-50">
-            <CardContent className="pt-6">
-              <div className="flex items-start gap-3 mb-4">
-                <AlertCircle className="h-6 w-6 text-orange-600 flex-shrink-0 mt-1" />
-                <div className="flex-1">
-                  <h3 className="font-bold text-orange-900 mb-1">Active Event Detected</h3>
-                  <p className="text-sm text-orange-700 mb-3">
+          <div className="rounded-2xl p-5" style={{ background: 'rgba(234,88,12,0.12)', border: '1.5px solid rgba(234,88,12,0.4)' }}>
+            <div className="flex items-start gap-3 mb-4">
+              <AlertCircle className="h-6 w-6 text-orange-400 flex-shrink-0 mt-1" />
+              <div className="flex-1">
+                <h3 className="font-bold text-orange-300 mb-1">Active Event Detected</h3>
+                <p className="text-sm text-orange-200/70 mb-3">
                     There is already an active event running. Only one event can be active at a time. 
                     Please end the current event before creating a new one.
                   </p>
@@ -637,27 +636,26 @@ export default function LiveEventHost() {
                   </Button>
                 </div>
               </div>
-            </CardContent>
-          </Card>
+            </div>
         )}
-        
+
         {!event ? (
           /* Step 1: Create Event */
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Trophy className="h-5 w-5" />
+              <CardTitle className="flex items-center gap-2 text-white">
+                <Trophy className="h-5 w-5 text-yellow-400" />
                 Create New Live Event
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {competitions.length === 0 ? (
                 <div className="text-center py-8">
-                  <Trophy className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600 mb-4">
+                  <Trophy className="h-12 w-12 text-white/30 mx-auto mb-4" />
+                  <p className="text-white/60 mb-4">
                     No live event competitions found.
                   </p>
-                  <p className="text-sm text-gray-500 mb-4">
+                  <p className="text-sm text-white/40 mb-4">
                     Create a competition with "Live Event Mode" enabled first.
                   </p>
                   <Button onClick={() => navigate('/admin/create-competition')}>
@@ -667,17 +665,18 @@ export default function LiveEventHost() {
               ) : (
                 <>
                   <div>
-                    <label className="block text-sm font-medium mb-2">
+                    <label className="block text-sm font-medium text-white/70 mb-2">
                       Select Competition
                     </label>
                     <select
                       value={selectedCompetition}
                       onChange={(e) => setSelectedCompetition(e.target.value)}
-                      className="w-full px-3 py-2 border rounded-lg"
+                      className="w-full px-3 py-2 rounded-lg text-white"
+                      style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}
                     >
-                      <option value="">-- Select a competition --</option>
+                      <option value="" style={{ background: '#1e0a3c' }}>-- Select a competition --</option>
                       {competitions.map((comp) => (
-                        <option key={comp.id} value={comp.id}>
+                        <option key={comp.id} value={comp.id} style={{ background: '#1e0a3c' }}>
                           {comp.title} ({comp.questionCount} questions)
                         </option>
                       ))}
@@ -719,28 +718,28 @@ export default function LiveEventHost() {
                       />
                     </div>
                     <div className="mt-4">
-                      <p className="text-sm text-gray-600 mb-1">PIN Code</p>
-                      <p className="text-5xl font-bold text-purple-600 tracking-wider">
+                      <p className="text-sm text-white/50 mb-1">PIN Code</p>
+                      <p className="text-5xl font-bold text-purple-400 tracking-wider">
                         {event.pin}
                       </p>
                     </div>
                   </div>
-                  
-                  <div className="pt-4 border-t">
+
+                  <div className="pt-4 border-t border-white/10">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-gray-600">Status</span>
+                      <span className="text-sm text-white/50">Status</span>
                       <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                        event.status === 'lobby' ? 'bg-blue-100 text-blue-800' :
-                        event.status === 'active' ? 'bg-green-100 text-green-800' :
-                        event.status === 'paused' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-gray-100 text-gray-800'
+                        event.status === 'lobby' ? 'bg-blue-500/20 text-blue-300' :
+                        event.status === 'active' ? 'bg-green-500/20 text-green-300' :
+                        event.status === 'paused' ? 'bg-yellow-500/20 text-yellow-300' :
+                        'bg-white/10 text-white/60'
                       }`}>
                         {event.status.toUpperCase()}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Phase</span>
-                      <span className="font-semibold">{event.phase}</span>
+                      <span className="text-sm text-white/50">Phase</span>
+                      <span className="font-semibold text-white">{event.phase}</span>
                     </div>
                   </div>
                 </CardContent>
@@ -748,11 +747,11 @@ export default function LiveEventHost() {
               
               <Card>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
+                  <CardTitle className="flex items-center gap-2 text-white">
                     <Users className="h-5 w-5" />
                     Participants ({participants.filter(p => p.isActive).length}/{event.maxParticipants})
                     {participants.filter(p => p.isActive).length >= event.maxParticipants && (
-                      <span className="ml-2 px-2 py-1 bg-yellow-100 text-yellow-800 text-xs font-bold rounded-full animate-pulse">
+                      <span className="ml-2 px-2 py-1 bg-yellow-500/20 text-yellow-300 text-xs font-bold rounded-full animate-pulse">
                         FULL
                       </span>
                     )}
@@ -761,18 +760,19 @@ export default function LiveEventHost() {
                 <CardContent>
                   <div className="max-h-64 overflow-y-auto space-y-2">
                     {participants.length === 0 ? (
-                      <p className="text-sm text-gray-500 text-center py-4">
+                      <p className="text-sm text-white/40 text-center py-4">
                         No participants yet
                       </p>
                     ) : (
                       participants.map((p) => (
                         <div
                           key={p.sessionId}
-                          className="flex items-center justify-between p-2 bg-gray-50 rounded"
+                          className="flex items-center justify-between p-2 rounded"
+                          style={{ background: 'rgba(255,255,255,0.05)' }}
                         >
-                          <span className="font-medium">{p.name}</span>
+                          <span className="font-medium text-white">{p.name}</span>
                           <span className={`text-xs px-2 py-1 rounded ${
-                            p.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'
+                            p.isActive ? 'bg-green-500/20 text-green-300' : 'bg-white/10 text-white/40'
                           }`}>
                             {p.isActive ? 'Active' : 'Inactive'}
                           </span>
@@ -788,7 +788,7 @@ export default function LiveEventHost() {
             <div className="lg:col-span-2 space-y-6">
               <Card>
                 <CardHeader>
-                  <CardTitle>Host Controls</CardTitle>
+                  <CardTitle className="text-white">Host Controls</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
@@ -796,12 +796,12 @@ export default function LiveEventHost() {
                       <>
                         {/* Big Participant Counter */}
                         <div className="col-span-2 mb-6">
-                          <div className="bg-gradient-to-br from-purple-100 to-pink-100 rounded-2xl p-8 text-center border-4 border-purple-300">
-                            <p className="text-lg text-gray-600 mb-2">Participants Joined</p>
-                            <div className="text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-600 to-pink-600 mb-2 animate-pulse">
+                          <div className="rounded-2xl p-8 text-center" style={{ background: 'rgba(124,58,237,0.15)', border: '2px solid rgba(124,58,237,0.4)' }}>
+                            <p className="text-lg text-white/60 mb-2">Participants Joined</p>
+                            <div className="text-8xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400 mb-2 animate-pulse">
                               {participants.filter(p => p.isActive).length}
                             </div>
-                            <p className="text-2xl text-gray-500">
+                            <p className="text-2xl text-white/40">
                               of {event.maxParticipants} maximum
                             </p>
                             {participants.filter(p => p.isActive).length >= event.maxParticipants && (
@@ -894,13 +894,13 @@ export default function LiveEventHost() {
                       <div className="col-span-2 space-y-4">
                         <div className="text-center py-8">
                           <Trophy className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
-                          <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                          <h3 className="text-2xl font-bold text-white mb-2">
                             🎉 Game Completed! 🎉
                           </h3>
-                          <p className="text-gray-600 mb-4">
+                          <p className="text-white/60 mb-4">
                             Results are displayed on the projector view.
                           </p>
-                          <p className="text-sm text-gray-500">
+                          <p className="text-sm text-white/40">
                             Delete this game to create a new one from your templates.
                           </p>
                         </div>

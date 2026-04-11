@@ -129,10 +129,10 @@ export default function PracticeResults() {
   
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 flex items-center justify-center p-4">
+      <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 50%, #0a1628 100%)' }}>
         <div className="text-center">
-          <Target className="h-12 w-12 text-purple-600 animate-spin mx-auto mb-4" />
-          <p className="text-lg text-gray-700">Loading results...</p>
+          <Target className="h-12 w-12 text-purple-400 animate-spin mx-auto mb-4" />
+          <p className="text-lg text-white/60">Loading results...</p>
         </div>
       </div>
     );
@@ -151,62 +151,62 @@ export default function PracticeResults() {
   const isImproved = allAttempts.length > 1 && attempt.score > allAttempts[allAttempts.length - 2].score;
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100">
+    <div className="min-h-screen" style={{ background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 50%, #0a1628 100%)' }}>
       {/* Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-6 shadow-lg">
+      <div className="p-6" style={{ background: 'rgba(124,58,237,0.2)', borderBottom: '1px solid rgba(124,58,237,0.3)' }}>
         <div className="max-w-4xl mx-auto text-center">
-          <Target className="h-16 w-16 mx-auto mb-4" />
-          <h1 className="text-3xl font-bold mb-2">Practice Complete!</h1>
-          <p className="text-purple-100">{session.title}</p>
+          <Target className="h-16 w-16 mx-auto mb-4 text-purple-400" />
+          <h1 className="text-3xl font-bold mb-2 text-white">Practice Complete!</h1>
+          <p className="text-purple-300">{session.title}</p>
         </div>
       </div>
-      
+
       <div className="max-w-4xl mx-auto p-4 space-y-6">
         {/* Score Summary */}
-        <Card className="border-2 border-purple-200">
+        <Card>
           <CardContent className="pt-6">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-center">
               <div>
-                <p className="text-sm text-gray-600 mb-2">Your Score</p>
-                <p className="text-5xl font-bold text-green-600">{attempt.score}%</p>
-                <p className="text-sm text-gray-600 mt-2">
+                <p className="text-sm text-white/50 mb-2">Your Score</p>
+                <p className="text-5xl font-bold text-green-400">{attempt.score}%</p>
+                <p className="text-sm text-white/50 mt-2">
                   {attempt.correctAnswers}/{attempt.totalQuestions} correct
                 </p>
               </div>
-              
+
               <div>
-                <p className="text-sm text-gray-600 mb-2">Your Rank</p>
-                <p className="text-5xl font-bold text-purple-600">#{myRank}</p>
-                <p className="text-sm text-gray-600 mt-2">
+                <p className="text-sm text-white/50 mb-2">Your Rank</p>
+                <p className="text-5xl font-bold text-purple-400">#{myRank}</p>
+                <p className="text-sm text-white/50 mt-2">
                   Attempt {allAttempts.length}
                 </p>
               </div>
-              
+
               <div>
-                <p className="text-sm text-gray-600 mb-2">Average Score</p>
-                <p className="text-5xl font-bold text-blue-600">{averageScore}%</p>
+                <p className="text-sm text-white/50 mb-2">Average Score</p>
+                <p className="text-5xl font-bold text-blue-400">{averageScore}%</p>
                 {isNewBest && allAttempts.length > 1 && (
-                  <p className="text-sm text-green-600 font-semibold mt-2">
+                  <p className="text-sm text-green-400 font-semibold mt-2">
                     🎉 Above Your Average!
                   </p>
                 )}
               </div>
             </div>
-            
+
             {isImproved && !isNewBest && (
-              <div className="mt-6 bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-                <TrendingUp className="h-6 w-6 text-green-600 mx-auto mb-2" />
-                <p className="text-green-800 font-semibold">
+              <div className="mt-6 rounded-lg p-4 text-center" style={{ background: 'rgba(34,197,94,0.15)', border: '1px solid rgba(34,197,94,0.3)' }}>
+                <TrendingUp className="h-6 w-6 text-green-400 mx-auto mb-2" />
+                <p className="text-green-300 font-semibold">
                   Great job! You improved from your last attempt!
                 </p>
               </div>
             )}
-            
+
             {improvement > 0 && allAttempts.length > 1 && (
               <div className="mt-6 text-center">
-                <p className="text-sm text-gray-600">Overall Improvement</p>
-                <p className="text-3xl font-bold text-green-600">+{improvement}%</p>
-                <p className="text-xs text-gray-500">from first attempt</p>
+                <p className="text-sm text-white/50">Overall Improvement</p>
+                <p className="text-3xl font-bold text-green-400">+{improvement}%</p>
+                <p className="text-xs text-white/40">from first attempt</p>
               </div>
             )}
           </CardContent>
@@ -216,19 +216,19 @@ export default function PracticeResults() {
         {allAttempts.length > 1 && (
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-gray-900">
-                <TrendingUp className="h-5 w-5 text-green-600" />
+              <CardTitle className="flex items-center gap-2 text-white">
+                <TrendingUp className="h-5 w-5 text-green-400" />
                 Your Progress
               </CardTitle>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={200}>
                 <LineChart data={scoreHistory}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="attempt" label={{ value: 'Attempt', position: 'insideBottom', offset: -5 }} />
-                  <YAxis label={{ value: 'Score (%)', angle: -90, position: 'insideLeft' }} />
-                  <Tooltip />
-                  <Line type="monotone" dataKey="score" stroke="#10b981" strokeWidth={2} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                  <XAxis dataKey="attempt" label={{ value: 'Attempt', position: 'insideBottom', offset: -5 }} tick={{ fill: 'rgba(255,255,255,0.5)' }} />
+                  <YAxis label={{ value: 'Score (%)', angle: -90, position: 'insideLeft' }} tick={{ fill: 'rgba(255,255,255,0.5)' }} />
+                  <Tooltip contentStyle={{ background: '#1e0a3c', border: '1px solid rgba(255,255,255,0.2)', color: 'white' }} />
+                  <Line type="monotone" dataKey="score" stroke="#34d399" strokeWidth={2} />
                 </LineChart>
               </ResponsiveContainer>
             </CardContent>
@@ -239,60 +239,60 @@ export default function PracticeResults() {
         {session.settings.showExplanations && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-gray-900">Question Review</CardTitle>
+              <CardTitle className="text-white">Question Review</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {competition.questions.map((question: any, idx: number) => {
                 const answer = attempt.answers[idx];
                 if (!answer) return null;
-                
-                const wasIncorrectBefore = allAttempts.length > 1 && 
+
+                const wasIncorrectBefore = allAttempts.length > 1 &&
                   allAttempts.slice(0, -1).some(a => a.answers[idx] && !a.answers[idx].isCorrect);
-                
+
                 return (
                   <div
                     key={idx}
-                    className={`p-4 rounded-lg border-2 ${
-                      answer.isCorrect
-                        ? 'bg-green-50 border-green-200'
-                        : 'bg-red-50 border-red-200'
-                    }`}
+                    className="p-4 rounded-lg"
+                    style={{
+                      background: answer.isCorrect ? 'rgba(34,197,94,0.1)' : 'rgba(239,68,68,0.1)',
+                      border: `1.5px solid ${answer.isCorrect ? 'rgba(34,197,94,0.3)' : 'rgba(239,68,68,0.3)'}`
+                    }}
                   >
                     <div className="flex items-start gap-3 mb-3">
                       {answer.isCorrect ? (
-                        <CheckCircle className="h-6 w-6 text-green-600 flex-shrink-0 mt-1" />
+                        <CheckCircle className="h-6 w-6 text-green-400 flex-shrink-0 mt-1" />
                       ) : (
-                        <XCircle className="h-6 w-6 text-red-600 flex-shrink-0 mt-1" />
+                        <XCircle className="h-6 w-6 text-red-400 flex-shrink-0 mt-1" />
                       )}
                       <div className="flex-1">
-                        <p className="font-semibold text-gray-900 mb-2">
+                        <p className="font-semibold text-white mb-2">
                           Question {idx + 1}: {question.question}
                         </p>
-                        
+
                         {!answer.isCorrect && (
                           <div className="mb-2">
-                            <p className="text-sm text-red-800">
+                            <p className="text-sm text-red-300">
                               Your answer: <span className="font-semibold">{answer.selectedAnswer}</span>
                             </p>
                           </div>
                         )}
-                        
+
                         <div className="mb-2">
-                          <p className="text-sm text-green-800">
+                          <p className="text-sm text-green-300">
                             Correct answer: <span className="font-semibold">{answer.correctAnswer}</span>
                           </p>
                         </div>
-                        
+
                         {question.explanation && (
-                          <div className="mt-3 p-3 bg-white rounded border border-gray-200">
-                            <p className="text-sm text-gray-800">
-                              <span className="font-semibold text-gray-900">Explanation:</span> {question.explanation}
+                          <div className="mt-3 p-3 rounded" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
+                            <p className="text-sm text-white/70">
+                              <span className="font-semibold text-white">Explanation:</span> {question.explanation}
                             </p>
                           </div>
                         )}
-                        
+
                         {wasIncorrectBefore && answer.isCorrect && (
-                          <div className="mt-2 text-sm text-green-700 font-semibold">
+                          <div className="mt-2 text-sm text-green-400 font-semibold">
                             ✨ You got this right this time!
                           </div>
                         )}
@@ -309,52 +309,49 @@ export default function PracticeResults() {
         {session.settings.showLeaderboard && (
           <Card id="leaderboard">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-gray-900">
-                <Trophy className="h-5 w-5 text-yellow-600" />
+              <CardTitle className="flex items-center gap-2 text-white">
+                <Trophy className="h-5 w-5 text-yellow-400" />
                 Leaderboard (Top 20)
               </CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto">
                 {leaderboard.length === 0 ? (
-                  <p className="text-sm text-gray-500 text-center py-8">
+                  <p className="text-sm text-white/40 text-center py-8">
                     No other participants yet.
                   </p>
                 ) : (
                   <table className="w-full">
-                    <thead className="bg-gray-50">
+                    <thead style={{ background: 'rgba(255,255,255,0.05)' }}>
                       <tr>
-                        <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Attempts</th>
-                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Worst Score</th>
-                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Best Score</th>
-                        <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Last Score</th>
+                        <th className="px-4 py-2 text-left text-xs font-medium text-white/50 uppercase">Name</th>
+                        <th className="px-4 py-2 text-center text-xs font-medium text-white/50 uppercase">Attempts</th>
+                        <th className="px-4 py-2 text-center text-xs font-medium text-white/50 uppercase">Worst</th>
+                        <th className="px-4 py-2 text-center text-xs font-medium text-white/50 uppercase">Best</th>
+                        <th className="px-4 py-2 text-center text-xs font-medium text-white/50 uppercase">Last</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200">
+                    <tbody className="divide-y divide-white/5">
                       {leaderboard.slice(0, 20).map((entry) => (
-                        <tr 
-                          key={entry.name} 
-                          className={`${
-                            entry.name === attempt.studentName
-                              ? 'bg-green-100 hover:bg-green-200'
-                              : 'hover:bg-gray-50'
-                          }`}
+                        <tr
+                          key={entry.name}
+                          style={entry.name === attempt.studentName ? { background: 'rgba(34,197,94,0.12)' } : undefined}
+                          className="hover:bg-white/5"
                         >
-                          <td className="px-4 py-3 font-medium text-gray-900">
+                          <td className="px-4 py-3 font-medium text-white">
                             {entry.name}
-                            {entry.name === attempt.studentName && ' (You)'}
+                            {entry.name === attempt.studentName && <span className="text-green-400 ml-1">(You)</span>}
                           </td>
-                          <td className="px-4 py-3 text-center text-gray-600">
+                          <td className="px-4 py-3 text-center text-white/60">
                             {entry.attemptCount}
                           </td>
-                          <td className="px-4 py-3 text-center font-semibold text-red-600">
+                          <td className="px-4 py-3 text-center font-semibold text-red-400">
                             {entry.worstScore}%
                           </td>
-                          <td className="px-4 py-3 text-center font-bold text-green-600">
+                          <td className="px-4 py-3 text-center font-bold text-green-400">
                             {entry.bestScore}%
                           </td>
-                          <td className="px-4 py-3 text-center font-semibold text-indigo-600">
+                          <td className="px-4 py-3 text-center font-semibold text-purple-400">
                             {entry.lastScore}%
                           </td>
                         </tr>
@@ -381,7 +378,7 @@ export default function PracticeResults() {
             <Button
               onClick={handleViewLeaderboard}
               variant="outline"
-              className="flex-1 font-bold text-lg py-6 text-gray-900 border-gray-300 hover:bg-gray-100"
+              className="flex-1 font-bold text-lg py-6 text-white border-white/20 hover:bg-white/10"
             >
               <Trophy className="h-5 w-5 mr-2" />
               View Leaderboard

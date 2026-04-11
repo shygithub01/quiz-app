@@ -172,21 +172,21 @@ export default function PracticeTeacherDashboard() {
   
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 50%, #0a1628 100%)' }}>
         <div className="text-center">
-          <Target className="h-12 w-12 text-indigo-600 animate-spin mx-auto mb-4" />
-          <p className="text-gray-600">Loading dashboard...</p>
+          <Target className="h-12 w-12 text-purple-400 animate-spin mx-auto mb-4" />
+          <p className="text-white/50">Loading dashboard...</p>
         </div>
       </div>
     );
   }
-  
+
   if (error || !session) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 50%, #0a1628 100%)' }}>
         <div className="text-center">
-          <Target className="h-12 w-12 text-red-600 mx-auto mb-4" />
-          <p className="text-gray-600 mb-4">{error || 'Session not found'}</p>
+          <Target className="h-12 w-12 text-red-400 mx-auto mb-4" />
+          <p className="text-white/60 mb-4">{error || 'Session not found'}</p>
           <Button onClick={() => navigate('/admin/competitions')}>
             Back to Competitions
           </Button>
@@ -194,9 +194,9 @@ export default function PracticeTeacherDashboard() {
       </div>
     );
   }
-  
+
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen p-6" style={{ background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 50%, #0a1628 100%)' }}>
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 rounded-xl shadow-xl">
@@ -223,7 +223,7 @@ export default function PracticeTeacherDashboard() {
           <div className="lg:col-span-1 space-y-6">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-white">
                   <QrCode className="h-5 w-5" />
                   Session Details
                 </CardTitle>
@@ -240,8 +240,8 @@ export default function PracticeTeacherDashboard() {
                     />
                   </div>
                   <div className="mt-4">
-                    <p className="text-sm text-gray-600 mb-1">PIN Code</p>
-                    <p className="text-5xl font-bold text-indigo-600 tracking-wider">
+                    <p className="text-sm text-white/50 mb-1">PIN Code</p>
+                    <p className="text-5xl font-bold text-purple-400 tracking-wider">
                       {session.pin}
                     </p>
                   </div>
@@ -268,25 +268,25 @@ export default function PracticeTeacherDashboard() {
                   </div>
                 </div>
                 
-                <div className="pt-4 border-t">
+                <div className="pt-4 border-t border-white/10">
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-gray-600">Status</span>
+                    <span className="text-sm text-white/50">Status</span>
                     <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                      session.status === 'active' ? 'bg-green-100 text-green-800' :
-                      'bg-gray-100 text-gray-800'
+                      session.status === 'active' ? 'bg-green-500/20 text-green-300' :
+                      'bg-white/10 text-white/60'
                     }`}>
                       {session.status.toUpperCase()}
                     </span>
                   </div>
                   <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-gray-600">Created</span>
-                    <span className="text-sm font-medium">
+                    <span className="text-sm text-white/50">Created</span>
+                    <span className="text-sm font-medium text-white">
                       {new Date(session.createdAt).toLocaleDateString()}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm text-gray-600">Ends</span>
-                    <span className="text-sm font-medium">
+                    <span className="text-sm text-white/50">Ends</span>
+                    <span className="text-sm font-medium text-white">
                       {new Date(session.endDate).toLocaleDateString()}
                     </span>
                   </div>
@@ -309,48 +309,48 @@ export default function PracticeTeacherDashboard() {
             {/* Real-time Statistics */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-white">
                   <BarChart3 className="h-5 w-5" />
                   Statistics
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                <div className="flex items-center justify-between p-3 rounded-lg" style={{ background: 'rgba(59,130,246,0.15)' }}>
                   <div className="flex items-center gap-2">
-                    <Users className="h-5 w-5 text-blue-600" />
-                    <span className="text-sm font-medium text-gray-700">Total Students</span>
+                    <Users className="h-5 w-5 text-blue-400" />
+                    <span className="text-sm font-medium text-white/70">Total Students</span>
                   </div>
-                  <span className="text-2xl font-bold text-blue-600">
+                  <span className="text-2xl font-bold text-blue-400">
                     {analytics?.totalStudents || 0}
                   </span>
                 </div>
-                
-                <div className="flex items-center justify-between p-3 bg-green-50 rounded-lg">
+
+                <div className="flex items-center justify-between p-3 rounded-lg" style={{ background: 'rgba(34,197,94,0.15)' }}>
                   <div className="flex items-center gap-2">
-                    <Target className="h-5 w-5 text-green-600" />
-                    <span className="text-sm font-medium text-gray-700">Total Attempts</span>
+                    <Target className="h-5 w-5 text-green-400" />
+                    <span className="text-sm font-medium text-white/70">Total Attempts</span>
                   </div>
-                  <span className="text-2xl font-bold text-green-600">
+                  <span className="text-2xl font-bold text-green-400">
                     {analytics?.totalAttempts || 0}
                   </span>
                 </div>
-                
-                <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg">
+
+                <div className="flex items-center justify-between p-3 rounded-lg" style={{ background: 'rgba(124,58,237,0.15)' }}>
                   <div className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-purple-600" />
-                    <span className="text-sm font-medium text-gray-700">Average Score</span>
+                    <TrendingUp className="h-5 w-5 text-purple-400" />
+                    <span className="text-sm font-medium text-white/70">Average Score</span>
                   </div>
-                  <span className="text-2xl font-bold text-purple-600">
+                  <span className="text-2xl font-bold text-purple-400">
                     {analytics?.averageScore ? analytics.averageScore.toFixed(1) : '0.0'}%
                   </span>
                 </div>
-                
-                <div className="flex items-center justify-between p-3 bg-orange-50 rounded-lg">
+
+                <div className="flex items-center justify-between p-3 rounded-lg" style={{ background: 'rgba(249,115,22,0.15)' }}>
                   <div className="flex items-center gap-2">
-                    <Clock className="h-5 w-5 text-orange-600" />
-                    <span className="text-sm font-medium text-gray-700">Avg Attempts</span>
+                    <Clock className="h-5 w-5 text-orange-400" />
+                    <span className="text-sm font-medium text-white/70">Avg Attempts</span>
                   </div>
-                  <span className="text-2xl font-bold text-orange-600">
+                  <span className="text-2xl font-bold text-orange-400">
                     {analytics?.averageAttempts ? analytics.averageAttempts.toFixed(1) : '0.0'}
                   </span>
                 </div>
@@ -363,7 +363,7 @@ export default function PracticeTeacherDashboard() {
             {/* Leaderboard */}
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+                <CardTitle className="flex items-center gap-2 text-white">
                   <Users className="h-5 w-5" />
                   Leaderboard (Top 20)
                 </CardTitle>
@@ -371,34 +371,34 @@ export default function PracticeTeacherDashboard() {
               <CardContent>
                 <div className="max-h-96 overflow-y-auto">
                   {leaderboard.length === 0 ? (
-                    <p className="text-sm text-gray-500 text-center py-8">
+                    <p className="text-sm text-white/40 text-center py-8">
                       No attempts yet. Students will appear here after completing their first attempt.
                     </p>
                   ) : (
                     <table className="w-full">
-                      <thead className="bg-gray-50 sticky top-0">
+                      <thead className="sticky top-0" style={{ background: 'rgba(255,255,255,0.05)' }}>
                         <tr>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                          <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Attempts</th>
-                          <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Worst Score</th>
-                          <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Best Score</th>
-                          <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 uppercase">Last Score</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium text-white/50 uppercase">Name</th>
+                          <th className="px-4 py-2 text-center text-xs font-medium text-white/50 uppercase">Attempts</th>
+                          <th className="px-4 py-2 text-center text-xs font-medium text-white/50 uppercase">Worst</th>
+                          <th className="px-4 py-2 text-center text-xs font-medium text-white/50 uppercase">Best</th>
+                          <th className="px-4 py-2 text-center text-xs font-medium text-white/50 uppercase">Last</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-200">
+                      <tbody className="divide-y divide-white/5">
                         {leaderboard.slice(0, 20).map((entry) => (
-                          <tr key={entry.name} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 font-medium">{entry.name}</td>
-                            <td className="px-4 py-3 text-center text-gray-600">
+                          <tr key={entry.name} className="hover:bg-white/5">
+                            <td className="px-4 py-3 font-medium text-white">{entry.name}</td>
+                            <td className="px-4 py-3 text-center text-white/60">
                               {entry.attemptCount}
                             </td>
-                            <td className="px-4 py-3 text-center font-semibold text-red-600">
+                            <td className="px-4 py-3 text-center font-semibold text-red-400">
                               {entry.worstScore}%
                             </td>
-                            <td className="px-4 py-3 text-center font-bold text-green-600">
+                            <td className="px-4 py-3 text-center font-bold text-green-400">
                               {entry.bestScore}%
                             </td>
-                            <td className="px-4 py-3 text-center font-semibold text-indigo-600">
+                            <td className="px-4 py-3 text-center font-semibold text-purple-400">
                               {entry.lastScore}%
                             </td>
                           </tr>
