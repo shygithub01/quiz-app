@@ -7,7 +7,7 @@ import { collection, getDocs, Timestamp, addDoc } from 'firebase/firestore';
 import { db } from '../components/ui/firebase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Brain, Edit, Plus, Zap, Target, X, Trophy, Clock } from 'lucide-react';
+import { Brain, Edit, Plus, Zap, Target, X, Trophy, Clock, AlertTriangle } from 'lucide-react';
 
 export default function AdminQuizTemplatesList() {
   const { user } = useAuth();
@@ -32,6 +32,9 @@ export default function AdminQuizTemplatesList() {
   const [shuffleQuestions, setShuffleQuestions] = useState(false);
   const [shuffleOptions, setShuffleOptions] = useState(true);
 
+  // Active event recovery
+  const [activeEvent, setActiveEvent] = useState<any>(null);
+
   useEffect(() => {
     checkAdminAndLoad();
   }, [user]);
@@ -41,6 +44,10 @@ export default function AdminQuizTemplatesList() {
     const adminStatus = await isAdmin(user.uid);
     if (!adminStatus) { alert('Access denied. Admin privileges required.'); navigate('/'); return; }
     await loadTemplates();
+    // Check for an active live event so the host can recover after a crash
+    const { getActiveEvent } = await import('@/services/liveEventService');
+    const running = await getActiveEvent();
+    if (running) setActiveEvent(running);
   };
 
   const loadTemplates = async () => {
@@ -224,6 +231,32 @@ export default function AdminQuizTemplatesList() {
 
   return (
     <div className="w-full space-y-4">
+
+      {/* ── Active Event Recovery Banner ── */}
+      {activeEvent && (
+        <div className="flex items-center gap-4 rounded-2xl px-5 py-4"
+          style={{ background: 'rgba(234,179,8,0.15)', border: '1.5px solid rgba(234,179,8,0.4)' }}>
+          <AlertTriangle className="h-6 w-6 text-yellow-400 flex-shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="font-bold text-yellow-300 text-sm">Live Event In Progress</p>
+            <p className="text-yellow-200/70 text-xs mt-0.5">
+              PIN <span className="font-black tracking-widest">{activeEvent.pin}</span>
+              {' · '}
+              {activeEvent.status === 'lobby' ? 'Waiting in lobby'
+                : activeEvent.status === 'paused' ? 'Paused'
+                : `Question ${(activeEvent.currentQuestionIndex ?? 0) + 1} · ${activeEvent.phase}`}
+            </p>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => navigate(`/live-event/${activeEvent.id}/host`)}
+            className="bg-yellow-400 hover:bg-yellow-300 text-yellow-900 font-bold flex-shrink-0"
+          >
+            Resume Host Control
+          </Button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>

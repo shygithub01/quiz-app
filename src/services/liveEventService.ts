@@ -10,7 +10,7 @@ import {
   onValue,
   off,
   onDisconnect,
-  runTransaction
+  increment
 } from 'firebase/database';
 import { realtimeDb } from '../components/ui/firebase';
 import { 
@@ -155,6 +155,27 @@ export async function createLiveEvent(
 }
 
 /**
+ * Get the currently active event (lobby / active / paused), if any.
+ * Used by the admin page to show a "Resume" banner after a crash.
+ */
+export async function getActiveEvent(): Promise<LiveEvent | null> {
+  try {
+    const snapshot = await get(ref(realtimeDb, 'liveEvents'));
+    if (!snapshot.exists()) return null;
+    const events = snapshot.val();
+    const activeEntry = Object.entries(events).find(([_, e]: [string, any]) =>
+      e.status === 'lobby' || e.status === 'active' || e.status === 'paused'
+    );
+    if (!activeEntry) return null;
+    const [eventId, eventData] = activeEntry;
+    return { id: eventId, ...(eventData as object) } as LiveEvent;
+  } catch (error) {
+    console.error('Error getting active event:', error);
+    return null;
+  }
+}
+
+/**
  * Check if there are any active events
  */
 export async function checkActiveEvents(): Promise<boolean> {
@@ -286,7 +307,8 @@ export async function deleteEvent(eventId: string): Promise<void> {
       { name: 'liveEvents', path: `liveEvents/${eventId}` },
       { name: 'eventParticipants', path: `eventParticipants/${eventId}` },
       { name: 'eventAnswers', path: `eventAnswers/${eventId}` },
-      { name: 'eventLeaderboard', path: `eventLeaderboard/${eventId}` }
+      { name: 'eventLeaderboard', path: `eventLeaderboard/${eventId}` },
+      { name: 'eventAnswerCounts', path: `eventAnswerCounts/${eventId}` }
     ];
     
     // Delete each path with error handling
@@ -353,26 +375,21 @@ export async function joinEvent(
       throw new Error('Event has already started');
     }
     
-    // Atomically check + increment participant count to prevent race condition
-    // when many users join simultaneously
-    const counterRef = ref(realtimeDb, `liveEvents/${eventId}/participantCount`);
-    const { committed } = await runTransaction(counterRef, (currentCount) => {
-      const count = currentCount ?? 0;
-      if (count >= event.maxParticipants) {
-        return; // Abort — event is full
-      }
-      return count + 1;
-    });
+    // Count current participants directly — simpler and no corruption risk.
+    // The old transaction counter never decremented when onDisconnect fired,
+    // causing "Event is full" errors even with few real participants.
+    const participantsSnapshot = await get(ref(realtimeDb, `eventParticipants/${eventId}`));
+    const currentCount = participantsSnapshot.exists()
+      ? Object.keys(participantsSnapshot.val()).length
+      : 0;
 
-    if (!committed) {
+    if (currentCount >= event.maxParticipants) {
       throw new Error('Event is full');
     }
 
     // Check name uniqueness
     const isUnique = await validateNameUniqueness(eventId, name);
     if (!isUnique) {
-      // Roll back the counter increment since we won't actually join
-      await runTransaction(counterRef, (count) => Math.max(0, (count ?? 1) - 1));
       throw new Error('Name is already taken');
     }
 
@@ -434,6 +451,26 @@ export async function removeParticipant(
 }
 
 /**
+ * Reactivate a participant who was marked inactive by onDisconnect
+ * Called when a participant's page reloads after a brief connection drop
+ */
+export async function reactivateParticipant(
+  eventId: string,
+  sessionId: string
+): Promise<void> {
+  try {
+    await update(ref(realtimeDb, `eventParticipants/${eventId}/${sessionId}`), {
+      isActive: true,
+      lastSeen: Date.now()
+    });
+    console.log('✅ Participant reactivated:', sessionId);
+  } catch (error) {
+    console.error('❌ Error reactivating participant:', error);
+    // Don't throw — reactivation failure shouldn't break the participant's view
+  }
+}
+
+/**
  * Setup automatic participant removal on disconnect (for lobby phase)
  * Uses Firebase's onDisconnect() to reliably remove participant when browser closes
  */
@@ -444,8 +481,9 @@ export async function setupParticipantDisconnectHandler(
   try {
     const participantRef = ref(realtimeDb, `eventParticipants/${eventId}/${sessionId}`);
     
-    // Set up onDisconnect handler - this will automatically execute when connection is lost
-    await onDisconnect(participantRef).remove();
+    // Set up onDisconnect handler - marks inactive instead of deleting,
+    // so the participant can reconnect and rejoin without losing their slot
+    await onDisconnect(participantRef).update({ isActive: false });
     
     console.log('✅ Disconnect handler set up for participant:', sessionId);
   } catch (error) {
@@ -508,18 +546,23 @@ export async function submitAnswer(
 ): Promise<void> {
   try {
     const answerRef = ref(
-      realtimeDb, 
+      realtimeDb,
       `eventAnswers/${eventId}/${sessionId}/${questionIndex}`
     );
-    
+
     const answerData: ParticipantAnswer = {
       answer,
       timestamp: Date.now(),
       timeToAnswer
     };
-    
-    // Use set to allow updates (overwrites existing answer)
+
+    // The participant UI locks after first answer (hasAnswered flag), so
+    // submitAnswer is only ever called once per question — always increment.
     await set(answerRef, answerData);
+    await update(ref(realtimeDb, `eventAnswerCounts/${eventId}`), {
+      [questionIndex]: increment(1)
+    });
+
     console.log('✅ Answer submitted:', sessionId, questionIndex);
   } catch (error) {
     console.error('❌ Error submitting answer:', error);
@@ -682,33 +725,25 @@ export function listenToLeaderboard(
 }
 
 /**
- * Listen to answer count for current question
+ * Listen to answer count for current question.
+ *
+ * Previously listened to the full eventAnswers node and iterated all sessions
+ * on every change — fired 100 times per question with 100 users and scanned
+ * a growing object each time. Now listens to a single integer counter that
+ * submitAnswer increments atomically, so only one tiny value travels the wire.
  */
 export function listenToAnswerCount(
   eventId: string,
   questionIndex: number,
   callback: (count: number) => void
 ): () => void {
-  const answersRef = ref(realtimeDb, `eventAnswers/${eventId}`);
-  
-  onValue(answersRef, (snapshot) => {
-    if (snapshot.exists()) {
-      const allAnswers = snapshot.val();
-      let count = 0;
-      
-      Object.values(allAnswers).forEach((sessionAnswers: any) => {
-        if (sessionAnswers[questionIndex]) {
-          count++;
-        }
-      });
-      
-      callback(count);
-    } else {
-      callback(0);
-    }
+  const countRef = ref(realtimeDb, `eventAnswerCounts/${eventId}/${questionIndex}`);
+
+  onValue(countRef, (snapshot) => {
+    callback(snapshot.exists() ? (snapshot.val() as number) : 0);
   });
-  
-  return () => off(answersRef);
+
+  return () => off(countRef);
 }
 
 
@@ -832,7 +867,14 @@ async function calculateFastestFingerBonus(
 }
 
 /**
- * Calculate and update leaderboard for all participants
+ * Calculate and update leaderboard for all participants.
+ *
+ * Previously made O(N × M) Firebase reads (N participants × M questions × 2 reads
+ * each for fastest-finger bonus, plus 1 event read per participant in a loop).
+ * With 100 users and 10 questions that was ~2 000 reads per question advance.
+ *
+ * Now does exactly 3 parallel reads regardless of participant or question count,
+ * then calculates everything in memory before writing one batch update.
  */
 export async function calculateLeaderboard(
   eventId: string,
@@ -840,98 +882,91 @@ export async function calculateLeaderboard(
   enableFastestFingerBonus: boolean
 ): Promise<void> {
   try {
-    // Handle missing or invalid questions gracefully
     if (!questions || !Array.isArray(questions)) {
       console.warn('⚠️ Questions is not a valid array, using empty array');
       questions = [];
     }
-    
-    if (questions.length === 0) {
-      console.warn('⚠️ No questions available, leaderboard will be based on participation only');
-    }
-    
+
     console.log('✅ Calculating leaderboard with', questions.length, 'questions');
-    
-    // Get all participants
-    const participantsRef = ref(realtimeDb, `eventParticipants/${eventId}`);
-    const participantsSnapshot = await get(participantsRef);
-    
-    if (!participantsSnapshot.exists()) {
-      return;
-    }
-    
+
+    // ── 3 reads in parallel, regardless of participant / question count ──
+    const [participantsSnapshot, allAnswersSnapshot, eventSnapshot] = await Promise.all([
+      get(ref(realtimeDb, `eventParticipants/${eventId}`)),
+      get(ref(realtimeDb, `eventAnswers/${eventId}`)),
+      get(ref(realtimeDb, `liveEvents/${eventId}`))
+    ]);
+
+    if (!participantsSnapshot.exists()) return;
+
     const participants = participantsSnapshot.val();
-    
-    // Calculate scores for all participants
-    const scores: Array<{
-      sessionId: string;
-      name: string;
-      score: number;
-      correctAnswers: number;
-      fastestFingerBonus: number;
-      totalTime: number;
-    }> = [];
-    
-    for (const [sessionId, participant] of Object.entries(participants) as [string, any][]) {
-      const { score, correctAnswers, fastestFingerBonus } = await calculateScore(
-        eventId,
-        sessionId,
-        questions,
-        enableFastestFingerBonus
-      );
-      
-      // Calculate total time to answer (sum of timeToAnswer for all questions)
-      const answersRef = ref(realtimeDb, `eventAnswers/${eventId}/${sessionId}`);
-      const answersSnapshot = await get(answersRef);
-      
+    const allAnswers = allAnswersSnapshot.exists() ? allAnswersSnapshot.val() : {};
+    const timerDuration = eventSnapshot.exists()
+      ? (eventSnapshot.val().timerDuration || 30)
+      : 30;
+
+    // ── Build fastest-finger top-3 per question entirely in memory ──
+    const fastestByQuestion: Record<number, string[]> = {};
+    if (enableFastestFingerBonus && questions.length > 0) {
+      for (let qi = 0; qi < questions.length; qi++) {
+        const correctTimes: { sessionId: string; timeToAnswer: number }[] = [];
+
+        Object.entries(allAnswers).forEach(([sid, sessionAnswers]: [string, any]) => {
+          const ans = sessionAnswers[qi];
+          if (ans && ans.answer === questions[qi].correctAnswer) {
+            correctTimes.push({ sessionId: sid, timeToAnswer: ans.timeToAnswer });
+          }
+        });
+
+        correctTimes.sort((a, b) => a.timeToAnswer - b.timeToAnswer);
+        fastestByQuestion[qi] = correctTimes.slice(0, 3).map(a => a.sessionId);
+      }
+    }
+
+    // ── Score every participant in memory ──
+    const scores = Object.entries(participants).map(([sessionId, participant]: [string, any]) => {
+      const sessionAnswers = allAnswers[sessionId] || {};
+      let score = 0;
+      let correctAnswers = 0;
+      let fastestFingerBonus = 0;
       let totalTime = 0;
       let answeredCount = 0;
-      
-      if (answersSnapshot.exists()) {
-        const answers = answersSnapshot.val();
-        Object.values(answers).forEach((answer: any) => {
-          totalTime += answer.timeToAnswer || 0;
-          answeredCount++;
-        });
+
+      for (let qi = 0; qi < questions.length; qi++) {
+        const ans = sessionAnswers[qi];
+        if (!ans) continue;
+
+        answeredCount++;
+        totalTime += ans.timeToAnswer || 0;
+
+        if (ans.answer === questions[qi].correctAnswer) {
+          score += 100;
+          correctAnswers++;
+
+          if (enableFastestFingerBonus) {
+            const rank = fastestByQuestion[qi]?.indexOf(sessionId) ?? -1;
+            if (rank === 0) { score += 50; fastestFingerBonus += 50; }
+            else if (rank === 1) { score += 30; fastestFingerBonus += 30; }
+            else if (rank === 2) { score += 10; fastestFingerBonus += 10; }
+          }
+        }
       }
-      
-      // Penalize unanswered questions by adding maximum time (timerDuration) for each missed question
-      const unansweredCount = questions.length - answeredCount;
-      if (unansweredCount > 0) {
-        // Get timer duration from event
-        const eventData = await getEventById(eventId);
-        const timerDuration = eventData?.timerDuration || 30;
-        totalTime += unansweredCount * timerDuration;
-      }
-      
-      console.log(`📊 ${participant.name}: score=${score}, answered=${answeredCount}/${questions.length}, totalTime=${totalTime.toFixed(2)}s`);
-      
-      scores.push({
-        sessionId,
-        name: participant.name,
-        score,
-        correctAnswers,
-        fastestFingerBonus,
-        totalTime
-      });
-    }
-    
-    // Sort by score (descending), then by total time (ascending)
-    // If both score and time are equal, they share the same rank
-    scores.sort((a, b) => {
-      if (b.score !== a.score) {
-        return b.score - a.score;
-      }
-      return a.totalTime - b.totalTime;
+
+      // Penalise unanswered questions
+      const unanswered = questions.length - answeredCount;
+      if (unanswered > 0) totalTime += unanswered * timerDuration;
+
+      console.log(`📊 ${participant.name}: score=${score}, answered=${answeredCount}/${questions.length}`);
+
+      return { sessionId, name: participant.name, score, correctAnswers, fastestFingerBonus, totalTime };
     });
-    
-    // Assign ranks and batch-write the entire leaderboard in one atomic update.
-    // This prevents the N-sequential-write race condition when 50-100 users
-    // all have their scores calculated simultaneously.
+
+    // ── Sort: highest score first, then fastest total time ──
+    scores.sort((a, b) => b.score !== a.score ? b.score - a.score : a.totalTime - b.totalTime);
+
+    // ── One atomic batch write for the entire leaderboard ──
     const now = Date.now();
     const leaderboardBatch: Record<string, LeaderboardEntry> = {};
-    for (let i = 0; i < scores.length; i++) {
-      const entry = scores[i];
+    scores.forEach((entry, i) => {
       leaderboardBatch[entry.sessionId] = {
         sessionId: entry.sessionId,
         name: entry.name,
@@ -942,9 +977,9 @@ export async function calculateLeaderboard(
         totalTime: entry.totalTime,
         lastUpdated: now
       };
-    }
+    });
+
     await update(ref(realtimeDb, `eventLeaderboard/${eventId}`), leaderboardBatch);
-    
     console.log('✅ Leaderboard calculated and updated for', scores.length, 'participants');
   } catch (error) {
     console.error('❌ Error calculating leaderboard:', error);
@@ -1015,6 +1050,68 @@ export async function autoAdvanceQuestion(
   }
 }
 
+
+/**
+ * Robustly auto-advance after the timer expires.
+ *
+ * Safe to call from multiple pages simultaneously (host + projector).
+ * The idempotency check re-fetches the live event state before doing anything,
+ * so if two callers fire at the same time only one actually advances.
+ *
+ * Use this instead of the old autoAdvanceQuestion / inline handleAutoAdvance.
+ */
+export async function attemptAutoAdvance(
+  eventId: string,
+  questionIndex: number,        // the question index we are advancing FROM
+  questions: any[],
+  enableFastestFingerBonus: boolean
+): Promise<void> {
+  try {
+    // Re-read the event from Firebase before touching anything.
+    // If the phase or question index has already changed, someone else
+    // (the other open tab) already did the advance — do nothing.
+    const current = await getEventById(eventId);
+    if (!current) return;
+    if (current.phase !== 'question') return;
+    if (current.currentQuestionIndex !== questionIndex) return;
+    if (current.status !== 'active') return;
+
+    // Calculate leaderboard — 3 reads, idempotent
+    await calculateLeaderboard(eventId, questions, enableFastestFingerBonus);
+
+    const isLast = questionIndex >= questions.length - 1;
+
+    if (isLast) {
+      await updateEvent(eventId, {
+        phase: 'results',
+        status: 'completed',
+        endedAt: Date.now()
+      });
+    } else {
+      // Show leaderboard briefly then advance
+      await updateEvent(eventId, { phase: 'leaderboard' });
+
+      setTimeout(async () => {
+        // Guard again before the delayed write — another tab may have
+        // already moved past leaderboard
+        const check = await getEventById(eventId);
+        if (check?.phase === 'leaderboard' && check?.currentQuestionIndex === questionIndex) {
+          await updateEvent(eventId, {
+            phase: 'question',
+            currentQuestionIndex: questionIndex + 1,
+            timerStartedAt: Date.now(),
+            pausedDuration: 0,
+            pausedAt: null
+          });
+        }
+      }, 4000);
+    }
+
+    console.log('✅ Auto-advanced from question', questionIndex);
+  } catch (error) {
+    console.error('❌ Error in attemptAutoAdvance:', error);
+  }
+}
 
 // ===== DATA ARCHIVAL AND CLEANUP FUNCTIONS =====
 
@@ -1203,12 +1300,13 @@ export async function resetParticipantAnswers(eventId: string): Promise<void> {
     
     const answersRef = ref(realtimeDb, `eventAnswers/${eventId}`);
     const leaderboardRef = ref(realtimeDb, `eventLeaderboard/${eventId}`);
-    
-    // Clear all answers
-    await remove(answersRef);
-    
-    // Clear leaderboard
-    await remove(leaderboardRef);
+    const countsRef = ref(realtimeDb, `eventAnswerCounts/${eventId}`);
+
+    await Promise.all([
+      remove(answersRef),
+      remove(leaderboardRef),
+      remove(countsRef)
+    ]);
     
     console.log('✅ Participant answers and scores reset');
   } catch (error) {

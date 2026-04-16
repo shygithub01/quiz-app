@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Trophy, Clock, Award, Wifi, WifiOff, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Trophy, Clock, Award, Wifi, WifiOff, CheckCircle2, AlertCircle, XCircle } from 'lucide-react';
 import { getCompetitionById } from '@/components/ui/firebase';
 import BottomNav from '@/components/BottomNav';
 import {
@@ -49,6 +49,7 @@ export default function LiveEventParticipant() {
   const [myName, setMyName] = useState<string>('You');
   const [loadingTimeout, setLoadingTimeout] = useState(false);
   const [eventWasLoaded, setEventWasLoaded] = useState(false);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
 
   const questionStartTimeRef = useRef<number>(0);
   const reconnectTimeoutRef = useRef<number>(0);
@@ -76,6 +77,8 @@ export default function LiveEventParticipant() {
       } catch (error) {
         console.error('❌ Participant - Error loading data:', error);
         clearTimeout(timeout);
+      } finally {
+        setIsInitialLoading(false);
       }
     };
 
@@ -89,12 +92,16 @@ export default function LiveEventParticipant() {
 
     const loadParticipantName = async () => {
       try {
-        const { getParticipants } = await import('@/services/liveEventService');
+        const { getParticipants, reactivateParticipant } = await import('@/services/liveEventService');
         const participants = await getParticipants(eventId);
         const myParticipant = participants.find(p => p.sessionId === sessionId);
         if (myParticipant) {
           setMyName(myParticipant.name);
           sessionStorage.setItem(`liveEvent_${eventId}_name`, myParticipant.name);
+          // If onDisconnect marked us inactive during page navigation, reactivate now
+          if (!myParticipant.isActive) {
+            await reactivateParticipant(eventId, sessionId);
+          }
         } else {
           const storedName = sessionStorage.getItem(`liveEvent_${eventId}_name`);
           if (storedName) setMyName(storedName);
@@ -275,6 +282,20 @@ export default function LiveEventParticipant() {
   };
 
   // ──────────────── Error / Loading States ────────────────
+
+  // Show a loading spinner while the initial Firebase fetch is in flight.
+  // Previously this fell through to the "Event Ended" screen because event and
+  // competition both start as null — causing a black/ended screen for 1-2s on load.
+  if (isInitialLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-purple-900 to-indigo-900 flex items-center justify-center">
+        <div className="text-center text-white">
+          <div className="w-16 h-16 border-4 border-white/30 border-t-white rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-lg font-medium">Joining event...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (event === null && competition === null) {
     return (
@@ -547,6 +568,46 @@ export default function LiveEventParticipant() {
             )}
           </div>
         )}
+
+        {/* ── CORRECT / WRONG FLASH ── */}
+        {hasAnswered && event.phase === 'question' && currentQuestion && (() => {
+          const isCorrect = selectedAnswer === currentQuestion.correctAnswer;
+          return (
+            <div
+              className="fixed inset-0 z-50 flex flex-col items-center justify-center px-8"
+              style={{
+                background: isCorrect
+                  ? 'linear-gradient(135deg, #16a34a 0%, #15803d 100%)'
+                  : 'linear-gradient(135deg, #dc2626 0%, #b91c1c 100%)',
+                paddingTop: 'env(safe-area-inset-top)',
+                paddingBottom: 'env(safe-area-inset-bottom)',
+              }}
+            >
+              {isCorrect ? (
+                <CheckCircle2 className="h-28 w-28 text-white mb-5 drop-shadow-lg" />
+              ) : (
+                <XCircle className="h-28 w-28 text-white mb-5 drop-shadow-lg" />
+              )}
+
+              <h2 className="text-5xl font-black text-white mb-6 tracking-tight">
+                {isCorrect ? 'Correct!' : 'Wrong!'}
+              </h2>
+
+              <div className="bg-white/20 rounded-2xl px-6 py-4 text-center max-w-xs w-full">
+                <p className="text-white/70 text-xs font-semibold uppercase tracking-widest mb-1">
+                  Your answer
+                </p>
+                <p className="text-white font-bold text-lg leading-snug">
+                  {selectedAnswer}
+                </p>
+              </div>
+
+              <p className="text-white/50 text-sm mt-6">
+                Waiting for others...
+              </p>
+            </div>
+          );
+        })()}
 
         {/* ── LEADERBOARD (between questions) ── */}
         {event.phase === 'leaderboard' && (

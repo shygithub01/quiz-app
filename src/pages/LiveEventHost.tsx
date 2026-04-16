@@ -1,7 +1,7 @@
 // Live Event Host Control Panel
 // Allows hosts to create and manage live events
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -44,7 +44,8 @@ export default function LiveEventHost() {
   const [hasActiveEvent, setHasActiveEvent] = useState(false);
   const [showJoinFlash, setShowJoinFlash] = useState(false);
   const [showFullFlash, setShowFullFlash] = useState(false);
-  const [lastParticipantCount, setLastParticipantCount] = useState(0);
+  // Use a ref so the listener useEffect doesn't tear down and recreate on every join
+  const lastParticipantCountRef = useRef(0);
   
   // Load existing event from URL or load competitions
   useEffect(() => {
@@ -56,48 +57,73 @@ export default function LiveEventHost() {
     }
   }, [eventId]);
   
-  // Listen to event changes
+  // Listen to event changes — depends only on event.id so the listeners
+  // are never torn down and recreated just because someone joins
   useEffect(() => {
     if (!event) return;
-    
+
     const unsubscribeEvent = listenToEvent(event.id, (updatedEvent) => {
       if (updatedEvent) {
         setEvent(updatedEvent);
       }
     });
-    
+
     const unsubscribeParticipants = listenToParticipants(event.id, (updatedParticipants) => {
       const activeParticipants = updatedParticipants.filter(p => p.isActive);
       setParticipants(updatedParticipants);
-      
-      console.log('👥 Participant update:', {
-        activeCount: activeParticipants.length,
-        lastCount: lastParticipantCount,
-        shouldPlaySound: activeParticipants.length > lastParticipantCount
-      });
-      
+
       // Play sound and show flash when new participant joins (only count active participants)
-      if (activeParticipants.length > lastParticipantCount) {
-        console.log('🔊 Playing join sound!');
+      if (activeParticipants.length > lastParticipantCountRef.current) {
         playJoinSound();
         triggerJoinFlash();
-        
+
         // Check if event is now full (only active participants)
         if (activeParticipants.length >= event.maxParticipants) {
-          console.log('🎉 Event is full!');
           setTimeout(() => triggerFullFlash(), 300);
         }
       }
-      
-      setLastParticipantCount(activeParticipants.length);
+
+      lastParticipantCountRef.current = activeParticipants.length;
     });
-    
+
     return () => {
       unsubscribeEvent();
       unsubscribeParticipants();
     };
-  }, [event?.id, lastParticipantCount]);
+  }, [event?.id]);
   
+  // Auto-advance when timer expires — runs on the host page so the event
+  // advances even when the projector window is closed
+  useEffect(() => {
+    if (!event || !eventId) return;
+    if (event.phase !== 'question' || event.status !== 'active') return;
+    if (!event.timerStartedAt || !event.settings?.autoAdvanceOnTimer) return;
+
+    const questionIndex = event.currentQuestionIndex;
+    let hasFired = false;
+
+    const checkTimer = async () => {
+      if (hasFired) return;
+      const elapsed = Date.now() - event.timerStartedAt! - event.pausedDuration;
+      const remaining = event.timerDuration - elapsed / 1000;
+      if (remaining <= 0) {
+        hasFired = true;
+        const competition = competitions.find((c: any) => c.id === event.competitionId);
+        if (!competition) return;
+        const { attemptAutoAdvance } = await import('@/services/liveEventService');
+        await attemptAutoAdvance(
+          eventId,
+          questionIndex,
+          competition.questions || [],
+          event.settings.enableFastestFingerBonus
+        );
+      }
+    };
+
+    const interval = setInterval(checkTimer, 500);
+    return () => clearInterval(interval);
+  }, [event?.phase, event?.currentQuestionIndex, event?.timerStartedAt, event?.status]);
+
   // Sound effects
   const playJoinSound = () => {
     // Create a cheerful "ding" sound
@@ -175,21 +201,8 @@ export default function LiveEventHost() {
           (comp: any) => comp.isLiveEvent === true
         );
         setCompetitions(liveEventCompetitions);
-        
-        // Load participants to check if full
-        const { listenToParticipants } = await import('@/services/liveEventService');
-        listenToParticipants(id, (updatedParticipants) => {
-          const activeParticipants = updatedParticipants.filter(p => p.isActive);
-          setParticipants(updatedParticipants);
-          setLastParticipantCount(activeParticipants.length);
-          
-          // Show full notification on initial load if already full (only active participants)
-          if (activeParticipants.length >= existingEvent.maxParticipants && activeParticipants.length > 0) {
-            setTimeout(() => {
-              triggerFullFlash();
-            }, 800);
-          }
-        });
+        // Note: participant listener is set up by the useEffect that watches event.id —
+        // no manual listener needed here (the old one leaked and never cleaned up)
       } else {
         alert('Event not found. It may have been deleted or expired.');
         navigate('/admin/competitions');

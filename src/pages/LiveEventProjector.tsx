@@ -179,6 +179,9 @@ export default function LiveEventProjector() {
   const prevPhaseRef = useRef<string>('');
   const prevQuestionIndexRef = useRef<number>(-1);
   const answerCountUnsubRef = useRef<(() => void) | null>(null);
+  // Tracks which question index we already fired auto-advance for,
+  // so the 100ms timer loop never calls it more than once per question
+  const autoAdvancedForRef = useRef<number>(-1);
 
   // Load event + competition
   useEffect(() => {
@@ -275,23 +278,17 @@ export default function LiveEventProjector() {
 
   const handleAutoAdvance = async () => {
     if (!event || !competition || !eventId) return;
-    try {
-      const { calculateLeaderboard } = await import('@/services/liveEventService');
-      await calculateLeaderboard(eventId, competition.questions, event.settings.enableFastestFingerBonus);
-      await new Promise(r => setTimeout(r, 3000));
-      const { updateEvent } = await import('@/services/liveEventService');
-      if (event.currentQuestionIndex >= competition.questions.length - 1) {
-        await updateEvent(eventId, { phase: 'results', status: 'completed', endedAt: Date.now() });
-      } else {
-        await updateEvent(eventId, {
-          phase: 'question',
-          currentQuestionIndex: event.currentQuestionIndex + 1,
-          timerStartedAt: Date.now(),
-          pausedDuration: 0,
-          pausedAt: null,
-        });
-      }
-    } catch (e) { console.error('Auto-advance error:', e); }
+    // Prevent the 100ms timer loop from firing this hundreds of times
+    if (autoAdvancedForRef.current === event.currentQuestionIndex) return;
+    autoAdvancedForRef.current = event.currentQuestionIndex;
+
+    const { attemptAutoAdvance } = await import('@/services/liveEventService');
+    await attemptAutoAdvance(
+      eventId,
+      event.currentQuestionIndex,
+      competition.questions || [],
+      event.settings.enableFastestFingerBonus
+    );
   };
 
   // ── Error / loading screens ──
