@@ -1,7 +1,7 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
 import { useAuth } from '@/contexts/AuthContext'
 import { Button } from '@/components/ui/button'
-import { Brain, BookOpen, LogOut, User, Sparkles, Trophy, Users, Settings, Zap, Menu, X, Home } from 'lucide-react'
+import { Brain, BookOpen, LogOut, User, Sparkles, Trophy, Settings, Zap, Menu, X, Home, ChevronDown, Users, Activity, Plus } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import { isAdmin } from '@/components/ui/firebase'
 
@@ -11,7 +11,9 @@ export default function Layout() {
   const location = useLocation()
   const [userIsAdmin, setUserIsAdmin] = useState(false)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [adminDropdownOpen, setAdminDropdownOpen] = useState(false)
   const drawerRef = useRef<HTMLDivElement>(null)
+  const adminDropdownRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -25,10 +27,24 @@ export default function Layout() {
     checkAdmin();
   }, [user]);
 
-  // Close drawer on route change
+  // Close drawer + admin dropdown on route change
   useEffect(() => {
     setMobileMenuOpen(false);
+    setAdminDropdownOpen(false);
   }, [location.pathname]);
+
+  // Close admin dropdown on outside click
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (adminDropdownRef.current && !adminDropdownRef.current.contains(e.target as Node)) {
+        setAdminDropdownOpen(false);
+      }
+    };
+    if (adminDropdownOpen) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, [adminDropdownOpen]);
 
   // Close drawer on outside click
   useEffect(() => {
@@ -58,10 +74,16 @@ export default function Layout() {
     { to: '/live-modes', label: 'Live Modes', icon: Zap },
     ...(userIsAdmin ? [
       { to: '/competitions', label: 'Competitions', icon: Trophy },
-      { to: '/admin/quiz-templates/list', label: 'Quiz Templates', icon: Brain },
-      { to: '/admin/competition-settings', label: 'Settings', icon: Settings },
-      { to: '/admin/users', label: 'Users', icon: Users },
     ] : []),
+  ];
+
+  const adminSubLinks = [
+    { to: '/admin/create-competition', label: 'Create New Competition', icon: Plus },
+    { to: '/admin/quiz-templates/list', label: 'Quiz Templates', icon: Brain },
+    { to: '/admin/practice/manage', label: 'Manage Practice Mode', icon: Activity },
+    { to: '/admin/live-event-host', label: 'Manage Live Mode', icon: Zap },
+    { to: '/admin/users', label: 'Users', icon: Users },
+    { to: '/admin/competition-settings', label: 'Settings', icon: Settings },
   ];
 
   // Bottom tab bar items (always-visible 4 tabs for mobile)
@@ -115,6 +137,40 @@ export default function Layout() {
                       </Button>
                     </Link>
                   ))}
+                  {/* Admin Dropdown */}
+                  {userIsAdmin && (
+                    <div className="relative" ref={adminDropdownRef}>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setAdminDropdownOpen(v => !v)}
+                        className={`relative group transition-all duration-300 rounded-full ${
+                          adminDropdownOpen
+                            ? 'bg-white text-purple-600 shadow-glow'
+                            : 'text-white/80 hover:text-white hover:bg-white/10'
+                        }`}
+                      >
+                        <Settings className="w-4 h-4 group-hover:scale-110 transition-transform duration-200" />
+                        <span className="hidden lg:inline font-medium ml-2">Admin</span>
+                        <ChevronDown className={`w-3 h-3 ml-1 transition-transform duration-200 ${adminDropdownOpen ? 'rotate-180' : ''}`} />
+                      </Button>
+                      {adminDropdownOpen && (
+                        <div className="absolute right-0 top-full mt-2 w-60 rounded-2xl shadow-xl overflow-hidden z-50"
+                          style={{ background: 'linear-gradient(135deg, #4c1d95, #3730a3)', border: '1px solid rgba(255,255,255,0.15)' }}>
+                          {adminSubLinks.map(({ to, label, icon: Icon }) => (
+                            <Link key={to} to={to} onClick={() => setAdminDropdownOpen(false)}>
+                              <div className={`flex items-center gap-3 px-4 py-3 hover:bg-white/10 transition-colors ${
+                                location.pathname === to ? 'bg-white/15 text-white font-semibold' : 'text-white/80'
+                              }`}>
+                                <Icon className="w-4 h-4 flex-shrink-0" />
+                                <span className="text-sm">{label}</span>
+                              </div>
+                            </Link>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </nav>
               )}
 
@@ -240,6 +296,28 @@ export default function Layout() {
               <span className="text-base">{label}</span>
             </Link>
           ))}
+          {/* Admin sub-links in drawer */}
+          {userIsAdmin && (
+            <>
+              <div className="px-4 pt-3 pb-1">
+                <p className="text-white/40 text-xs font-semibold uppercase tracking-widest">Admin</p>
+              </div>
+              {adminSubLinks.map(({ to, label, icon: Icon }) => (
+                <Link
+                  key={to}
+                  to={to}
+                  className={`flex items-center gap-4 px-4 py-3 rounded-xl transition-all duration-200 ${
+                    location.pathname === to
+                      ? 'bg-white text-purple-700 font-semibold shadow-md'
+                      : 'text-white/80 hover:bg-white/10 hover:text-white'
+                  }`}
+                >
+                  <Icon className="w-5 h-5 flex-shrink-0" />
+                  <span className="text-base">{label}</span>
+                </Link>
+              ))}
+            </>
+          )}
         </nav>
 
         {/* Drawer Footer - Sign Out */}

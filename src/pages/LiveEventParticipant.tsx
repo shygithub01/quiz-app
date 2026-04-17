@@ -50,10 +50,13 @@ export default function LiveEventParticipant() {
   const [loadingTimeout, setLoadingTimeout] = useState(false);
   const [eventWasLoaded, setEventWasLoaded] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
+  const [showDrumroll, setShowDrumroll] = useState(false);
 
   const questionStartTimeRef = useRef<number>(0);
   const reconnectTimeoutRef = useRef<number>(0);
   const prevQuestionIndexRef = useRef<number>(-1);
+  const prevPhaseRef = useRef<string>('');
+  const lastQuestionRef = useRef<any>(null);
 
   // Load event and competition
   useEffect(() => {
@@ -220,6 +223,22 @@ export default function LiveEventParticipant() {
       questionStartTimeRef.current = event.timerStartedAt;
     }
   }, [event?.phase, event?.timerStartedAt]);
+
+  // Drumroll: triggers on question → leaderboard phase transition
+  useEffect(() => {
+    if (!event?.phase) return;
+    const prev = prevPhaseRef.current;
+    prevPhaseRef.current = event.phase;
+
+    if (prev === 'question' && event.phase === 'leaderboard') {
+      // Snapshot the question that was just answered before index could change
+      const q = competition?.questions?.[event.currentQuestionIndex] ?? null;
+      lastQuestionRef.current = q;
+      setShowDrumroll(true);
+      const timer = setTimeout(() => setShowDrumroll(false), 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [event?.phase, event?.currentQuestionIndex, competition]);
 
   // Retry queued answer on reconnect
   useEffect(() => {
@@ -689,6 +708,44 @@ export default function LiveEventParticipant() {
           </div>
         )}
       </div>
+
+      {/* ── DRUMROLL OVERLAY ── */}
+      {showDrumroll && (
+        <div
+          className="fixed inset-0 z-[60] flex flex-col items-center justify-center px-8"
+          style={{
+            background: 'linear-gradient(135deg, #4c1d95 0%, #1e1b4b 50%, #312e81 100%)',
+            paddingTop: 'env(safe-area-inset-top)',
+            paddingBottom: 'env(safe-area-inset-bottom)',
+          }}
+        >
+          {/* Drum emoji — bounces */}
+          <div className="text-[80px] mb-4 animate-bounce">🥁</div>
+
+          <h2 className="text-3xl font-black text-white mb-2 text-center tracking-tight">
+            Calculating scores...
+          </h2>
+
+          {/* Bouncing dots */}
+          <div className="flex items-center gap-2 mb-8">
+            <span className="w-3 h-3 bg-purple-300 rounded-full animate-bounce" />
+            <span className="w-3 h-3 bg-purple-300 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }} />
+            <span className="w-3 h-3 bg-purple-300 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
+          </div>
+
+          {/* Correct answer reveal */}
+          {lastQuestionRef.current && (
+            <div className="bg-white/15 rounded-2xl px-6 py-5 text-center max-w-xs w-full border border-white/25">
+              <p className="text-white/60 text-xs font-semibold uppercase tracking-widest mb-2">
+                Correct answer
+              </p>
+              <p className="text-white font-bold text-xl leading-snug">
+                {lastQuestionRef.current.correctAnswer}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Bottom nav — visible during lobby and results phases only */}
       {(event.phase === 'lobby' || event.phase === 'results') && <BottomNav />}

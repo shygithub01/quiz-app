@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { 
+import {
   getCompetitions,
   getAppSettings,
   setFeaturedCompetition,
@@ -11,20 +11,23 @@ import {
 } from '../components/ui/firebase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { 
-  Settings, 
+import {
+  Settings,
   Star,
   Trophy,
   Plus,
   Brain
 } from 'lucide-react';
 
+const BG_STYLE = { background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 50%, #0a1628 100%)' };
+const DARK_CARD = 'bg-white/5 border border-white/10';
+
 export default function AdminCompetitionSettings() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  
+
   const [allCompetitions, setAllCompetitions] = useState<any[]>([]);
   const [featuredCompetitionId, setFeaturedCompetitionId] = useState<string | null>(null);
   const [scholarshipCompetitions, setScholarshipCompetitions] = useState<any[]>([]);
@@ -52,35 +55,28 @@ export default function AdminCompetitionSettings() {
   const loadData = async () => {
     try {
       setLoading(true);
-      
-      // Load all competitions
+
       const competitions = await getCompetitions();
-      
-      // Get correct participant counts for each competition
+
       const competitionsWithCounts = await Promise.all(
         competitions.map(async (comp: any) => {
-          // For practice tests, get unique participant count from practiceAttempts
-          // For scholarship competitions, use the participantCount from competition document
-          const participantCount = comp.isPractice 
+          const participantCount = comp.isPractice
             ? await getPracticeParticipantCount(comp.id)
             : comp.participantCount || 0;
-          
           return { ...comp, participantCount };
         })
       );
-      
+
       setAllCompetitions(competitionsWithCounts);
-      
-      // Filter scholarship competitions (not practice)
+
       const scholarships = competitionsWithCounts.filter(
         (c: any) => !c.isPractice
       );
       setScholarshipCompetitions(scholarships);
-      
-      // Load featured competition setting
+
       const settings = await getAppSettings();
       setFeaturedCompetitionId(settings?.featuredCompetitionId || null);
-      
+
       console.log('✅ Loaded:', competitions.length, 'competitions');
       console.log('⭐ Featured:', settings?.featuredCompetitionId);
     } catch (error) {
@@ -100,14 +96,14 @@ export default function AdminCompetitionSettings() {
       '• All leaderboard entries\n\n' +
       'This action CANNOT be undone!'
     );
-    
+
     if (!confirmed) return;
-    
+
     try {
       setSaving(true);
       await deleteCompetition(competitionId);
       alert('✅ Competition deleted successfully');
-      await loadData(); // Reload the list
+      await loadData();
     } catch (error) {
       console.error('❌ Error deleting competition:', error);
       alert('Failed to delete competition. Please try again.');
@@ -153,21 +149,21 @@ export default function AdminCompetitionSettings() {
   };
 
   const formatDate = (date: Date) => {
-    return new Date(date).toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric' 
+    return new Date(date).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric'
     });
   };
 
   const getStatusBadge = (status: string) => {
-    const styles = {
-      upcoming: 'bg-blue-100 text-blue-800',
-      active: 'bg-green-100 text-green-800',
-      completed: 'bg-gray-100 text-gray-800'
+    const styles: Record<string, string> = {
+      upcoming: 'bg-blue-500/20 text-blue-300',
+      active: 'bg-green-500/20 text-green-300',
+      completed: 'bg-white/10 text-white/60'
     };
     return (
-      <span className={`px-2 py-1 rounded text-xs font-semibold ${styles[status as keyof typeof styles] || 'bg-gray-100 text-gray-800'}`}>
+      <span className={`px-2 py-1 rounded text-xs font-semibold ${styles[status] || 'bg-white/10 text-white/60'}`}>
         {status?.toUpperCase() || 'UNKNOWN'}
       </span>
     );
@@ -175,36 +171,36 @@ export default function AdminCompetitionSettings() {
 
   const getTypeBadge = (type: string) => {
     if (type === 'practiceLive') {
-      return <span className="px-2 py-1 rounded text-xs font-semibold bg-green-100 text-green-800">🎯 PRACTICE LIVE</span>;
+      return <span className="px-2 py-1 rounded text-xs font-semibold bg-green-500/20 text-green-300">🎯 PRACTICE LIVE</span>;
     }
     if (type === 'practice') {
-      return <span className="px-2 py-1 rounded text-xs font-semibold bg-purple-100 text-purple-800">🎯 PRACTICE</span>;
+      return <span className="px-2 py-1 rounded text-xs font-semibold bg-purple-500/20 text-purple-300">🎯 PRACTICE</span>;
     }
     if (type === 'liveEvent') {
-      return <span className="px-2 py-1 rounded text-xs font-semibold bg-indigo-100 text-indigo-800">🎪 LIVE EVENT</span>;
+      return <span className="px-2 py-1 rounded text-xs font-semibold bg-indigo-500/20 text-indigo-300">🎪 LIVE EVENT</span>;
     }
-    return <span className="px-2 py-1 rounded text-xs font-semibold bg-yellow-100 text-yellow-800">🏆 SCHOLARSHIP</span>;
+    return <span className="px-2 py-1 rounded text-xs font-semibold bg-yellow-500/20 text-yellow-300">🏆 SCHOLARSHIP</span>;
   };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      <div className="min-h-screen flex items-center justify-center" style={BG_STYLE}>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-400" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen p-6" style={BG_STYLE}>
       <div className="max-w-7xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between flex-wrap gap-3">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-              <Settings className="h-8 w-8 text-indigo-600" />
+            <h1 className="text-3xl font-bold text-white flex items-center gap-3">
+              <Settings className="h-8 w-8 text-purple-400" />
               Competition Settings
             </h1>
-            <p className="text-gray-600 mt-1">
+            <p className="text-white/60 mt-1">
               Manage featured competition and view all competitions
             </p>
           </div>
@@ -212,7 +208,7 @@ export default function AdminCompetitionSettings() {
             <Button
               variant="outline"
               onClick={() => navigate('/admin/quiz-templates/list')}
-              className="border-purple-300 text-purple-700 hover:bg-purple-50"
+              className="border-purple-400/50 text-purple-300 hover:bg-purple-500/20 bg-transparent"
             >
               <Brain className="h-4 w-4 mr-2" />
               Quiz Templates
@@ -228,36 +224,40 @@ export default function AdminCompetitionSettings() {
         </div>
 
         {/* Featured Competition Section */}
-        <Card className="border-2 border-yellow-200 bg-gradient-to-r from-yellow-50 to-orange-50">
+        <Card className="border border-yellow-500/30 bg-yellow-500/5">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-xl">
-              <Star className="h-6 w-6 text-yellow-600" />
+            <CardTitle className="flex items-center gap-2 text-xl text-white">
+              <Star className="h-6 w-6 text-yellow-400" />
               Featured Scholarship Competition
             </CardTitle>
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-sm text-white/50 mt-1">
               This competition will be displayed on the landing page (/scholarship) for students to register
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-2">
+              <label className="block text-sm font-medium text-white/70 mb-2">
                 Select Competition to Feature
               </label>
               <select
                 value={featuredCompetitionId || ''}
                 onChange={(e) => setFeaturedCompetitionId(e.target.value || null)}
-                className="w-full px-3 py-2 border rounded-lg"
+                className="w-full px-3 py-2 rounded-lg text-white"
+                style={{
+                  background: 'rgba(255,255,255,0.08)',
+                  border: '1px solid rgba(255,255,255,0.15)',
+                }}
                 disabled={saving}
               >
-                <option value="">-- No Featured Competition --</option>
+                <option value="" style={{ background: '#1e0a3c' }}>-- No Featured Competition --</option>
                 {scholarshipCompetitions.map((comp) => (
-                  <option key={comp.id} value={comp.id}>
+                  <option key={comp.id} value={comp.id} style={{ background: '#1e0a3c' }}>
                     {comp.title} ({formatDate(comp.startDate)})
                   </option>
                 ))}
               </select>
               {scholarshipCompetitions.length === 0 && (
-                <p className="text-sm text-amber-600 mt-2">
+                <p className="text-sm text-yellow-400/80 mt-2">
                   ⚠️ No scholarship competitions available. Create one first using "New Competition" button.
                 </p>
               )}
@@ -277,7 +277,7 @@ export default function AdminCompetitionSettings() {
                   onClick={handleClearFeatured}
                   disabled={saving}
                   variant="outline"
-                  className="border-gray-300"
+                  className="border-white/20 text-white/70 hover:bg-white/10 bg-transparent"
                 >
                   Clear Featured
                 </Button>
@@ -287,21 +287,21 @@ export default function AdminCompetitionSettings() {
         </Card>
 
         {/* All Competitions Table */}
-        <Card>
+        <Card className={DARK_CARD}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Trophy className="h-5 w-5" />
+            <CardTitle className="flex items-center gap-2 text-white">
+              <Trophy className="h-5 w-5 text-yellow-400" />
               All Competitions
             </CardTitle>
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-sm text-white/50 mt-1">
               View and manage all practice tests and scholarship competitions
             </p>
           </CardHeader>
           <CardContent>
             {allCompetitions.length === 0 ? (
               <div className="text-center py-12">
-                <Trophy className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">No competitions created yet</p>
+                <Trophy className="h-16 w-16 text-white/20 mx-auto mb-4" />
+                <p className="text-white/60">No competitions created yet</p>
                 <Button
                   onClick={() => navigate('/admin/create-competition')}
                   className="mt-4"
@@ -312,23 +312,23 @@ export default function AdminCompetitionSettings() {
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead className="bg-gray-50 border-b">
+                  <thead style={{ background: 'rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Dates</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Participants</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Featured</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase">Title</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase">Type</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase">Dates</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase">Participants</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase">Featured</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody className="divide-y divide-white/5">
                     {allCompetitions.map((comp) => (
-                      <tr key={comp.id} className="hover:bg-gray-50">
+                      <tr key={comp.id} className="hover:bg-white/5">
                         <td className="px-4 py-3">
-                          <div className="font-medium text-gray-900">{comp.title}</div>
-                          <div className="text-sm text-gray-500 truncate max-w-xs">{comp.description}</div>
+                          <div className="font-medium text-white">{comp.title}</div>
+                          <div className="text-sm text-white/40 truncate max-w-xs">{comp.description}</div>
                         </td>
                         <td className="px-4 py-3">
                           {getTypeBadge(comp.isPracticeLive ? 'practiceLive' : comp.isPractice ? 'practice' : comp.isLiveEvent ? 'liveEvent' : 'competition')}
@@ -336,39 +336,44 @@ export default function AdminCompetitionSettings() {
                         <td className="px-4 py-3">
                           {getStatusBadge(comp.status)}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
+                        <td className="px-4 py-3 text-sm text-white/60">
                           <div>{formatDate(comp.startDate)}</div>
-                          <div className="text-xs text-gray-400">to {formatDate(comp.endDate)}</div>
+                          <div className="text-xs text-white/40">to {formatDate(comp.endDate)}</div>
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-600">
+                        <td className="px-4 py-3 text-sm text-white/60">
                           {comp.participantCount || 0}
                         </td>
                         <td className="px-4 py-3">
                           {comp.id === featuredCompetitionId && (
-                            <Star className="h-5 w-5 text-yellow-500 fill-yellow-500" />
+                            <Star className="h-5 w-5 text-yellow-400 fill-yellow-400" />
                           )}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex gap-2">
                             <button
-                              onClick={() => navigate(`/competitions/${comp.id}`)}
-                              className="px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
-                              title="View competition details"
+                              onClick={() => {
+                                if (comp.isPracticeLive || comp.type === 'practiceLive') {
+                                  navigate('/admin/practice/manage');
+                                } else if (comp.isLiveEvent || comp.type === 'liveEvent') {
+                                  navigate(`/live-event/${comp.id}/host`);
+                                } else {
+                                  navigate(`/competitions/${comp.id}`);
+                                }
+                              }}
+                              className="px-3 py-1 text-sm bg-blue-500/80 text-white rounded hover:bg-blue-500 transition-colors"
                             >
                               View
                             </button>
                             <button
                               onClick={() => navigate(`/admin/competitions/${comp.id}/edit`)}
-                              className="px-3 py-1 text-sm bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
-                              title="Edit competition"
+                              className="px-3 py-1 text-sm bg-green-600/80 text-white rounded hover:bg-green-600 transition-colors"
                             >
                               Edit
                             </button>
                             <button
                               onClick={() => handleDeleteCompetition(comp.id, comp.title)}
                               disabled={saving}
-                              className="px-3 py-1 text-sm bg-red-500 text-white rounded hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                              title="Delete competition"
+                              className="px-3 py-1 text-sm bg-red-600/80 text-white rounded hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                               Delete
                             </button>

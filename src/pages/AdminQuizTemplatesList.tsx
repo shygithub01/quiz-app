@@ -7,7 +7,7 @@ import { collection, getDocs, Timestamp, addDoc } from 'firebase/firestore';
 import { db } from '../components/ui/firebase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Brain, Edit, Plus, Zap, Target, X, Trophy, Clock, AlertTriangle } from 'lucide-react';
+import { Brain, Plus, Zap, Target, X, Trophy, Clock, AlertTriangle, ArrowUpDown, ChevronUp, ChevronDown, GraduationCap } from 'lucide-react';
 
 export default function AdminQuizTemplatesList() {
   const { user } = useAuth();
@@ -17,7 +17,7 @@ export default function AdminQuizTemplatesList() {
 
   // Launch modal state
   const [launchTemplate, setLaunchTemplate] = useState<any>(null);
-  const [launchMode, setLaunchMode] = useState<'live' | 'practice' | null>(null);
+  const [launchMode, setLaunchMode] = useState<'liveEvent' | 'practiceLiveEvent' | 'scholarship' | 'scholarshipPractice' | null>(null);
   const [launching, setLaunching] = useState(false);
 
   // Live Event settings
@@ -34,6 +34,11 @@ export default function AdminQuizTemplatesList() {
 
   // Active event recovery
   const [activeEvent, setActiveEvent] = useState<any>(null);
+
+  // Table sort state
+  type TplSortField = 'title' | 'subject' | 'questions' | 'difficulty' | 'createdAt';
+  const [tplSortField, setTplSortField] = useState<TplSortField>('createdAt');
+  const [tplSortDir, setTplSortDir] = useState<'asc' | 'desc'>('desc');
 
   useEffect(() => {
     checkAdminAndLoad();
@@ -83,10 +88,10 @@ export default function AdminQuizTemplatesList() {
     return qs;
   };
 
-  const openLaunchModal = (template: any, mode: 'live' | 'practice') => {
+  const openLaunchModal = (template: any, mode: 'liveEvent' | 'practiceLiveEvent' | 'scholarship' | 'scholarshipPractice') => {
     setLaunchTemplate(template);
     setLaunchMode(mode);
-    setPracticeTitle(`${template.title} — Practice`);
+    setPracticeTitle(`${template.title} — ${mode === 'practiceLiveEvent' ? 'Practice' : mode === 'scholarshipPractice' ? 'Scholarship Practice' : mode === 'scholarship' ? 'Scholarship' : 'Live Event'}`);
     setQuestionTimer(30);
     setMaxParticipants(50);
     setPracticeEndDays(7);
@@ -161,13 +166,12 @@ export default function AdminQuizTemplatesList() {
     }
   };
 
-  const handleLaunchPractice = async () => {
+  const handleLaunchPracticeLiveEvent = async () => {
     if (!launchTemplate || !user) return;
     if (!practiceTitle.trim()) { alert('Please enter a session title'); return; }
     try {
       setLaunching(true);
 
-      // 1. Create competition record
       const questions = buildQuestions(launchTemplate.questions || []);
       const competitionData = {
         title: practiceTitle,
@@ -193,7 +197,6 @@ export default function AdminQuizTemplatesList() {
       const compDoc = await addDoc(competitionsRef, { ...competitionData, participantCount: 0, createdAt: Timestamp.now() });
       const competitionId = compDoc.id;
 
-      // 2. Create practice session
       const { createPracticeSession } = await import('@/services/practiceService');
       const endDate = Date.now() + practiceEndDays * 86400000;
       const { sessionId, pin } = await createPracticeSession(
@@ -206,14 +209,95 @@ export default function AdminQuizTemplatesList() {
       );
 
       closeLaunchModal();
-      alert(`✅ Practice Session Created!\n\nPIN: ${pin}\n\nShare this PIN with students. Go to Practice Host to manage.`);
+      alert(`✅ Practice Live Event Created!\n\nPIN: ${pin}\n\nShare this PIN with students.`);
       navigate(`/admin/practice/dashboard/${sessionId}`);
     } catch (err: any) {
-      alert(`❌ Failed to create practice session: ${err.message}`);
+      alert(`❌ Failed to create practice live event: ${err.message}`);
     } finally {
       setLaunching(false);
     }
   };
+
+  const handleLaunchScholarship = async (isPractice: boolean) => {
+    if (!launchTemplate || !user) return;
+    if (!practiceTitle.trim()) { alert('Please enter a title'); return; }
+    try {
+      setLaunching(true);
+      const questions = buildQuestions(launchTemplate.questions || []);
+      const competitionData = {
+        title: practiceTitle,
+        subject: launchTemplate.subject || '',
+        difficulty: launchTemplate.difficulty || 'medium',
+        questions,
+        quizTemplateId: launchTemplate.id,
+        type: isPractice ? 'practice' : 'scholarship',
+        status: isPractice ? 'active' : 'upcoming',
+        isLiveEvent: false,
+        isPracticeLive: false,
+        isPractice,
+        questionCount: launchTemplate.questions?.length || 0,
+        settings: { difficulty: launchTemplate.difficulty || 'medium', numQuestions: launchTemplate.questions?.length || 0 },
+        startDate: Timestamp.now(),
+        endDate: Timestamp.fromDate(new Date(Date.now() + practiceEndDays * 86400000)),
+        prizePool: isPractice ? '' : '$300',
+        eligibleCounty: 'henrico',
+        prizes: [],
+        duration: '60 minutes',
+        createdBy: user.uid,
+      };
+      const competitionsRef = collection(db, 'competitions');
+      await addDoc(competitionsRef, { ...competitionData, participantCount: 0, createdAt: Timestamp.now() });
+      closeLaunchModal();
+      alert(`✅ ${isPractice ? 'Scholarship Practice' : 'Scholarship Competition'} created!`);
+      navigate('/admin/competition-settings');
+    } catch (err: any) {
+      alert(`❌ Failed to create: ${err.message}`);
+    } finally {
+      setLaunching(false);
+    }
+  };
+
+  const handleTplSort = (field: TplSortField) => {
+    if (tplSortField === field) {
+      setTplSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    } else {
+      setTplSortField(field);
+      setTplSortDir('asc');
+    }
+  };
+
+  const sortedTemplates = [...templates].sort((a, b) => {
+    let av: any, bv: any;
+    switch (tplSortField) {
+      case 'title':     av = a.title?.toLowerCase() || '';  bv = b.title?.toLowerCase() || '';  break;
+      case 'subject':   av = a.subject?.toLowerCase() || ''; bv = b.subject?.toLowerCase() || ''; break;
+      case 'questions': av = a.questions?.length || 0;      bv = b.questions?.length || 0;      break;
+      case 'difficulty':av = a.difficulty || '';            bv = b.difficulty || '';            break;
+      case 'createdAt': av = a.createdAt?.seconds || 0;     bv = b.createdAt?.seconds || 0;     break;
+      default:          av = 0; bv = 0;
+    }
+    if (av < bv) return tplSortDir === 'asc' ? -1 : 1;
+    if (av > bv) return tplSortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const TplSortTh = ({ field, label }: { field: TplSortField; label: string }) => (
+    <th
+      className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase cursor-pointer select-none hover:text-white/80 transition-colors"
+      onClick={() => handleTplSort(field)}
+    >
+      <span className="flex items-center gap-1">
+        {label}
+        {tplSortField === field ? (
+          tplSortDir === 'asc'
+            ? <ChevronUp className="h-3 w-3 text-purple-400" />
+            : <ChevronDown className="h-3 w-3 text-purple-400" />
+        ) : (
+          <ArrowUpDown className="h-3 w-3 opacity-30" />
+        )}
+      </span>
+    </th>
+  );
 
   const formatDate = (timestamp: any) => {
     if (!timestamp) return 'N/A';
@@ -221,16 +305,18 @@ export default function AdminQuizTemplatesList() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
   };
 
+  const BG_STYLE = { background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 50%, #0a1628 100%)' };
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen" style={BG_STYLE}>
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />
       </div>
     );
   }
 
   return (
-    <div className="w-full space-y-4">
+    <div className="w-full space-y-4 min-h-screen p-4 md:p-6 -mx-4 md:-mx-6 -mt-8 md:-mt-12" style={BG_STYLE}>
 
       {/* ── Active Event Recovery Banner ── */}
       {activeEvent && (
@@ -264,7 +350,7 @@ export default function AdminQuizTemplatesList() {
             <Brain className="h-6 w-6 text-purple-300" />
             Quiz Templates
           </h1>
-          <p className="text-white/60 text-sm mt-0.5">Launch as Live Event or Practice from any template</p>
+          <p className="text-white/60 text-sm mt-0.5">Launch as Live Event, Practice Live Event, Scholarship, or Scholarship Practice</p>
         </div>
         <div className="flex gap-2 flex-shrink-0">
           <Button
@@ -277,52 +363,55 @@ export default function AdminQuizTemplatesList() {
           </Button>
           <Button
             size="sm"
-            onClick={() => navigate('/admin/quiz-templates')}
+            onClick={() => navigate('/admin/create-competition')}
             className="bg-indigo-500 hover:bg-indigo-600 text-white"
           >
             <Plus className="h-4 w-4 mr-1" />
-            Create New Template
+            Create New
           </Button>
         </div>
       </div>
 
       {/* Templates Table */}
-      <Card className="bg-white/95">
+      <Card style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
           <CardHeader className="pb-2">
-            <CardTitle className="text-lg text-gray-900">All Quiz Templates</CardTitle>
-            <p className="text-sm text-gray-500">Edit questions, or launch directly as Live Event or Practice session</p>
+            <CardTitle className="text-lg text-white">All Quiz Templates</CardTitle>
+            <p className="text-sm text-white/50">Edit questions, or launch directly in any of the 4 modes</p>
           </CardHeader>
           <CardContent>
             {templates.length === 0 ? (
               <div className="text-center py-12">
-                <Brain className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                <p className="text-gray-600">No quiz templates created yet</p>
-                <Button onClick={() => navigate('/admin/quiz-templates')} className="mt-4">
+                <Brain className="h-16 w-16 text-white/20 mx-auto mb-4" />
+                <p className="text-white/60">No quiz templates created yet</p>
+                <Button onClick={() => navigate('/admin/create-competition')} className="mt-4">
                   Create Your First Template
                 </Button>
               </div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
-                  <thead style={{ background: 'rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+                  <thead style={{ background: 'rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.08)' }}>
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase">Title</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase">Subject</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase">Questions</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase">Difficulty</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase">Created</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase">Actions</th>
+                      <TplSortTh field="title"      label="Title"      />
+                      <TplSortTh field="questions"  label="Qs"         />
+                      <TplSortTh field="difficulty" label="Difficulty" />
+                      <TplSortTh field="createdAt"  label="Created"    />
+                      <th className="px-4 py-3 text-left text-xs font-medium text-white/50 uppercase">Launch</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {templates.map((template) => (
+                    {sortedTemplates.map((template) => (
                       <tr key={template.id} className="hover:bg-white/5">
                         <td className="px-4 py-3">
-                          <div className="font-medium text-white">{template.title}</div>
+                          <button
+                            onClick={() => navigate(`/admin/quiz-templates/${template.id}/edit`)}
+                            className="font-medium text-purple-300 hover:text-white hover:underline text-left transition-colors"
+                          >
+                            {template.title}
+                          </button>
                         </td>
-                        <td className="px-4 py-3 text-sm text-white/60">{template.subject || 'N/A'}</td>
-                        <td className="px-4 py-3 text-sm text-white/60">
-                          <span className="font-semibold text-white">{template.questions?.length || 0}</span> questions
+                        <td className="px-4 py-3 text-sm text-white/60 text-center">
+                          <span className="font-semibold text-white">{template.questions?.length || 0}</span>
                         </td>
                         <td className="px-4 py-3">
                           <span className={`px-2 py-1 rounded text-xs font-semibold ${
@@ -335,27 +424,30 @@ export default function AdminQuizTemplatesList() {
                         </td>
                         <td className="px-4 py-3 text-sm text-white/60">{formatDate(template.createdAt)}</td>
                         <td className="px-4 py-3">
-                          <div className="flex gap-2 flex-wrap">
+                          <div className="flex gap-1 flex-nowrap">
                             <button
-                              onClick={() => navigate(`/admin/quiz-templates/${template.id}/edit`)}
-                              className="px-3 py-1 text-sm bg-indigo-500 text-white rounded hover:bg-indigo-600 transition-colors flex items-center gap-1"
+                              onClick={() => openLaunchModal(template, 'liveEvent')}
+                              className="px-2 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors flex items-center gap-1 whitespace-nowrap"
                             >
-                              <Edit className="h-3 w-3" />
-                              Edit
+                              <Zap className="h-3 w-3" />Live Event
                             </button>
                             <button
-                              onClick={() => openLaunchModal(template, 'live')}
-                              className="px-3 py-1 text-sm bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors flex items-center gap-1"
+                              onClick={() => openLaunchModal(template, 'practiceLiveEvent')}
+                              className="px-2 py-1 text-xs bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-colors flex items-center gap-1 whitespace-nowrap"
                             >
-                              <Zap className="h-3 w-3" />
-                              Launch Live
+                              <Target className="h-3 w-3" />Live Practice
                             </button>
                             <button
-                              onClick={() => openLaunchModal(template, 'practice')}
-                              className="px-3 py-1 text-sm bg-emerald-600 text-white rounded hover:bg-emerald-700 transition-colors flex items-center gap-1"
+                              onClick={() => openLaunchModal(template, 'scholarship')}
+                              className="px-2 py-1 text-xs bg-yellow-600 text-white rounded hover:bg-yellow-700 transition-colors flex items-center gap-1 whitespace-nowrap"
                             >
-                              <Target className="h-3 w-3" />
-                              Launch Practice
+                              <Trophy className="h-3 w-3" />Scholarship
+                            </button>
+                            <button
+                              onClick={() => openLaunchModal(template, 'scholarshipPractice')}
+                              className="px-2 py-1 text-xs bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors flex items-center gap-1 whitespace-nowrap"
+                            >
+                              <GraduationCap className="h-3 w-3" />S. Practice
                             </button>
                           </div>
                         </td>
@@ -374,16 +466,22 @@ export default function AdminQuizTemplatesList() {
           <div className="rounded-2xl shadow-2xl w-full max-w-md" style={{ background: 'linear-gradient(160deg, #1e0a3c 0%, #0f0a1e 100%)', border: '1.5px solid rgba(255,255,255,0.1)' }}>
             {/* Modal Header */}
             <div className={`flex items-center justify-between px-6 py-4 rounded-t-2xl ${
-              launchMode === 'live' ? 'bg-purple-600' : 'bg-emerald-600'
+              launchMode === 'liveEvent' ? 'bg-purple-600' :
+              launchMode === 'practiceLiveEvent' ? 'bg-emerald-600' :
+              launchMode === 'scholarship' ? 'bg-yellow-600' :
+              'bg-orange-600'
             }`}>
               <div className="flex items-center gap-3">
-                {launchMode === 'live'
-                  ? <Zap className="h-5 w-5 text-white" />
-                  : <Target className="h-5 w-5 text-white" />
-                }
+                {launchMode === 'liveEvent' ? <Zap className="h-5 w-5 text-white" />
+                  : launchMode === 'practiceLiveEvent' ? <Target className="h-5 w-5 text-white" />
+                  : launchMode === 'scholarship' ? <Trophy className="h-5 w-5 text-white" />
+                  : <GraduationCap className="h-5 w-5 text-white" />}
                 <div>
                   <h2 className="text-white font-bold text-lg">
-                    {launchMode === 'live' ? 'Launch Live Event' : 'Launch Practice Session'}
+                    {launchMode === 'liveEvent' ? 'Launch Live Event'
+                      : launchMode === 'practiceLiveEvent' ? 'Launch Practice Live Event'
+                      : launchMode === 'scholarship' ? 'Launch Scholarship Competition'
+                      : 'Launch Scholarship Practice'}
                   </h2>
                   <p className="text-white/70 text-xs">{launchTemplate.title}</p>
                 </div>
@@ -409,7 +507,7 @@ export default function AdminQuizTemplatesList() {
 
             {/* Settings */}
             <div className="px-6 py-4 space-y-4">
-              {launchMode === 'live' ? (
+              {launchMode === 'liveEvent' ? (
                 <>
                   <div>
                     <label className="block text-sm font-semibold text-white/70 mb-1">
@@ -418,7 +516,7 @@ export default function AdminQuizTemplatesList() {
                     </label>
                     <div className="flex items-center gap-3">
                       <input
-                        type="range" min={10} max={120} step={5}
+                        type="range" min={5} max={120} step={5}
                         value={questionTimer}
                         onChange={e => setQuestionTimer(Number(e.target.value))}
                         className="flex-1"
@@ -440,20 +538,24 @@ export default function AdminQuizTemplatesList() {
               ) : (
                 <>
                   <div>
-                    <label className="block text-sm font-semibold text-white/70 mb-1">Session title</label>
+                    <label className="block text-sm font-semibold text-white/70 mb-1">
+                      {launchMode === 'scholarship' ? 'Competition title' :
+                       launchMode === 'scholarshipPractice' ? 'Practice title' :
+                       'Session title'}
+                    </label>
                     <input
                       type="text"
                       value={practiceTitle}
                       onChange={e => setPracticeTitle(e.target.value)}
                       className="w-full px-3 py-2 rounded-lg text-white"
                       style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}
-                      placeholder="e.g. Odia Culture Practice — April 2026"
+                      placeholder="e.g. Odia Culture — April 2026"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-white/70 mb-1">Session open for (days)</label>
+                    <label className="block text-sm font-semibold text-white/70 mb-1">Open for (days)</label>
                     <input
-                      type="number" min={1} max={90}
+                      type="number" min={1} max={365}
                       value={practiceEndDays}
                       onChange={e => setPracticeEndDays(Number(e.target.value))}
                       className="w-full px-3 py-2 rounded-lg text-white"
@@ -502,20 +604,30 @@ export default function AdminQuizTemplatesList() {
                 Cancel
               </button>
               <button
-                onClick={launchMode === 'live' ? handleLaunchLive : handleLaunchPractice}
+                onClick={() => {
+                  if (launchMode === 'liveEvent') handleLaunchLive();
+                  else if (launchMode === 'practiceLiveEvent') handleLaunchPracticeLiveEvent();
+                  else if (launchMode === 'scholarship') handleLaunchScholarship(false);
+                  else if (launchMode === 'scholarshipPractice') handleLaunchScholarship(true);
+                }}
                 disabled={launching}
                 className={`flex-1 py-3 rounded-xl text-white font-bold transition-colors flex items-center justify-center gap-2 ${
-                  launchMode === 'live'
-                    ? 'bg-purple-600 hover:bg-purple-700'
-                    : 'bg-emerald-600 hover:bg-emerald-700'
+                  launchMode === 'liveEvent' ? 'bg-purple-600 hover:bg-purple-700' :
+                  launchMode === 'practiceLiveEvent' ? 'bg-emerald-600 hover:bg-emerald-700' :
+                  launchMode === 'scholarship' ? 'bg-yellow-600 hover:bg-yellow-700' :
+                  'bg-orange-600 hover:bg-orange-700'
                 } disabled:opacity-60`}
               >
                 {launching ? (
                   <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Creating...</>
-                ) : launchMode === 'live' ? (
+                ) : launchMode === 'liveEvent' ? (
                   <><Zap className="h-4 w-4" /> Launch Live Event</>
+                ) : launchMode === 'practiceLiveEvent' ? (
+                  <><Target className="h-4 w-4" /> Launch Practice Live Event</>
+                ) : launchMode === 'scholarship' ? (
+                  <><Trophy className="h-4 w-4" /> Launch Scholarship</>
                 ) : (
-                  <><Target className="h-4 w-4" /> Launch Practice</>
+                  <><GraduationCap className="h-4 w-4" /> Launch Scholarship Practice</>
                 )}
               </button>
             </div>

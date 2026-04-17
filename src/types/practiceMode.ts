@@ -54,6 +54,7 @@ export interface LeaderboardEntry {
   lastAttemptDate: number;
   improvement: number;
   rank: number;
+  lastDuration?: number; // ms — time spent on last attempt
 }
 
 export interface StudentSummary {

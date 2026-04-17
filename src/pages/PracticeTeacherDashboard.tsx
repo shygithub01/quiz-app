@@ -4,15 +4,19 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { 
-  Target, 
-  Users, 
+import {
+  Target,
+  Users,
   TrendingUp,
   QrCode,
   StopCircle,
   BarChart3,
-  Clock
+  Clock,
+  Eye,
+  EyeOff,
+  ArrowUpDown,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import {
@@ -21,158 +25,159 @@ import {
   listenToParticipants,
   calculatePracticeAnalytics
 } from '@/services/practiceService';
-import { 
-  PracticeSession, 
-  LeaderboardEntry, 
+import {
+  PracticeSession,
+  LeaderboardEntry,
   PracticeAnalytics
 } from '@/types/practiceMode';
+
+const BG_STYLE = { background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 50%, #0a1628 100%)' };
+const GLASS = { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' };
+const GLASS_ROUNDED = { ...GLASS, borderRadius: '0.75rem' };
+
+type SortField = 'name' | 'attemptCount' | 'worstScore' | 'bestScore' | 'lastScore' | 'lastDuration';
+type SortDir = 'asc' | 'desc';
 
 export default function PracticeTeacherDashboard() {
   const navigate = useNavigate();
   const { sessionId } = useParams<{ sessionId: string }>();
-  
-  // State management
+
   const [session, setSession] = useState<PracticeSession | null>(null);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [analytics, setAnalytics] = useState<PracticeAnalytics | null>(null);
   const [, setActiveParticipants] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
-  // Load session data and set up real-time listeners
+
+  const [sortField, setSortField] = useState<SortField>('bestScore');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [maskNames, setMaskNames] = useState(false);
+
   useEffect(() => {
     if (!sessionId) {
       setError('No session ID provided');
       setLoading(false);
       return;
     }
-    
-    console.log('📊 Dashboard loading session:', sessionId);
-    
-    // Listen to session updates
+
     const unsubscribeSession = listenToSession(sessionId, (updatedSession) => {
-      console.log('📊 Session data received:', updatedSession);
       if (updatedSession) {
         setSession(updatedSession);
         setLoading(false);
       } else {
-        console.error('❌ Session not found:', sessionId);
         setError('Session not found');
         setLoading(false);
       }
     });
-    
-    // Listen to leaderboard updates
-    const unsubscribeLeaderboard = listenToLeaderboard(sessionId, (updatedLeaderboard) => {
-      setLeaderboard(updatedLeaderboard);
-    });
-    
-    // Listen to active participants
-    const unsubscribeParticipants = listenToParticipants(sessionId, (participants: any[]) => {
-      setActiveParticipants(participants);
-    });
-    
+
+    const unsubscribeLeaderboard = listenToLeaderboard(sessionId, setLeaderboard);
+    const unsubscribeParticipants = listenToParticipants(sessionId, (p: any[]) => setActiveParticipants(p));
+
     return () => {
       unsubscribeSession();
       unsubscribeLeaderboard();
       unsubscribeParticipants();
     };
   }, [sessionId]);
-  
-  // Calculate analytics when leaderboard updates
+
   useEffect(() => {
     if (session && leaderboard.length > 0) {
-      const fetchAnalytics = async () => {
-        try {
-          const analyticsData = await calculatePracticeAnalytics(session.id);
-          setAnalytics(analyticsData);
-        } catch (error) {
-          console.error('Error fetching analytics:', error);
-        }
-      };
-      fetchAnalytics();
+      calculatePracticeAnalytics(session.id)
+        .then(setAnalytics)
+        .catch(console.error);
     }
   }, [session, leaderboard]);
-  
-  const getJoinURL = () => {
-    if (!session) return '';
-    return `${window.location.origin}/practice/join?pin=${session.pin}`;
-  };
-  
+
+  const getJoinURL = () => session ? `${window.location.origin}/practice/join?pin=${session.pin}` : '';
+
   const handleEndSession = async () => {
     if (!session) return;
-    
-    const confirm = window.confirm(
-      'Are you sure you want to end this practice session?\n\n' +
-      'This will:\n' +
-      '- Stop accepting new participants\n' +
-      '- Archive all data to Firestore\n' +
-      '- Keep data for 30 days before deletion'
-    );
-    
-    if (!confirm) return;
-    
-    try {
-      // TODO: Implement endPracticeSession in Phase 4
-      alert('End session functionality will be implemented in Phase 4');
-    } catch (error) {
-      console.error('Error ending session:', error);
-      alert('Failed to end session');
-    }
+    if (!window.confirm('Are you sure you want to end this practice session?')) return;
+    alert('End session functionality will be implemented in Phase 4');
   };
-  
+
   const handleDownloadQR = () => {
     if (!session) return;
-    
     try {
-      // Get the QR code SVG element
       const svg = document.querySelector('#practice-qr-code');
       if (!svg) return;
-      
-      // Create a canvas to convert SVG to PNG
       const canvas = document.createElement('canvas');
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
-      
-      // Set canvas size
-      canvas.width = 300;
-      canvas.height = 300;
-      
-      // Convert SVG to data URL
+      canvas.width = 300; canvas.height = 300;
       const svgData = new XMLSerializer().serializeToString(svg);
-      const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-      const url = URL.createObjectURL(svgBlob);
-      
-      // Load image and draw to canvas
+      const url = URL.createObjectURL(new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' }));
       const img = new Image();
       img.onload = () => {
-        ctx.fillStyle = 'white';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        
-        // Download as PNG
-        canvas.toBlob((blob) => {
+        ctx.fillStyle = 'white'; ctx.fillRect(0, 0, 300, 300);
+        ctx.drawImage(img, 0, 0, 300, 300);
+        canvas.toBlob(blob => {
           if (!blob) return;
-          const downloadUrl = URL.createObjectURL(blob);
-          const link = document.createElement('a');
-          link.href = downloadUrl;
-          link.download = `practice-qr-${session.pin}.png`;
-          link.click();
-          URL.revokeObjectURL(downloadUrl);
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = `practice-qr-${session.pin}.png`;
+          a.click();
         });
-        
         URL.revokeObjectURL(url);
       };
       img.src = url;
-    } catch (error) {
-      console.error('Error downloading QR code:', error);
-      alert('Failed to download QR code');
-    }
+    } catch { alert('Failed to download QR code'); }
   };
-  
+
+  // ── Sort helpers ────────────────────────────────────────
+  const handleSort = (field: SortField) => {
+    if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
+    else { setSortField(field); setSortDir('desc'); }
+  };
+
+  const sortedLeaderboard = [...leaderboard].sort((a, b) => {
+    let av: any, bv: any;
+    switch (sortField) {
+      case 'name':         av = a.name.toLowerCase();       bv = b.name.toLowerCase();       break;
+      case 'attemptCount': av = a.attemptCount;             bv = b.attemptCount;             break;
+      case 'worstScore':   av = a.worstScore;               bv = b.worstScore;               break;
+      case 'bestScore':    av = a.bestScore;                bv = b.bestScore;                break;
+      case 'lastScore':    av = a.lastScore;                bv = b.lastScore;                break;
+      case 'lastDuration': av = a.lastDuration ?? Infinity; bv = b.lastDuration ?? Infinity; break;
+      default:             av = a.rank; bv = b.rank;
+    }
+    if (av < bv) return sortDir === 'asc' ? -1 : 1;
+    if (av > bv) return sortDir === 'asc' ? 1 : -1;
+    return 0;
+  });
+
+  const maskName = (name: string) => {
+    if (!maskNames) return name;
+    const parts = name.trim().split(/\s+/);
+    if (parts.length === 1) return (parts[0][0] ?? '?').toUpperCase() + '***';
+    return (parts[0][0] ?? '?').toUpperCase() + '. ' + (parts[parts.length - 1][0] ?? '?').toUpperCase() + '.';
+  };
+
+  const formatDuration = (ms?: number) => {
+    if (!ms) return '—';
+    const s = Math.floor(ms / 1000);
+    const m = Math.floor(s / 60);
+    return m > 0 ? `${m}m ${s % 60}s` : `${s}s`;
+  };
+
+  const SortTh = ({ field, label, leftAlign }: { field: SortField; label: string; leftAlign?: boolean }) => (
+    <th
+      onClick={() => handleSort(field)}
+      className={`px-4 py-2 text-xs font-medium text-white/50 uppercase cursor-pointer select-none hover:text-white/80 transition-colors ${leftAlign ? 'text-left' : 'text-center'}`}
+    >
+      <span className={`flex items-center gap-1 ${leftAlign ? '' : 'justify-center'}`}>
+        {label}
+        {sortField === field
+          ? sortDir === 'asc' ? <ChevronUp className="h-3 w-3 text-purple-400" /> : <ChevronDown className="h-3 w-3 text-purple-400" />
+          : <ArrowUpDown className="h-3 w-3 opacity-30" />}
+      </span>
+    </th>
+  );
+
+  // ── States ──────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 50%, #0a1628 100%)' }}>
+      <div className="min-h-screen flex items-center justify-center" style={BG_STYLE}>
         <div className="text-center">
           <Target className="h-12 w-12 text-purple-400 animate-spin mx-auto mb-4" />
           <p className="text-white/50">Loading dashboard...</p>
@@ -183,232 +188,169 @@ export default function PracticeTeacherDashboard() {
 
   if (error || !session) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 50%, #0a1628 100%)' }}>
+      <div className="min-h-screen flex items-center justify-center" style={BG_STYLE}>
         <div className="text-center">
           <Target className="h-12 w-12 text-red-400 mx-auto mb-4" />
           <p className="text-white/60 mb-4">{error || 'Session not found'}</p>
-          <Button onClick={() => navigate('/admin/competitions')}>
-            Back to Competitions
-          </Button>
+          <Button onClick={() => navigate('/admin/practice/manage')}>Back to Practice Sessions</Button>
         </div>
       </div>
     );
   }
 
+  const statBlocks = [
+    { label: 'Total Students', value: analytics?.totalStudents || 0, color: 'text-blue-400', bg: 'rgba(59,130,246,0.15)', Icon: Users },
+    { label: 'Total Attempts', value: analytics?.totalAttempts || 0, color: 'text-green-400', bg: 'rgba(34,197,94,0.15)', Icon: Target },
+    { label: 'Average Score', value: `${analytics?.averageScore ? analytics.averageScore.toFixed(1) : '0.0'}%`, color: 'text-purple-400', bg: 'rgba(124,58,237,0.15)', Icon: TrendingUp },
+    { label: 'Avg Attempts', value: analytics?.averageAttempts ? analytics.averageAttempts.toFixed(1) : '0.0', color: 'text-orange-400', bg: 'rgba(249,115,22,0.15)', Icon: Clock },
+  ];
+
   return (
-    <div className="min-h-screen p-6" style={{ background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 50%, #0a1628 100%)' }}>
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="min-h-screen p-4 md:p-6" style={BG_STYLE}>
+      <div className="max-w-7xl mx-auto space-y-5">
+
         {/* Header */}
-        <div className="flex items-center justify-between bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-6 rounded-xl shadow-xl">
+        <div className="flex items-center justify-between bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-5 rounded-xl shadow-xl">
           <div>
-            <h1 className="text-4xl font-bold flex items-center gap-3">
-              <Target className="h-10 w-10" />
-              Practice Live Mode Dashboard
+            <h1 className="text-2xl md:text-3xl font-bold flex items-center gap-3">
+              <Target className="h-8 w-8" />
+              Practice Dashboard
             </h1>
-            <p className="text-indigo-100 mt-2 text-lg">
-              {session.title}
-            </p>
+            <p className="text-indigo-100 mt-1">{session.title}</p>
           </div>
-          <Button 
-            variant="outline" 
-            onClick={() => navigate('/admin/competitions')}
+          <Button
+            variant="outline"
+            onClick={() => navigate('/admin/practice/manage')}
             className="bg-white text-indigo-600 hover:bg-indigo-50 border-0 font-semibold"
           >
             ← Back
           </Button>
         </div>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left Column: Session Info & QR Code */}
-          <div className="lg:col-span-1 space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-white">
-                  <QrCode className="h-5 w-5" />
-                  Session Details
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="text-center">
-                  <div className="bg-white p-4 rounded-lg inline-block">
-                    <QRCodeSVG
-                      id="practice-qr-code"
-                      value={getJoinURL()}
-                      size={200}
-                      level="H"
-                      includeMargin={true}
-                    />
-                  </div>
-                  <div className="mt-4">
-                    <p className="text-sm text-white/50 mb-1">PIN Code</p>
-                    <p className="text-5xl font-bold text-purple-400 tracking-wider">
-                      {session.pin}
-                    </p>
-                  </div>
-                  <div className="flex gap-2 mt-2">
-                    <Button
-                      onClick={() => {
-                        navigator.clipboard.writeText(session.pin);
-                        alert('PIN copied to clipboard!');
-                      }}
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                    >
-                      Copy PIN
-                    </Button>
-                    <Button
-                      onClick={handleDownloadQR}
-                      variant="outline"
-                      size="sm"
-                      className="flex-1"
-                    >
-                      Download QR
-                    </Button>
-                  </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+          {/* ── Left column: Session Details ── */}
+          <div className="lg:col-span-1">
+            <div className="rounded-xl p-5 space-y-4 h-full" style={GLASS_ROUNDED}>
+              <h2 className="flex items-center gap-2 text-white font-semibold">
+                <QrCode className="h-5 w-5" /> Session Details
+              </h2>
+
+              <div className="text-center">
+                <div className="bg-white p-3 rounded-lg inline-block">
+                  <QRCodeSVG id="practice-qr-code" value={getJoinURL()} size={160} level="H" includeMargin />
                 </div>
-                
-                <div className="pt-4 border-t border-white/10">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-white/50">Status</span>
-                    <span className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                      session.status === 'active' ? 'bg-green-500/20 text-green-300' :
-                      'bg-white/10 text-white/60'
-                    }`}>
-                      {session.status.toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm text-white/50">Created</span>
-                    <span className="text-sm font-medium text-white">
-                      {new Date(session.createdAt).toLocaleDateString()}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-white/50">Ends</span>
-                    <span className="text-sm font-medium text-white">
-                      {new Date(session.endDate).toLocaleDateString()}
-                    </span>
-                  </div>
+                <div className="mt-3">
+                  <p className="text-xs text-white/50 mb-1">PIN Code</p>
+                  <p className="text-4xl font-bold text-purple-400 tracking-wider">{session.pin}</p>
                 </div>
-                
-                <div className="pt-4 border-t">
-                  <Button
-                    onClick={handleEndSession}
-                    variant="destructive"
-                    className="w-full"
-                    disabled={session.status === 'ended'}
-                  >
-                    <StopCircle className="h-5 w-5 mr-2" />
-                    End Session
+                <div className="flex gap-2 mt-2">
+                  <Button onClick={() => { navigator.clipboard.writeText(session.pin); alert('PIN copied!'); }}
+                    variant="outline" size="sm" className="flex-1 border-white/20 text-white hover:bg-white/10 bg-transparent text-xs">
+                    Copy PIN
+                  </Button>
+                  <Button onClick={handleDownloadQR}
+                    variant="outline" size="sm" className="flex-1 border-white/20 text-white hover:bg-white/10 bg-transparent text-xs">
+                    Save QR
                   </Button>
                 </div>
-              </CardContent>
-            </Card>
-            
-            {/* Real-time Statistics */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-white">
-                  <BarChart3 className="h-5 w-5" />
-                  Statistics
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex items-center justify-between p-3 rounded-lg" style={{ background: 'rgba(59,130,246,0.15)' }}>
-                  <div className="flex items-center gap-2">
-                    <Users className="h-5 w-5 text-blue-400" />
-                    <span className="text-sm font-medium text-white/70">Total Students</span>
-                  </div>
-                  <span className="text-2xl font-bold text-blue-400">
-                    {analytics?.totalStudents || 0}
-                  </span>
-                </div>
+              </div>
 
-                <div className="flex items-center justify-between p-3 rounded-lg" style={{ background: 'rgba(34,197,94,0.15)' }}>
-                  <div className="flex items-center gap-2">
-                    <Target className="h-5 w-5 text-green-400" />
-                    <span className="text-sm font-medium text-white/70">Total Attempts</span>
-                  </div>
-                  <span className="text-2xl font-bold text-green-400">
-                    {analytics?.totalAttempts || 0}
+              <div className="pt-3 border-t border-white/10 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-white/50">Status</span>
+                  <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${session.status === 'active' ? 'bg-green-500/20 text-green-300' : 'bg-white/10 text-white/60'}`}>
+                    {session.status.toUpperCase()}
                   </span>
                 </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-white/50">Created</span>
+                  <span className="text-sm text-white">{new Date(session.createdAt).toLocaleDateString()}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-white/50">Ends</span>
+                  <span className="text-sm text-white">{new Date(session.endDate).toLocaleDateString()}</span>
+                </div>
+              </div>
 
-                <div className="flex items-center justify-between p-3 rounded-lg" style={{ background: 'rgba(124,58,237,0.15)' }}>
-                  <div className="flex items-center gap-2">
-                    <TrendingUp className="h-5 w-5 text-purple-400" />
-                    <span className="text-sm font-medium text-white/70">Average Score</span>
-                  </div>
-                  <span className="text-2xl font-bold text-purple-400">
-                    {analytics?.averageScore ? analytics.averageScore.toFixed(1) : '0.0'}%
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between p-3 rounded-lg" style={{ background: 'rgba(249,115,22,0.15)' }}>
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-5 w-5 text-orange-400" />
-                    <span className="text-sm font-medium text-white/70">Avg Attempts</span>
-                  </div>
-                  <span className="text-2xl font-bold text-orange-400">
-                    {analytics?.averageAttempts ? analytics.averageAttempts.toFixed(1) : '0.0'}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
+              <Button onClick={handleEndSession} variant="destructive" className="w-full" disabled={session.status === 'ended'}>
+                <StopCircle className="h-4 w-4 mr-2" /> End Session
+              </Button>
+            </div>
           </div>
-          
-          {/* Right Column: Leaderboard */}
-          <div className="lg:col-span-2 space-y-6">
+
+          {/* ── Right column: Stats + Leaderboard ── */}
+          <div className="lg:col-span-2 flex flex-col gap-4">
+
+            {/* Statistics — compact row */}
+            <div className="rounded-xl p-4" style={GLASS_ROUNDED}>
+              <h2 className="flex items-center gap-2 text-white font-semibold mb-3">
+                <BarChart3 className="h-4 w-4" /> Statistics
+              </h2>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {statBlocks.map(({ label, value, color, bg, Icon }) => (
+                  <div key={label} className="flex flex-col items-center p-3 rounded-lg gap-1" style={{ background: bg }}>
+                    <Icon className={`h-4 w-4 ${color}`} />
+                    <span className={`text-xl font-bold ${color}`}>{value}</span>
+                    <span className="text-xs text-white/50 text-center leading-tight">{label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {/* Leaderboard */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-white">
-                  <Users className="h-5 w-5" />
-                  Leaderboard (Top 20)
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="max-h-96 overflow-y-auto">
-                  {leaderboard.length === 0 ? (
-                    <p className="text-sm text-white/40 text-center py-8">
-                      No attempts yet. Students will appear here after completing their first attempt.
-                    </p>
-                  ) : (
-                    <table className="w-full">
-                      <thead className="sticky top-0" style={{ background: 'rgba(255,255,255,0.05)' }}>
-                        <tr>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-white/50 uppercase">Name</th>
-                          <th className="px-4 py-2 text-center text-xs font-medium text-white/50 uppercase">Attempts</th>
-                          <th className="px-4 py-2 text-center text-xs font-medium text-white/50 uppercase">Worst</th>
-                          <th className="px-4 py-2 text-center text-xs font-medium text-white/50 uppercase">Best</th>
-                          <th className="px-4 py-2 text-center text-xs font-medium text-white/50 uppercase">Last</th>
+            <div className="rounded-xl flex flex-col flex-1 min-h-0" style={GLASS_ROUNDED}>
+              <div className="flex items-center justify-between px-5 pt-4 pb-3">
+                <h2 className="flex items-center gap-2 text-white font-semibold">
+                  <Users className="h-4 w-4" /> Leaderboard (Top 20)
+                </h2>
+                <button
+                  onClick={() => setMaskNames(v => !v)}
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-colors"
+                  style={{
+                    background: maskNames ? 'rgba(124,58,237,0.25)' : 'rgba(255,255,255,0.08)',
+                    border: '1px solid rgba(255,255,255,0.15)',
+                    color: maskNames ? '#c4b5fd' : 'rgba(255,255,255,0.6)',
+                  }}
+                >
+                  {maskNames ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                  {maskNames ? 'Hidden' : 'Mask'}
+                </button>
+              </div>
+              <div className="overflow-y-auto flex-1 min-h-0 px-2 pb-4" style={{ maxHeight: '420px' }}>
+                {leaderboard.length === 0 ? (
+                  <p className="text-sm text-white/40 text-center py-8">
+                    No attempts yet. Students will appear here after their first attempt.
+                  </p>
+                ) : (
+                  <table className="w-full">
+                    <thead className="sticky top-0" style={{ background: 'rgba(15,10,30,0.95)' }}>
+                      <tr>
+                        <SortTh field="name"         label="Name"     leftAlign />
+                        <SortTh field="attemptCount" label="Attempts" />
+                        <SortTh field="worstScore"   label="Worst"    />
+                        <SortTh field="bestScore"    label="Best"     />
+                        <SortTh field="lastScore"    label="Last"     />
+                        <SortTh field="lastDuration" label="Time"     />
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {sortedLeaderboard.slice(0, 20).map((entry) => (
+                        <tr key={entry.name} className="hover:bg-white/5">
+                          <td className="px-4 py-2.5 font-medium text-white text-sm">{maskName(entry.name)}</td>
+                          <td className="px-4 py-2.5 text-center text-white/60 text-sm">{entry.attemptCount}</td>
+                          <td className="px-4 py-2.5 text-center font-semibold text-red-400 text-sm">{entry.worstScore}%</td>
+                          <td className="px-4 py-2.5 text-center font-bold text-green-400 text-sm">{entry.bestScore}%</td>
+                          <td className="px-4 py-2.5 text-center font-semibold text-purple-400 text-sm">{entry.lastScore}%</td>
+                          <td className="px-4 py-2.5 text-center text-white/50 text-sm">{formatDuration(entry.lastDuration)}</td>
                         </tr>
-                      </thead>
-                      <tbody className="divide-y divide-white/5">
-                        {leaderboard.slice(0, 20).map((entry) => (
-                          <tr key={entry.name} className="hover:bg-white/5">
-                            <td className="px-4 py-3 font-medium text-white">{entry.name}</td>
-                            <td className="px-4 py-3 text-center text-white/60">
-                              {entry.attemptCount}
-                            </td>
-                            <td className="px-4 py-3 text-center font-semibold text-red-400">
-                              {entry.worstScore}%
-                            </td>
-                            <td className="px-4 py-3 text-center font-bold text-green-400">
-                              {entry.bestScore}%
-                            </td>
-                            <td className="px-4 py-3 text-center font-semibold text-purple-400">
-                              {entry.lastScore}%
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+
           </div>
         </div>
       </div>

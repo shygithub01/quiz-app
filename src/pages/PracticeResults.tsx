@@ -329,6 +329,7 @@ export default function PracticeResults() {
                         <th className="px-4 py-2 text-center text-xs font-medium text-white/50 uppercase">Worst</th>
                         <th className="px-4 py-2 text-center text-xs font-medium text-white/50 uppercase">Best</th>
                         <th className="px-4 py-2 text-center text-xs font-medium text-white/50 uppercase">Last</th>
+                        <th className="px-4 py-2 text-center text-xs font-medium text-white/50 uppercase">Time</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
@@ -353,6 +354,11 @@ export default function PracticeResults() {
                           </td>
                           <td className="px-4 py-3 text-center font-semibold text-purple-400">
                             {entry.lastScore}%
+                          </td>
+                          <td className="px-4 py-3 text-center text-white/50 text-sm">
+                            {entry.lastDuration
+                              ? (() => { const s = Math.floor(entry.lastDuration / 1000); const m = Math.floor(s / 60); return m > 0 ? `${m}m ${s % 60}s` : `${s}s`; })()
+                              : '—'}
                           </td>
                         </tr>
                       ))}

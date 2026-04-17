@@ -319,7 +319,8 @@ export async function submitAttempt(
   sessionId: string,
   studentName: string,
   answers: Record<number, string>,
-  questions: any[]
+  questions: any[],
+  startedAt?: number
 ): Promise<{ attemptId: string; score: number }> {
   try {
     // Calculate score
@@ -348,6 +349,10 @@ export async function submitAttempt(
     const attemptRef = push(ref(realtimeDb, `practiceAttempts/${sessionId}`));
     const attemptId = attemptRef.key!;
     
+    const completedAt = Date.now();
+    const resolvedStartedAt = startedAt ?? completedAt - 60000;
+    const duration = completedAt - resolvedStartedAt; // milliseconds
+
     const attemptData: PracticeAttempt = {
       id: attemptId,
       sessionId,
@@ -355,15 +360,15 @@ export async function submitAttempt(
       score,
       correctAnswers,
       totalQuestions: questions.length,
-      startedAt: Date.now() - 60000, // Approximate start time
-      completedAt: Date.now(),
+      startedAt: resolvedStartedAt,
+      completedAt,
       answers: attemptAnswers
     };
-    
+
     await set(attemptRef, attemptData);
-    
+
     // Update leaderboard
-    await updateLeaderboardEntry(sessionId, studentName, score, Date.now());
+    await updateLeaderboardEntry(sessionId, studentName, score, completedAt, duration);
     
     // Update session statistics
     await updateSessionStatistics(sessionId);
@@ -434,7 +439,8 @@ export async function updateLeaderboardEntry(
   sessionId: string,
   studentName: string,
   newScore: number,
-  attemptDate: number
+  attemptDate: number,
+  duration?: number
 ): Promise<void> {
   try {
     const leaderboardRef = ref(realtimeDb, `practiceLeaderboard/${sessionId}/${studentName}`);
@@ -453,7 +459,8 @@ export async function updateLeaderboardEntry(
         lastScore: newScore,
         attemptCount: entry.attemptCount + 1,
         lastAttemptDate: attemptDate,
-        improvement
+        improvement,
+        ...(duration !== undefined && { lastDuration: duration })
       });
     } else {
       // Create new entry
@@ -466,7 +473,8 @@ export async function updateLeaderboardEntry(
         firstAttemptDate: attemptDate,
         lastAttemptDate: attemptDate,
         improvement: 0,
-        rank: 0 // Will be calculated
+        rank: 0, // Will be calculated
+        ...(duration !== undefined && { lastDuration: duration })
       };
       
       await set(leaderboardRef, entryData);

@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFeaturedCompetition } from '@/components/ui/firebase';
-import { Zap, Trophy, Target, Brain, ArrowRight, Star, ChevronRight } from 'lucide-react';
+import { Zap, Target, Brain, ArrowRight, Star, ChevronRight } from 'lucide-react';
 
 interface FeaturedCompetition {
   id: string;
@@ -230,30 +230,6 @@ export default function Home() {
           </p>
         </div>
 
-        {/* Divider */}
-        <div className="relative z-10 flex items-center gap-4 w-full max-w-md mt-6">
-          <div className="flex-1 h-px bg-white/10" />
-          <span className="text-white/30 text-sm font-semibold">or</span>
-          <div className="flex-1 h-px bg-white/10" />
-        </div>
-
-        {/* Host / Create CTA */}
-        <div className="relative z-10 flex flex-col sm:flex-row gap-3 w-full max-w-md mt-4">
-          <button
-            onClick={() => user ? navigate('/admin/quiz-templates/list') : signIn()}
-            className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-base transition-all active:scale-95 border"
-            style={{ border: '2px solid rgba(167,139,250,0.4)', color: '#c4b5fd', background: 'rgba(124,58,237,0.1)' }}>
-            <Brain className="h-5 w-5" />
-            {user ? 'Create a Quiz' : 'Sign in to Create'}
-          </button>
-          <button
-            onClick={() => navigate('/live-modes')}
-            className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-base transition-all active:scale-95 border"
-            style={{ border: '2px solid rgba(251,191,36,0.4)', color: '#fde68a', background: 'rgba(245,158,11,0.1)' }}>
-            <Trophy className="h-5 w-5" />
-            Host an Event
-          </button>
-        </div>
       </section>
 
       {/* ── STATS TICKER ── */}

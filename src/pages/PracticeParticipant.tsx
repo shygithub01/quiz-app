@@ -32,6 +32,7 @@ export default function PracticeParticipant() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showResumePrompt, setShowResumePrompt] = useState(false);
+  const [quizStartTime] = useState<number>(Date.now());
 
   useEffect(() => {
     if (!sessionId) return;
@@ -114,7 +115,7 @@ export default function PracticeParticipant() {
 
     try {
       setSubmitting(true);
-      const { attemptId } = await submitAttempt(sessionId, studentName, answers, competition.questions);
+      const { attemptId } = await submitAttempt(sessionId, studentName, answers, competition.questions, quizStartTime);
       clearProgressFromLocalStorage(sessionId);
       navigate(`/practice/results/${sessionId}/${attemptId}`);
     } catch (err: any) {
