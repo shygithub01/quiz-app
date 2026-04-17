@@ -347,6 +347,8 @@ export default function LiveEventParticipant() {
       const now = Date.now();
       const timeToAnswer = (now - questionStartTimeRef.current) / 1000;
       await submitAnswer(eventId, sessionId, event.currentQuestionIndex, answer, timeToAnswer);
+      // Cache locally so results dashboard works even if Firebase data is deleted before results phase
+      setMyAnswers(prev => ({ ...prev, [event.currentQuestionIndex]: { answer, timeToAnswer } }));
       setHasAnswered(true);
 
       // Haptic feedback on mobile
@@ -677,27 +679,34 @@ export default function LiveEventParticipant() {
                 {isCorrect ? 'Correct!' : 'Wrong!'}
               </h2>
 
-              {/* Your answer */}
-              <div className="bg-white/20 rounded-2xl px-6 py-4 text-center max-w-xs w-full mb-3">
-                <p className="text-white/70 text-xs font-semibold uppercase tracking-widest mb-1">
-                  Your answer
-                </p>
-                <p className="text-white font-bold text-lg leading-snug">
-                  {selectedAnswer}
-                </p>
-              </div>
-
-              {/* Correct answer — only shown when wrong */}
-              {!isCorrect && (
-                <div className="bg-green-500/30 border border-green-400/50 rounded-2xl px-6 py-4 text-center max-w-xs w-full">
-                  <p className="text-green-200 text-xs font-semibold uppercase tracking-widest mb-1">
-                    Correct answer
+              {/* Answer comparison — both boxes identical size */}
+              <div className="w-full max-w-xs space-y-3">
+                {/* Their answer */}
+                <div className={`rounded-2xl px-5 py-4 text-center border-2 ${
+                  isCorrect
+                    ? 'bg-white/20 border-white/30'
+                    : 'bg-white/10 border-red-300/50'
+                }`}>
+                  <p className="text-white/60 text-xs font-bold uppercase tracking-widest mb-1">
+                    {isCorrect ? 'Your answer' : 'You answered'}
                   </p>
-                  <p className="text-white font-bold text-lg leading-snug">
-                    {currentQuestion.correctAnswer}
+                  <p className="text-white font-black text-xl leading-snug">
+                    {selectedAnswer}
                   </p>
                 </div>
-              )}
+
+                {/* Correct answer — same box style, shown when wrong */}
+                {!isCorrect && (
+                  <div className="bg-green-500/25 border-2 border-green-400/60 rounded-2xl px-5 py-4 text-center">
+                    <p className="text-green-300/80 text-xs font-bold uppercase tracking-widest mb-1">
+                      Correct answer
+                    </p>
+                    <p className="text-white font-black text-xl leading-snug">
+                      {currentQuestion.correctAnswer}
+                    </p>
+                  </div>
+                )}
+              </div>
 
               <p className="text-white/50 text-sm mt-5">
                 Waiting for others...
