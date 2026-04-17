@@ -1,7 +1,7 @@
 // Live Modes Hub — Kahoot-style dark redesign
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Zap, Target, ArrowRight, ChevronRight } from 'lucide-react';
+import { Zap, Target, ArrowRight, ChevronRight, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { isAdmin } from '@/components/ui/firebase';
 
@@ -13,12 +13,18 @@ export default function LiveModesHub() {
   const [livePin, setLivePin] = useState('');
   const [practicePin, setPracticePin] = useState('');
   const [tab, setTab] = useState<'live' | 'practice'>('live');
+  const [activeEvent, setActiveEvent] = useState<any>(null);
 
   useEffect(() => {
     const checkAdmin = async () => {
       if (user?.uid) {
         const adminStatus = await isAdmin(user.uid);
         setUserIsAdmin(adminStatus);
+        if (adminStatus) {
+          const { getActiveEvent } = await import('@/services/liveEventService');
+          const running = await getActiveEvent();
+          if (running) setActiveEvent(running);
+        }
       } else {
         setUserIsAdmin(false);
       }
@@ -188,6 +194,33 @@ export default function LiveModesHub() {
         {/* ── ADMIN / HOST SECTION ── */}
         {userIsAdmin && (
           <>
+            {/* Active event recovery banner */}
+            {activeEvent && (
+              <div className="flex items-center gap-4 rounded-2xl px-5 py-4"
+                style={{ background: 'rgba(234,179,8,0.15)', border: '1.5px solid rgba(234,179,8,0.4)' }}>
+                <div className="relative flex-shrink-0">
+                  <AlertTriangle className="h-6 w-6 text-yellow-400" />
+                  <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-yellow-400 rounded-full animate-ping" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-yellow-300 text-sm">⚡ Live Event In Progress</p>
+                  <p className="text-yellow-200/70 text-xs mt-0.5">
+                    PIN <span className="font-black tracking-widest">{activeEvent.pin}</span>
+                    {' · '}
+                    {activeEvent.status === 'lobby' ? 'Waiting in lobby'
+                      : activeEvent.status === 'paused' ? 'Paused'
+                      : `Question ${(activeEvent.currentQuestionIndex ?? 0) + 1} · ${activeEvent.phase}`}
+                  </p>
+                </div>
+                <button
+                  onClick={() => navigate(`/live-event/${activeEvent.id}/host`)}
+                  className="px-4 py-2 rounded-xl font-bold text-sm flex-shrink-0 active:scale-95 transition-transform"
+                  style={{ background: '#eab308', color: '#713f12' }}>
+                  Resume
+                </button>
+              </div>
+            )}
+
             <div className="flex items-center gap-4 mt-4">
               <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
               <span className="text-white/30 font-bold text-sm uppercase tracking-widest">Host Controls</span>

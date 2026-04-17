@@ -57,6 +57,8 @@ export default function LiveEventParticipant() {
   const prevQuestionIndexRef = useRef<number>(-1);
   const prevPhaseRef = useRef<string>('');
   const lastQuestionRef = useRef<any>(null);
+  // Tracks which question we already fired the participant fallback for
+  const participantAutoAdvancedForRef = useRef<number>(-1);
 
   // Load event and competition
   useEffect(() => {
@@ -224,6 +226,44 @@ export default function LiveEventParticipant() {
     }
   }, [event?.phase, event?.timerStartedAt]);
 
+  // Participant-side fallback auto-advance.
+  // If BOTH the host tab and projector tab close/crash, nothing would normally
+  // advance the event — participants would sit frozen. This effect fires 5 seconds
+  // after the timer expires, giving the host screen priority to act first.
+  // attemptAutoAdvance is idempotent: it re-reads Firebase state before touching
+  // anything, so 1000 clients calling it simultaneously is safe — only the first
+  // one through the guard actually writes.
+  useEffect(() => {
+    if (!event || !eventId || !competition) return;
+    if (event.phase !== 'question' || event.status !== 'active') return;
+    if (!event.timerStartedAt || !event.settings?.autoAdvanceOnTimer) return;
+
+    const questionIndex = event.currentQuestionIndex;
+    let hasFired = false;
+
+    const check = async () => {
+      if (hasFired) return;
+      if (participantAutoAdvancedForRef.current === questionIndex) return;
+      const elapsed = Date.now() - event.timerStartedAt! - event.pausedDuration;
+      const remaining = event.timerDuration - elapsed / 1000;
+      // 5-second buffer — host/projector get first shot
+      if (remaining <= -5) {
+        hasFired = true;
+        participantAutoAdvancedForRef.current = questionIndex;
+        const { attemptAutoAdvance } = await import('@/services/liveEventService');
+        await attemptAutoAdvance(
+          eventId,
+          questionIndex,
+          competition.questions || [],
+          event.settings.enableFastestFingerBonus
+        );
+      }
+    };
+
+    const interval = setInterval(check, 1000);
+    return () => clearInterval(interval);
+  }, [event?.phase, event?.currentQuestionIndex, event?.timerStartedAt, event?.status, competition]);
+
   // Drumroll: triggers on question → leaderboard phase transition
   useEffect(() => {
     if (!event?.phase) return;
@@ -235,7 +275,7 @@ export default function LiveEventParticipant() {
       const q = competition?.questions?.[event.currentQuestionIndex] ?? null;
       lastQuestionRef.current = q;
       setShowDrumroll(true);
-      const timer = setTimeout(() => setShowDrumroll(false), 2500);
+      const timer = setTimeout(() => setShowDrumroll(false), 1500);
       return () => clearTimeout(timer);
     }
   }, [event?.phase, event?.currentQuestionIndex, competition]);
@@ -603,16 +643,17 @@ export default function LiveEventParticipant() {
               }}
             >
               {isCorrect ? (
-                <CheckCircle2 className="h-28 w-28 text-white mb-5 drop-shadow-lg" />
+                <CheckCircle2 className="h-24 w-24 text-white mb-4 drop-shadow-lg" />
               ) : (
-                <XCircle className="h-28 w-28 text-white mb-5 drop-shadow-lg" />
+                <XCircle className="h-24 w-24 text-white mb-4 drop-shadow-lg" />
               )}
 
-              <h2 className="text-5xl font-black text-white mb-6 tracking-tight">
+              <h2 className="text-5xl font-black text-white mb-5 tracking-tight">
                 {isCorrect ? 'Correct!' : 'Wrong!'}
               </h2>
 
-              <div className="bg-white/20 rounded-2xl px-6 py-4 text-center max-w-xs w-full">
+              {/* Your answer */}
+              <div className="bg-white/20 rounded-2xl px-6 py-4 text-center max-w-xs w-full mb-3">
                 <p className="text-white/70 text-xs font-semibold uppercase tracking-widest mb-1">
                   Your answer
                 </p>
@@ -621,7 +662,19 @@ export default function LiveEventParticipant() {
                 </p>
               </div>
 
-              <p className="text-white/50 text-sm mt-6">
+              {/* Correct answer — only shown when wrong */}
+              {!isCorrect && (
+                <div className="bg-green-500/30 border border-green-400/50 rounded-2xl px-6 py-4 text-center max-w-xs w-full">
+                  <p className="text-green-200 text-xs font-semibold uppercase tracking-widest mb-1">
+                    Correct answer
+                  </p>
+                  <p className="text-white font-bold text-lg leading-snug">
+                    {currentQuestion.correctAnswer}
+                  </p>
+                </div>
+              )}
+
+              <p className="text-white/50 text-sm mt-5">
                 Waiting for others...
               </p>
             </div>

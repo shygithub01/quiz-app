@@ -22,6 +22,12 @@
         }
       }
     },
+    "eventAnswerCounts": {
+      "$eventId": {
+        ".read": true,
+        ".write": true
+      }
+    },
     "eventLeaderboard": {
       "$eventId": {
         ".read": true,
