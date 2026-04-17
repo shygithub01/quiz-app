@@ -757,7 +757,7 @@ export default function LiveEventHost() {
                 </div>
               </div>
               <Button
-                onClick={() => navigate(`/admin/live-event-host/${completedEventId}`)}
+                onClick={() => navigate(`/live-event/${completedEventId}/host`)}
                 className="flex-shrink-0 bg-purple-600 hover:bg-purple-700 text-white"
               >
                 Return to Results
