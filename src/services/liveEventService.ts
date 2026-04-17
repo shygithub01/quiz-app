@@ -394,10 +394,10 @@ export async function joinEvent(
       throw new Error('Event not found');
     }
     
-    if (event.phase !== 'lobby') {
-      throw new Error('Event has already started');
+    if (event.status === 'completed') {
+      throw new Error('Event has already ended');
     }
-    
+
     // Count current participants directly — simpler and no corruption risk.
     // The old transaction counter never decremented when onDisconnect fired,
     // causing "Event is full" errors even with few real participants.

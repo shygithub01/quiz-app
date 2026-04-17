@@ -22,6 +22,7 @@ export default function LiveEventJoin() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [pinLocked, setPinLocked] = useState(false);
+  const [eventInProgress, setEventInProgress] = useState(false);
 
   const pinInputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -43,9 +44,10 @@ export default function LiveEventJoin() {
     const fetchActiveEvent = async () => {
       try {
         const active = await getActiveEvent();
-        if (active && active.phase === 'lobby') {
+        if (active && active.status !== 'completed') {
           setPin(active.pin);
           setPinLocked(true);
+          if (active.phase !== 'lobby') setEventInProgress(true);
         }
       } catch {
         // silently ignore — PIN stays empty, user types manually
@@ -87,7 +89,8 @@ export default function LiveEventJoin() {
       setLoading(true);
       const event = await getEventByPIN(pin);
       if (!event) { setError('Invalid PIN. Event not found.'); return; }
-      if (event.phase !== 'lobby') { setError('This event has already started. You cannot join now.'); return; }
+      if (event.status === 'completed') { setError('This event has already ended.'); return; }
+      if (event.phase !== 'lobby') setEventInProgress(true);
 
       const sessionId = await joinEvent(event.id, name);
       sessionStorage.setItem(`liveEvent_${event.id}_session`, sessionId);
@@ -125,6 +128,14 @@ export default function LiveEventJoin() {
       {/* Form card */}
       <div className="flex-1 px-5">
         <form onSubmit={handleJoin} className="space-y-5">
+
+          {/* In-progress notice */}
+          {eventInProgress && !error && (
+            <div className="flex items-start gap-3 bg-yellow-500/20 border border-yellow-400/30 rounded-2xl px-4 py-3">
+              <AlertCircle className="h-5 w-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+              <p className="text-yellow-200 text-sm">Game is already in progress — you'll join from the current question. Questions you missed won't count toward your score.</p>
+            </div>
+          )}
 
           {/* Error */}
           {error && (
