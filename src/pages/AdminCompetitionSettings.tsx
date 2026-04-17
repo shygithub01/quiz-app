@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import {
   getCompetitions,
@@ -30,6 +30,7 @@ const DARK_CARD = 'bg-white/5 border border-white/10';
 export default function AdminCompetitionSettings() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -45,6 +46,15 @@ export default function AdminCompetitionSettings() {
   useEffect(() => {
     checkAdminAndLoad();
   }, [user]);
+
+  // Scroll to #history section when navigated directly via hash link
+  useEffect(() => {
+    if (location.hash === '#history' && !loading) {
+      setTimeout(() => {
+        document.getElementById('live-event-history')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  }, [location.hash, loading]);
 
   const checkAdminAndLoad = async () => {
     if (!user) {
@@ -432,7 +442,7 @@ export default function AdminCompetitionSettings() {
           </CardContent>
         </Card>
         {/* ── Live Event History ── */}
-        <Card className={DARK_CARD}>
+        <Card id="live-event-history" className={DARK_CARD}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-white">
               <Zap className="h-5 w-5 text-purple-400" />

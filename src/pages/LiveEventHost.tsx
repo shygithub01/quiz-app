@@ -671,13 +671,23 @@ export default function LiveEventHost() {
               Create and manage real-time quiz competitions
             </p>
           </div>
-          <Button 
-            variant="outline" 
-            onClick={() => navigate('/admin/competitions')}
-            className="bg-white text-purple-600 hover:bg-purple-50 border-0 font-semibold"
-          >
-            ← Back
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              onClick={() => navigate('/admin/competition-settings#history')}
+              className="bg-white/10 text-white hover:bg-white/20 border-white/20 font-semibold"
+            >
+              <Trophy className="h-4 w-4 mr-2" />
+              History
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => navigate('/admin/competitions')}
+              className="bg-white text-purple-600 hover:bg-purple-50 border-0 font-semibold"
+            >
+              ← Back
+            </Button>
+          </div>
         </div>
         
         {/* Active Event Warning */}
