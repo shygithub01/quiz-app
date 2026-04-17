@@ -95,12 +95,12 @@ export default function PastQuizzes() {
   return (
     <div className="min-h-screen p-6" style={{ background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 50%, #0a1628 100%)' }}>
       <div className="max-w-4xl mx-auto space-y-8">
-        <div className="flex justify-between items-center">
-          <h1 className="text-3xl font-bold text-white flex items-center gap-2">
-            <Clock className="h-8 w-8 text-purple-400" />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="text-2xl md:text-3xl font-bold text-white flex items-center gap-2">
+            <Clock className="h-7 w-7 md:h-8 md:w-8 text-purple-400 flex-shrink-0" />
             Past Quizzes
           </h1>
-          <Button 
+          <Button
             onClick={() => navigate('/')}
             variant="outline"
             className="flex items-center gap-2"
@@ -109,9 +109,9 @@ export default function PastQuizzes() {
           </Button>
         </div>
 
-        <Card className="shadow-xl">
+        <Card className="shadow-xl" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
           <CardHeader>
-            <CardTitle>Your Quiz History</CardTitle>
+            <CardTitle className="text-white">Your Quiz History</CardTitle>
           </CardHeader>
           <CardContent>
             {loading ? (
@@ -127,19 +127,19 @@ export default function PastQuizzes() {
                 {pastQuizzes.map((quiz) => (
                   <div
                     key={quiz.id}
-                    className="flex items-center justify-between p-4 rounded-lg transition-colors hover:bg-white/5"
+                    className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 rounded-lg transition-colors hover:bg-white/5"
                     style={{ border: '1px solid rgba(255,255,255,0.1)' }}
                   >
-                    <div className="flex items-center gap-4">
-                      <div className={`p-2 rounded-lg ${quiz.type === 'document' ? 'bg-blue-500/20' : 'bg-green-500/20'}`}>
+                    <div className="flex items-start gap-3">
+                      <div className={`p-2 rounded-lg flex-shrink-0 ${quiz.type === 'document' ? 'bg-blue-500/20' : 'bg-green-500/20'}`}>
                         {quiz.type === 'document' ? (
                           <FileText className="h-5 w-5 text-blue-400" />
                         ) : (
                           <Target className="h-5 w-5 text-green-400" />
                         )}
                       </div>
-                      <div>
-                        <h3 className="font-medium text-white">{formatQuizTitle(quiz)}</h3>
+                      <div className="min-w-0">
+                        <h3 className="font-medium text-white break-words">{formatQuizTitle(quiz)}</h3>
                         <p className="text-sm text-white/50">
                           Created: {new Date(quiz.createdAt).toLocaleDateString()}
                           {quiz.completedAt ?
@@ -159,7 +159,6 @@ export default function PastQuizzes() {
                         )}
                       </div>
                     </div>
-                    
 
 
                   {/* Enhanced button section with View Results */}

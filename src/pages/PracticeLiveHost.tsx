@@ -128,39 +128,41 @@ export default function PracticeLiveHost() {
   }
 
   return (
-    <div className="min-h-screen p-6" style={{ background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 50%, #0a1628 100%)' }}>
+    <div className="min-h-screen p-4 md:p-6" style={{ background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 50%, #0a1628 100%)' }}>
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-6 rounded-xl shadow-xl">
-          <div>
-            <h1 className="text-4xl font-bold flex items-center gap-3">
-              <Target className="h-10 w-10" />
-              Practice Live Mode Host
-            </h1>
-            <p className="text-purple-100 mt-2 text-lg">
-              Create practice sessions from your templates
-            </p>
-          </div>
-          <div className="flex gap-3">
-            <Button 
-              variant="outline" 
-              onClick={() => navigate('/admin/practice/manage')}
-              className="bg-white text-purple-600 hover:bg-purple-50 border-0 font-semibold"
-            >
-              Manage Sessions
-            </Button>
-            <Button 
-              variant="outline" 
-              onClick={() => navigate('/admin/competitions')}
-              className="bg-white text-purple-600 hover:bg-purple-50 border-0 font-semibold"
-            >
-              ← Back
-            </Button>
+        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-5 md:p-6 rounded-xl shadow-xl">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl md:text-4xl font-bold flex items-center gap-3">
+                <Target className="h-7 w-7 md:h-10 md:w-10 flex-shrink-0" />
+                Practice Live Mode Host
+              </h1>
+              <p className="text-purple-100 mt-1 text-sm md:text-lg">
+                Create practice sessions from your templates
+              </p>
+            </div>
+            <div className="flex gap-2 flex-shrink-0">
+              <Button
+                variant="outline"
+                onClick={() => navigate('/admin/practice/manage')}
+                className="bg-white text-purple-600 hover:bg-purple-50 border-0 font-semibold text-sm"
+              >
+                Manage Sessions
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => navigate('/admin/competitions')}
+                className="bg-white text-purple-600 hover:bg-purple-50 border-0 font-semibold text-sm"
+              >
+                ← Back
+              </Button>
+            </div>
           </div>
         </div>
         
         {/* Create Session Card */}
-        <Card>
+        <Card style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-white">
               <Trophy className="h-5 w-5 text-yellow-400" />

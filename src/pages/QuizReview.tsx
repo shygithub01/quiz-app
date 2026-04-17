@@ -154,9 +154,9 @@ export default function QuizReview() {
   const issueCount = questions.filter(q => q.hasIssue).length;
   
   return (
-    <div className="container max-w-6xl mx-auto py-8 space-y-6">
+    <div className="w-full max-w-6xl mx-auto px-4 py-8 space-y-6">
       {/* Header */}
-      <Card className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white">
+      <Card style={{ background: 'linear-gradient(135deg, #7c3aed, #4f46e5)', border: 'none' }}>
         <CardHeader>
           <CardTitle className="flex items-center gap-3 text-2xl">
             <Brain className="h-8 w-8" />
@@ -167,7 +167,7 @@ export default function QuizReview() {
           </p>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-3 gap-4 text-center">
+          <div className="grid grid-cols-3 gap-2 md:gap-4 text-center">
             <div className="bg-white/10 rounded-lg p-4">
               <p className="text-3xl font-bold">{questions.length}</p>
               <p className="text-sm text-purple-100">Total Questions</p>
@@ -196,9 +196,9 @@ export default function QuizReview() {
             }`}
           >
             <CardHeader>
-              <div className="flex items-start justify-between">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <span className="bg-purple-600 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm">
+              <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+                <CardTitle className="text-lg flex items-start gap-2 flex-1 min-w-0">
+                  <span className="bg-purple-600 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm flex-shrink-0">
                     {index + 1}
                   </span>
                   {editingIndex === index ? (
@@ -209,10 +209,10 @@ export default function QuizReview() {
                       className="flex-1 p-2 border rounded"
                     />
                   ) : (
-                    <span>{q.question}</span>
+                    <span className="break-words">{q.question}</span>
                   )}
                 </CardTitle>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2 flex-shrink-0">
                   {editingIndex === index ? (
                     <>
                       <Button size="sm" onClick={handleSaveEdit} className="bg-green-600">
@@ -358,20 +358,18 @@ export default function QuizReview() {
       {/* Action Buttons */}
       <Card>
         <CardContent className="pt-6">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
             <Button variant="outline" onClick={() => navigate('/quiz-generator')}>
               Cancel Review
             </Button>
-            <div className="flex gap-3">
-              <Button 
-                onClick={handleApproveAll}
-                disabled={verifiedCount < questions.length || issueCount > 0}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                <CheckCircle className="h-5 w-5 mr-2" />
-                Approve All & Save ({verifiedCount}/{questions.length})
-              </Button>
-            </div>
+            <Button
+              onClick={handleApproveAll}
+              disabled={verifiedCount < questions.length || issueCount > 0}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              <CheckCircle className="h-5 w-5 mr-2" />
+              Approve All & Save ({verifiedCount}/{questions.length})
+            </Button>
           </div>
         </CardContent>
       </Card>
