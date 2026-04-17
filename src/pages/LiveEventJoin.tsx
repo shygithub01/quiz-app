@@ -5,6 +5,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Trophy, Users, AlertCircle, ChevronRight } from 'lucide-react';
 import {
   getEventByPIN,
+  getActiveEvent,
   joinEvent,
   validatePINFormat,
   validateNameLength
@@ -20,6 +21,7 @@ export default function LiveEventJoin() {
   const [name, setName] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [pinLocked, setPinLocked] = useState(false);
 
   const pinInputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -27,20 +29,46 @@ export default function LiveEventJoin() {
   // Auto-fill PIN from QR code
   useEffect(() => {
     const pinFromQR = searchParams.get('pin');
-    if (pinFromQR) setPin(pinFromQR.replace(/\D/g, '').slice(0, PIN_LENGTH));
+    if (pinFromQR) {
+      setPin(pinFromQR.replace(/\D/g, '').slice(0, PIN_LENGTH));
+      setPinLocked(true);
+    }
   }, [searchParams]);
 
-  // Auto-focus PIN on mount
+  // Auto-fill PIN from active event (only one event at a time)
   useEffect(() => {
-    pinInputRef.current?.focus();
+    const pinFromQR = searchParams.get('pin');
+    if (pinFromQR) return; // QR takes priority
+
+    const fetchActiveEvent = async () => {
+      try {
+        const active = await getActiveEvent();
+        if (active && active.phase === 'lobby') {
+          setPin(active.pin);
+          setPinLocked(true);
+        }
+      } catch {
+        // silently ignore — PIN stays empty, user types manually
+      }
+    };
+    fetchActiveEvent();
   }, []);
 
-  // Move focus to name once PIN is complete
+  // Auto-focus: skip PIN (it's pre-filled), go straight to name
   useEffect(() => {
-    if (pin.length === PIN_LENGTH) {
+    if (pinLocked) {
+      nameInputRef.current?.focus();
+    } else {
+      pinInputRef.current?.focus();
+    }
+  }, [pinLocked]);
+
+  // Move focus to name once PIN is manually completed
+  useEffect(() => {
+    if (!pinLocked && pin.length === PIN_LENGTH) {
       nameInputRef.current?.focus();
     }
-  }, [pin]);
+  }, [pin, pinLocked]);
 
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,6 +138,9 @@ export default function LiveEventJoin() {
           <div>
             <label className="block text-white/70 text-xs font-semibold mb-2 uppercase tracking-wider">
               Event PIN
+              {pinLocked && (
+                <span className="ml-2 text-green-400 normal-case font-normal">✓ auto-filled</span>
+              )}
             </label>
             <input
               ref={pinInputRef}
@@ -118,22 +149,24 @@ export default function LiveEventJoin() {
               pattern="[0-9]*"
               value={pin}
               onChange={(e) => {
+                if (pinLocked) return;
                 setPin(e.target.value.replace(/\D/g, '').slice(0, PIN_LENGTH));
                 setError('');
               }}
+              readOnly={pinLocked}
               placeholder="• • • • • •"
               maxLength={PIN_LENGTH}
               required
               className="w-full text-center text-4xl font-black tracking-[0.5em] py-5 px-4 rounded-2xl border-2 outline-none transition-all"
               style={{
-                background: 'rgba(255,255,255,0.1)',
+                background: pinLocked ? 'rgba(167,139,250,0.15)' : 'rgba(255,255,255,0.1)',
                 borderColor: pin.length === PIN_LENGTH ? '#a78bfa' : 'rgba(255,255,255,0.2)',
-                color: 'white',
+                color: pinLocked ? '#c4b5fd' : 'white',
                 caretColor: '#a78bfa',
               }}
             />
             <p className="text-white/40 text-xs text-center mt-2">
-              {pin.length}/{PIN_LENGTH} digits entered
+              {pinLocked ? 'PIN loaded from active event' : `${pin.length}/${PIN_LENGTH} digits entered`}
             </p>
           </div>
 

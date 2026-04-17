@@ -23,6 +23,7 @@ export default function AdminQuizTemplatesList() {
   // Live Event settings
   const [questionTimer, setQuestionTimer] = useState(30);
   const [maxParticipants, setMaxParticipants] = useState(50);
+  const [scheduledStartEt, setScheduledStartEt] = useState('');
 
   // Practice settings
   const [practiceTitle, setPracticeTitle] = useState('');
@@ -88,6 +89,22 @@ export default function AdminQuizTemplatesList() {
     return qs;
   };
 
+  // Convert an Eastern Time datetime-local string to a UTC Unix timestamp (ms)
+  const easternToUtcMs = (dateTimeStr: string): number => {
+    const refUtc = new Date(dateTimeStr + 'Z');
+    const etFormatted = refUtc.toLocaleString('sv', { timeZone: 'America/New_York' });
+    const etAsUtcMs = new Date(etFormatted.replace(' ', 'T') + 'Z').getTime();
+    const offsetMs = etAsUtcMs - refUtc.getTime();
+    return refUtc.getTime() - offsetMs;
+  };
+
+  // Current time formatted as datetime-local value in Eastern timezone (for min= attribute)
+  const getCurrentEtDateTimeLocal = (): string => {
+    const now = new Date();
+    const etStr = now.toLocaleString('sv', { timeZone: 'America/New_York' });
+    return etStr.slice(0, 16).replace(' ', 'T');
+  };
+
   const openLaunchModal = (template: any, mode: 'liveEvent' | 'practiceLiveEvent' | 'scholarship' | 'scholarshipPractice') => {
     setLaunchTemplate(template);
     setLaunchMode(mode);
@@ -97,6 +114,7 @@ export default function AdminQuizTemplatesList() {
     setPracticeEndDays(7);
     setShuffleQuestions(false);
     setShuffleOptions(true);
+    setScheduledStartEt('');
   };
 
   const closeLaunchModal = () => {
@@ -137,10 +155,12 @@ export default function AdminQuizTemplatesList() {
 
       // 2. Create the live event
       const { createLiveEvent } = await import('@/services/liveEventService');
+      const scheduledStartAt = scheduledStartEt ? easternToUtcMs(scheduledStartEt) : undefined;
       const { eventId, pin } = await createLiveEvent(
         competitionId,
         { questionTimer, enableFastestFingerBonus: true, autoAdvanceOnTimer: true },
-        maxParticipants
+        maxParticipants,
+        scheduledStartAt
       );
 
       closeLaunchModal();
@@ -533,6 +553,25 @@ export default function AdminQuizTemplatesList() {
                       className="w-full px-3 py-2 rounded-lg text-white"
                       style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-white/70 mb-1">
+                      <Clock className="h-4 w-4 inline mr-1" />
+                      Scheduled start time <span className="text-white/40 font-normal">(Eastern Time)</span>
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={scheduledStartEt}
+                      min={getCurrentEtDateTimeLocal()}
+                      onChange={e => setScheduledStartEt(e.target.value)}
+                      className="w-full px-3 py-2 rounded-lg text-white"
+                      style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', colorScheme: 'dark' }}
+                    />
+                    <p className="text-xs text-white/40 mt-1">
+                      {scheduledStartEt
+                        ? `Event auto-starts at ${new Date(easternToUtcMs(scheduledStartEt)).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}`
+                        : 'Leave blank to start manually'}
+                    </p>
                   </div>
                 </>
               ) : (

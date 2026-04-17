@@ -26,6 +26,38 @@ function rankMedal(rank: number) {
 // Answer label: A, B, C, D
 const LABELS = ['A', 'B', 'C', 'D'];
 
+// Format milliseconds as HH:MM:SS
+function formatLobbyCountdown(ms: number): string {
+  const totalSecs = Math.max(0, Math.ceil(ms / 1000));
+  const h = Math.floor(totalSecs / 3600);
+  const m = Math.floor((totalSecs % 3600) / 60);
+  const s = totalSecs % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+}
+
+// Format UTC timestamp as Eastern time string e.g. "7:00 PM"
+function formatEasternTime(utcMs: number): string {
+  return new Date(utcMs).toLocaleTimeString('en-US', {
+    timeZone: 'America/New_York',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+}
+
+// Format UTC timestamp as local time with day label e.g. "Today at 4:00 PM" or "Tomorrow at 12:00 AM"
+function formatLocalStartTime(utcMs: number): string {
+  const now = new Date();
+  const target = new Date(utcMs);
+  const timeStr = target.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  if (target.toDateString() === now.toDateString()) return `Today at ${timeStr}`;
+  const tomorrow = new Date(now);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  if (target.toDateString() === tomorrow.toDateString()) return `Tomorrow at ${timeStr}`;
+  const dateStr = target.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return `${dateStr} at ${timeStr}`;
+}
+
 export default function LiveEventParticipant() {
   const { eventId, sessionId } = useParams<{ eventId: string; sessionId: string }>();
   const navigate = useNavigate();
@@ -52,6 +84,8 @@ export default function LiveEventParticipant() {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [showDrumroll, setShowDrumroll] = useState(false);
   const [myAnswers, setMyAnswers] = useState<Record<number, { answer: string; timeToAnswer: number }>>({});
+  const [lobbyCountdownMs, setLobbyCountdownMs] = useState(0);
+  const [showFiveMinWarning, setShowFiveMinWarning] = useState(false);
 
   const questionStartTimeRef = useRef<number>(0);
   const reconnectTimeoutRef = useRef<number>(0);
@@ -193,6 +227,21 @@ export default function LiveEventParticipant() {
 
     return () => clearInterval(interval);
   }, [eventId, sessionId, event?.phase]);
+
+  // Lobby countdown to scheduledStartAt
+  useEffect(() => {
+    if (event?.phase !== 'lobby' || !event.scheduledStartAt) return;
+
+    const tick = () => {
+      const remaining = event.scheduledStartAt! - Date.now();
+      setLobbyCountdownMs(remaining);
+      if (remaining <= 300000 && remaining > 0) setShowFiveMinWarning(true);
+    };
+
+    tick();
+    const interval = setInterval(tick, 1000);
+    return () => clearInterval(interval);
+  }, [event?.phase, event?.scheduledStartAt]);
 
   // Countdown animation
   useEffect(() => {
@@ -516,23 +565,83 @@ export default function LiveEventParticipant() {
 
         {/* ── LOBBY ── */}
         {event.phase === 'lobby' && (
-          <div className="flex-1 flex flex-col items-center justify-center text-center py-12 pb-24">
-            <div className="relative mb-6">
-              <div className="w-24 h-24 rounded-full bg-purple-600/40 flex items-center justify-center mx-auto">
-                <Trophy className="h-12 w-12 text-yellow-400" />
-              </div>
-              <div className="absolute inset-0 rounded-full bg-purple-500/20 animate-ping" />
-            </div>
-            <h2 className="text-2xl font-bold text-white mb-2">Welcome, {myName}!</h2>
-            <p className="text-white/60 mb-3">You've successfully joined.</p>
-            <div className="bg-white/10 rounded-2xl px-6 py-4 inline-block">
-              <p className="text-white/80 text-sm">Waiting for host to start...</p>
-              <div className="flex items-center justify-center gap-1 mt-2">
-                <span className="w-2 h-2 bg-white/60 rounded-full animate-bounce" />
-                <span className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }} />
-                <span className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
-              </div>
-            </div>
+          <div className="flex-1 flex flex-col items-center justify-center text-center py-8 pb-24">
+
+            {event.scheduledStartAt ? (
+              <>
+                {/* 5-min warning banner */}
+                {showFiveMinWarning && lobbyCountdownMs > 0 && (
+                  <div className="w-full mb-6 flex items-center gap-3 rounded-2xl px-4 py-3 animate-pulse"
+                    style={{ background: 'rgba(234,179,8,0.2)', border: '1.5px solid rgba(234,179,8,0.5)' }}>
+                    <span className="text-yellow-300 text-lg">⚡</span>
+                    <p className="text-yellow-200 font-bold text-sm">Starting in 5 minutes — get ready!</p>
+                  </div>
+                )}
+
+                {lobbyCountdownMs > 0 ? (
+                  <>
+                    <div className="relative mb-5">
+                      <div className="w-20 h-20 rounded-full bg-purple-600/40 flex items-center justify-center mx-auto">
+                        <Trophy className="h-10 w-10 text-yellow-400" />
+                      </div>
+                      <div className="absolute inset-0 rounded-full bg-purple-500/10 animate-ping" />
+                    </div>
+                    <h2 className="text-xl font-bold text-white mb-1">Welcome, {myName}!</h2>
+                    <p className="text-white/50 text-sm mb-6">Event starts automatically — no action needed</p>
+
+                    {/* Big countdown */}
+                    <div className="rounded-3xl px-8 py-6 mb-5 w-full max-w-xs"
+                      style={{ background: 'rgba(255,255,255,0.08)', border: '1.5px solid rgba(255,255,255,0.15)' }}>
+                      <p className="text-white/40 text-xs uppercase tracking-widest mb-3">Event starts in</p>
+                      <p className="text-5xl font-black text-white tracking-wider tabular-nums">
+                        {formatLobbyCountdown(lobbyCountdownMs)}
+                      </p>
+                      <div className="mt-4 space-y-1">
+                        <p className="text-white/40 text-xs">
+                          {formatEasternTime(event.scheduledStartAt)} Eastern
+                        </p>
+                        <p className="text-white/80 text-sm font-semibold">
+                          {formatLocalStartTime(event.scheduledStartAt)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-4 text-white/40 text-sm">
+                      <span>📋 {competition?.questions?.length || 0} questions</span>
+                      <span>·</span>
+                      <span>⏱ {event.settings?.questionTimer || 30}s each</span>
+                    </div>
+                  </>
+                ) : (
+                  /* Countdown hit 0 — waiting for Firebase phase change */
+                  <div className="flex flex-col items-center justify-center">
+                    <div className="w-20 h-20 border-4 border-purple-400/30 border-t-purple-400 rounded-full animate-spin mx-auto mb-5" />
+                    <p className="text-white text-2xl font-bold">Starting now...</p>
+                    <p className="text-white/50 text-sm mt-2">Get ready!</p>
+                  </div>
+                )}
+              </>
+            ) : (
+              /* No scheduled time — waiting for host */
+              <>
+                <div className="relative mb-6">
+                  <div className="w-24 h-24 rounded-full bg-purple-600/40 flex items-center justify-center mx-auto">
+                    <Trophy className="h-12 w-12 text-yellow-400" />
+                  </div>
+                  <div className="absolute inset-0 rounded-full bg-purple-500/20 animate-ping" />
+                </div>
+                <h2 className="text-2xl font-bold text-white mb-2">Welcome, {myName}!</h2>
+                <p className="text-white/60 mb-3">You've successfully joined.</p>
+                <div className="bg-white/10 rounded-2xl px-6 py-4 inline-block">
+                  <p className="text-white/80 text-sm">Waiting for host to start...</p>
+                  <div className="flex items-center justify-center gap-1 mt-2">
+                    <span className="w-2 h-2 bg-white/60 rounded-full animate-bounce" />
+                    <span className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }} />
+                    <span className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
 

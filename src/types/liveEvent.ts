@@ -32,6 +32,7 @@ export interface LiveEvent {
   createdAt: number; // Unix timestamp
   startedAt: number | null; // Unix timestamp
   endedAt: number | null; // Unix timestamp
+  scheduledStartAt?: number; // Unix timestamp — if set, event auto-starts at this time
 }
 
 /**

@@ -114,7 +114,8 @@ export async function validateNameUniqueness(
 export async function createLiveEvent(
   competitionId: string,
   settings: LiveEventSettings,
-  maxParticipants: number = 50
+  maxParticipants: number = 50,
+  scheduledStartAt?: number
 ): Promise<{ eventId: string; pin: string }> {
   try {
     const eventId = generateEventId();
@@ -141,7 +142,8 @@ export async function createLiveEvent(
       settings,
       createdAt: Date.now(),
       startedAt: null,
-      endedAt: null
+      endedAt: null,
+      ...(scheduledStartAt ? { scheduledStartAt } : {})
     };
     
     await set(ref(realtimeDb, `liveEvents/${eventId}`), eventData);

@@ -46,6 +46,7 @@ export default function LiveEventHost() {
   const [showFullFlash, setShowFullFlash] = useState(false);
   // Use a ref so the listener useEffect doesn't tear down and recreate on every join
   const lastParticipantCountRef = useRef(0);
+  const hasAutoStartedRef = useRef(false);
   
   // Load existing event from URL or load competitions
   useEffect(() => {
@@ -123,6 +124,50 @@ export default function LiveEventHost() {
     const interval = setInterval(checkTimer, 500);
     return () => clearInterval(interval);
   }, [event?.phase, event?.currentQuestionIndex, event?.timerStartedAt, event?.status]);
+
+  // Auto-start when scheduledStartAt is reached
+  useEffect(() => {
+    if (!event || !eventId) return;
+    if (event.phase !== 'lobby') return;
+    if (!event.scheduledStartAt) return;
+
+    const doAutoStart = async () => {
+      if (hasAutoStartedRef.current) return;
+      if (Date.now() < event.scheduledStartAt!) return;
+
+      const competition = competitions.find((c: any) => c.id === event.competitionId);
+      if (!competition) return; // retry next tick once competitions load
+
+      hasAutoStartedRef.current = true;
+      try {
+        const { calculateLeaderboard } = await import('@/services/liveEventService');
+        await calculateLeaderboard(event.id, competition.questions || [], event.settings.enableFastestFingerBonus);
+
+        await updateEvent(event.id, {
+          status: 'active',
+          phase: 'countdown',
+          startedAt: Date.now()
+        });
+
+        startBackgroundMusic();
+
+        setTimeout(async () => {
+          await updateEvent(event.id, {
+            phase: 'question',
+            currentQuestionIndex: 0,
+            timerStartedAt: Date.now(),
+            pausedDuration: 0
+          });
+        }, 4000);
+      } catch (err) {
+        console.error('❌ Auto-start failed:', err);
+        hasAutoStartedRef.current = false; // allow retry
+      }
+    };
+
+    const interval = setInterval(doAutoStart, 500);
+    return () => clearInterval(interval);
+  }, [event?.phase, event?.scheduledStartAt, event?.id, competitions]);
 
   // Sound effects
   const playJoinSound = () => {
