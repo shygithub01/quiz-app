@@ -51,6 +51,7 @@ export default function LiveEventParticipant() {
   const [eventWasLoaded, setEventWasLoaded] = useState(false);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [showDrumroll, setShowDrumroll] = useState(false);
+  const [myAnswers, setMyAnswers] = useState<Record<number, { answer: string; timeToAnswer: number }>>({});
 
   const questionStartTimeRef = useRef<number>(0);
   const reconnectTimeoutRef = useRef<number>(0);
@@ -263,6 +264,30 @@ export default function LiveEventParticipant() {
     const interval = setInterval(check, 1000);
     return () => clearInterval(interval);
   }, [event?.phase, event?.currentQuestionIndex, event?.timerStartedAt, event?.status, competition]);
+
+  // Fetch participant's own answers when results phase is reached
+  useEffect(() => {
+    if (!eventId || !sessionId || event?.phase !== 'results') return;
+
+    const fetchMyAnswers = async () => {
+      try {
+        const { get, ref } = await import('firebase/database');
+        const { realtimeDb } = await import('@/components/ui/firebase');
+        const snapshot = await get(ref(realtimeDb, `eventAnswers/${eventId}/${sessionId}`));
+        if (snapshot.exists()) {
+          const raw = snapshot.val() as Record<string, { answer: string; timeToAnswer: number }>;
+          // Firebase stores keys as strings; convert to number-keyed map
+          const parsed: Record<number, { answer: string; timeToAnswer: number }> = {};
+          Object.entries(raw).forEach(([k, v]) => { parsed[Number(k)] = v; });
+          setMyAnswers(parsed);
+        }
+      } catch (err) {
+        console.error('Error fetching my answers:', err);
+      }
+    };
+
+    fetchMyAnswers();
+  }, [event?.phase, eventId, sessionId]);
 
   // Drumroll: triggers on question → leaderboard phase transition
   useEffect(() => {
@@ -733,28 +758,149 @@ export default function LiveEventParticipant() {
           </div>
         )}
 
-        {/* ── RESULTS ── */}
+        {/* ── RESULTS DASHBOARD ── */}
         {event.phase === 'results' && (
-          <div className="flex-1 flex flex-col items-center justify-center text-center py-8 pb-24">
-            <div className="text-6xl mb-4">
-              {myRank === 1 ? '🏆' : myRank === 2 ? '🥈' : myRank === 3 ? '🥉' : '🎉'}
-            </div>
-            <h2 className="text-2xl font-black text-white mb-6">Quiz Complete!</h2>
+          <div className="flex-1 flex flex-col pb-24">
 
-            <div className="bg-white/10 rounded-3xl p-6 mb-6 w-full max-w-xs border border-white/20">
-              <p className="text-white/60 text-sm mb-1">Your Final Rank</p>
-              <p className="text-6xl font-black text-white mb-2">#{myRank}</p>
-              <p className="text-3xl font-bold text-purple-300 mb-1">{myScore} pts</p>
-              {myTotalTime > 0 && (
-                <p className="text-sm text-white/50">{myTotalTime.toFixed(1)}s total time</p>
-              )}
+            {/* Hero: rank + score */}
+            <div className="flex flex-col items-center text-center py-6">
+              <div className="text-6xl mb-3">
+                {myRank === 1 ? '🏆' : myRank === 2 ? '🥈' : myRank === 3 ? '🥉' : '🎉'}
+              </div>
+              <h2 className="text-2xl font-black text-white mb-4">Quiz Complete!</h2>
+
+              <div className="bg-white/10 rounded-3xl p-5 w-full border border-white/20 mb-2">
+                <div className="flex items-center justify-around">
+                  <div className="text-center">
+                    <p className="text-white/50 text-xs mb-1">Rank</p>
+                    <p className="text-4xl font-black text-white">#{myRank}</p>
+                  </div>
+                  <div className="w-px h-12 bg-white/20" />
+                  <div className="text-center">
+                    <p className="text-white/50 text-xs mb-1">Score</p>
+                    <p className="text-4xl font-black text-purple-300">{myScore}</p>
+                  </div>
+                  <div className="w-px h-12 bg-white/20" />
+                  <div className="text-center">
+                    <p className="text-white/50 text-xs mb-1">Correct</p>
+                    <p className="text-4xl font-black text-green-400">
+                      {competition?.questions
+                        ? Object.entries(myAnswers).filter(([qi, a]) =>
+                            a.answer === competition.questions[Number(qi)]?.correctAnswer
+                          ).length
+                        : '—'}
+                    </p>
+                  </div>
+                </div>
+                {myTotalTime > 0 && (
+                  <p className="text-white/40 text-xs text-center mt-3">{myTotalTime.toFixed(1)}s total answer time</p>
+                )}
+              </div>
             </div>
 
-            <p className="text-white/60 text-sm mb-8">Thank you for participating!</p>
+            {/* Top 3 leaderboard */}
+            {leaderboard.length > 0 && (
+              <div className="mb-4">
+                <p className="text-white/40 text-xs font-bold uppercase tracking-widest mb-2 px-1">Top Players</p>
+                <div className="space-y-2">
+                  {leaderboard.slice(0, 3).map(entry => {
+                    const isMe = entry.sessionId === sessionId;
+                    return (
+                      <div key={entry.sessionId}
+                        className={`flex items-center gap-3 px-4 py-3 rounded-2xl ${
+                          isMe ? 'bg-purple-500 border-2 border-purple-300' : 'bg-white/10 border border-white/10'
+                        }`}>
+                        <span className="text-lg w-7 text-center flex-shrink-0">{rankMedal(entry.rank)}</span>
+                        <p className={`flex-1 font-bold text-sm truncate ${isMe ? 'text-white' : 'text-white/90'}`}>
+                          {entry.name}{isMe ? ' (You)' : ''}
+                        </p>
+                        <span className={`font-black text-sm ${isMe ? 'text-white' : 'text-white/80'}`}>{entry.score} pts</span>
+                      </div>
+                    );
+                  })}
+                  {/* Show my entry pinned if outside top 3 */}
+                  {myRank > 3 && (
+                    <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-purple-500 border-2 border-purple-300">
+                      <span className="text-lg w-7 text-center flex-shrink-0">#{myRank}</span>
+                      <p className="flex-1 font-bold text-white text-sm truncate">{myName} (You)</p>
+                      <span className="font-black text-white text-sm">{myScore} pts</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Per-question breakdown */}
+            {competition?.questions && competition.questions.length > 0 && (
+              <div className="mb-4">
+                <p className="text-white/40 text-xs font-bold uppercase tracking-widest mb-2 px-1">Your Answers</p>
+                <div className="space-y-2">
+                  {competition.questions.map((q: any, qi: number) => {
+                    const myAns = myAnswers[qi];
+                    const correct = q.correctAnswer;
+                    const isCorrect = myAns?.answer === correct;
+                    const skipped = !myAns;
+
+                    return (
+                      <div key={qi}
+                        className={`rounded-2xl p-4 border ${
+                          skipped
+                            ? 'bg-white/5 border-white/10'
+                            : isCorrect
+                              ? 'bg-green-500/15 border-green-500/30'
+                              : 'bg-red-500/15 border-red-500/30'
+                        }`}>
+                        {/* Q number + status */}
+                        <div className="flex items-start gap-3">
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5 ${
+                            skipped ? 'bg-white/10' : isCorrect ? 'bg-green-500/30' : 'bg-red-500/30'
+                          }`}>
+                            {skipped
+                              ? <span className="text-white/40 text-xs font-bold">—</span>
+                              : isCorrect
+                                ? <CheckCircle2 className="h-4 w-4 text-green-400" />
+                                : <XCircle className="h-4 w-4 text-red-400" />
+                            }
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white/50 text-xs mb-1">Q{qi + 1}</p>
+                            <p className="text-white text-sm font-semibold leading-snug mb-2">{q.question}</p>
+
+                            {skipped ? (
+                              <p className="text-white/30 text-xs italic">Not answered</p>
+                            ) : (
+                              <div className="space-y-1">
+                                {/* Their answer */}
+                                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold ${
+                                  isCorrect ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'
+                                }`}>
+                                  <span className="flex-shrink-0">{isCorrect ? '✓' : '✗'}</span>
+                                  <span className="truncate">{myAns.answer}</span>
+                                  {myAns.timeToAnswer > 0 && (
+                                    <span className="ml-auto flex-shrink-0 text-white/30">{myAns.timeToAnswer.toFixed(1)}s</span>
+                                  )}
+                                </div>
+                                {/* Correct answer if wrong */}
+                                {!isCorrect && (
+                                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-semibold bg-green-500/20 text-green-300">
+                                    <span className="flex-shrink-0">✓</span>
+                                    <span className="truncate">{correct}</span>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             <button
               onClick={() => navigate('/')}
-              className="w-full max-w-xs py-4 bg-white text-purple-700 font-bold text-lg rounded-2xl active:scale-95 transition-transform"
+              className="w-full py-4 bg-white text-purple-700 font-bold text-lg rounded-2xl active:scale-95 transition-transform mt-2"
             >
               Back to Home
             </button>
