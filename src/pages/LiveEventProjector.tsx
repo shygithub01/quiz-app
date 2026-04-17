@@ -572,12 +572,10 @@ export default function LiveEventProjector() {
 
       {/* ── LEADERBOARD PHASE ── */}
       {event.phase === 'leaderboard' && !revealAnswer && (
-        <div className="flex flex-col items-center justify-center min-h-screen p-8 gap-6">
-          <div className="text-center">
-            <p className="text-purple-300 font-semibold text-2xl uppercase tracking-widest mb-1">Leaderboard Update</p>
-            <h2 className="font-black" style={{ fontSize: 'clamp(2rem, 5vw, 4rem)' }}>
-              After Question {event.currentQuestionIndex + 1}
-            </h2>
+        <div className="flex flex-col items-center justify-center min-h-screen p-8 gap-8">
+          <div className="flex items-center gap-3">
+            <Trophy className="h-8 w-8 text-yellow-400" />
+            <p className="font-black text-3xl uppercase tracking-widest text-white/80">Top Players</p>
           </div>
           <div className="w-full max-w-2xl">
             <AnimatedLeaderboard
@@ -585,7 +583,6 @@ export default function LiveEventProjector() {
               questionIndex={event.currentQuestionIndex}
               totalQuestions={competition.questions.length}
             />
-            {/* Positions 6-10 */}
             {leaderboard.length > TOP_N && (
               <div className="mt-4 space-y-2">
                 {leaderboard.slice(TOP_N, 10).map(entry => (
@@ -599,7 +596,7 @@ export default function LiveEventProjector() {
               </div>
             )}
           </div>
-          <p className="text-white/40 text-xl animate-pulse">Get ready for the next question…</p>
+          <p className="text-white/40 text-xl animate-pulse">Next question coming up…</p>
         </div>
       )}
 

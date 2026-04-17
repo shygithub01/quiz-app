@@ -752,7 +752,7 @@ export default function LiveEventHost() {
                 <div>
                   <h3 className="font-bold text-purple-300 mb-1">Recent Game Completed</h3>
                   <p className="text-sm text-purple-200/70">
-                    A completed game is still available. Return to view results or delete it to start a new event.
+                    A completed game is available to review. You can view results, or just create a new event below — no need to delete first.
                   </p>
                 </div>
               </div>
