@@ -1,5 +1,5 @@
 // Home.tsx — Kahoot-style redesign
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { getFeaturedCompetition } from '@/components/ui/firebase';
@@ -48,12 +48,32 @@ export default function Home() {
   const { user, signIn } = useAuth();
   const navigate = useNavigate();
   const [featuredCompetition, setFeaturedCompetition] = useState<FeaturedCompetition | null>(null);
-  const [pin, setPin] = useState('');
   const [practicePin, setPracticePin] = useState('');
   const [activeTab, setActiveTab] = useState<'live' | 'practice'>('live');
-  const pinRef = useRef<HTMLInputElement>(null);
 
-  useEffect(() => { loadFeaturedCompetition(); }, []);
+  // Live event detection
+  const [liveEvent, setLiveEvent] = useState<any>(null);
+  const [liveCheckDone, setLiveCheckDone] = useState(false);
+  const [liveName, setLiveName] = useState('');
+  const [liveLoading, setLiveLoading] = useState(false);
+  const [liveError, setLiveError] = useState('');
+
+  useEffect(() => {
+    loadFeaturedCompetition();
+    checkLiveEvent();
+  }, []);
+
+  const checkLiveEvent = async () => {
+    try {
+      const { getActiveEvent } = await import('@/services/liveEventService');
+      const active = await getActiveEvent();
+      setLiveEvent(active);
+    } catch {
+      setLiveEvent(null);
+    } finally {
+      setLiveCheckDone(true);
+    }
+  };
 
   const loadFeaturedCompetition = async () => {
     try {
@@ -74,9 +94,27 @@ export default function Home() {
     }
   };
 
-  const handleJoinLive = (e: React.FormEvent) => {
+  const handleJoinLiveEvent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (pin.length === 6) navigate(`/live-event/join?pin=${pin}`);
+    if (!liveEvent || liveName.trim().length < 2) return;
+    const storedSession = sessionStorage.getItem(`liveEvent_${liveEvent.id}_session`);
+    if (storedSession) {
+      navigate(`/live-event/participate/${liveEvent.id}/${storedSession}`);
+      return;
+    }
+    try {
+      setLiveLoading(true);
+      setLiveError('');
+      const { joinEvent } = await import('@/services/liveEventService');
+      const sessionId = await joinEvent(liveEvent.id, liveName.trim());
+      sessionStorage.setItem(`liveEvent_${liveEvent.id}_session`, sessionId);
+      sessionStorage.setItem(`liveEvent_${liveEvent.id}_name`, liveName.trim());
+      navigate(`/live-event/participate/${liveEvent.id}/${sessionId}`);
+    } catch (err: any) {
+      setLiveError(err.message || 'Failed to join. Please try again.');
+    } finally {
+      setLiveLoading(false);
+    }
   };
 
   const handleJoinPractice = (e: React.FormEvent) => {
@@ -164,38 +202,93 @@ export default function Home() {
             </button>
           </div>
 
-          {/* PIN form */}
-          {activeTab === 'live' ? (
-            <form onSubmit={handleJoinLive} className="space-y-3">
-              <input
-                ref={pinRef}
-                type="tel"
-                inputMode="numeric"
-                value={pin}
-                onChange={e => setPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="Enter PIN"
-                className="pin-input w-full text-center font-black text-5xl py-6 px-4 rounded-2xl outline-none transition-all"
-                style={{
-                  background: 'rgba(255,255,255,0.08)',
-                  border: pin.length === 6 ? '2px solid #a78bfa' : '2px solid rgba(255,255,255,0.15)',
-                  color: 'white',
-                  letterSpacing: '0.3em',
-                }}
-              />
-              <button
-                type="submit"
-                disabled={pin.length !== 6}
-                className="w-full py-5 rounded-2xl font-black text-xl transition-all active:scale-95"
-                style={{
-                  background: pin.length === 6 ? 'linear-gradient(135deg, #7c3aed, #4f46e5)' : 'rgba(255,255,255,0.08)',
-                  color: pin.length === 6 ? 'white' : 'rgba(255,255,255,0.3)',
-                  cursor: pin.length === 6 ? 'pointer' : 'not-allowed',
-                  ...(pin.length === 6 ? { animation: 'pulse-glow 2s ease-in-out infinite' } : {}),
-                }}>
-                Enter! <ChevronRight className="inline h-6 w-6" />
-              </button>
-            </form>
-          ) : (
+          {/* ── LIVE EVENT TAB ── */}
+          {activeTab === 'live' && (
+            !liveCheckDone ? (
+              <div className="flex flex-col items-center py-8 gap-3">
+                <div className="w-7 h-7 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+                <p className="text-white/40 text-sm">Checking for live events...</p>
+              </div>
+            ) : liveEvent && liveEvent.phase === 'lobby' ? (
+              <form onSubmit={handleJoinLiveEvent} className="space-y-3">
+                <div className="flex items-center gap-2 rounded-xl px-3 py-2"
+                  style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)' }}>
+                  <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse flex-shrink-0" />
+                  <p className="text-green-300 text-xs font-semibold">Live event in progress</p>
+                </div>
+                <input type="tel" value={liveEvent.pin} readOnly
+                  className="pin-input w-full text-center font-black text-5xl py-6 px-4 rounded-2xl outline-none"
+                  style={{ background: 'rgba(167,139,250,0.08)', border: '2px solid rgba(167,139,250,0.25)', color: 'rgba(196,181,253,0.6)', letterSpacing: '0.3em', cursor: 'not-allowed' }}
+                />
+                <input
+                  type="text"
+                  value={liveName}
+                  onChange={e => { setLiveName(e.target.value); setLiveError(''); }}
+                  placeholder="Enter your name"
+                  minLength={2}
+                  maxLength={50}
+                  autoFocus
+                  className="w-full text-center font-bold text-xl py-5 px-4 rounded-2xl outline-none transition-all"
+                  style={{
+                    background: 'rgba(255,255,255,0.08)',
+                    border: liveName.trim().length >= 2 ? '2px solid #a78bfa' : '2px solid rgba(255,255,255,0.15)',
+                    color: 'white',
+                  }}
+                />
+                {liveError && <p className="text-red-400 text-xs text-center">{liveError}</p>}
+                <button
+                  type="submit"
+                  disabled={liveName.trim().length < 2 || liveLoading}
+                  className="w-full py-5 rounded-2xl font-black text-xl transition-all active:scale-95"
+                  style={{
+                    background: liveName.trim().length >= 2 ? 'linear-gradient(135deg, #7c3aed, #4f46e5)' : 'rgba(255,255,255,0.08)',
+                    color: liveName.trim().length >= 2 ? 'white' : 'rgba(255,255,255,0.3)',
+                    cursor: liveName.trim().length >= 2 ? 'pointer' : 'not-allowed',
+                    ...(liveName.trim().length >= 2 && !liveLoading ? { animation: 'pulse-glow 2s ease-in-out infinite' } : {}),
+                  }}>
+                  {liveLoading
+                    ? <><span className="inline-block w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2 align-middle" />Joining...</>
+                    : <>Join Event <ChevronRight className="inline h-6 w-6" /></>}
+                </button>
+              </form>
+            ) : liveEvent ? (
+              <div className="space-y-3">
+                <div className="rounded-xl px-4 py-3 text-center"
+                  style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
+                  <p className="text-red-300 text-sm font-semibold">Event already in progress</p>
+                  <p className="text-white/40 text-xs mt-1">Late joining is not available</p>
+                </div>
+                <input type="tel" value={liveEvent.pin} readOnly
+                  className="pin-input w-full text-center font-black text-5xl py-6 px-4 rounded-2xl outline-none"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '2px solid rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.25)', letterSpacing: '0.3em', cursor: 'not-allowed' }}
+                />
+                <p className="text-center text-white/40 text-sm">
+                  Use <button type="button" onClick={() => setActiveTab('practice')} className="text-emerald-400 underline underline-offset-2">Practice Mode</button> if you have a practice PIN
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="rounded-xl px-4 py-3 text-center"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <p className="text-white/40 text-sm font-medium">No live event is currently running</p>
+                </div>
+                <input type="tel" readOnly placeholder="— — — — — —"
+                  className="pin-input w-full text-center font-black text-5xl py-6 px-4 rounded-2xl outline-none"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '2px solid rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.2)', letterSpacing: '0.3em', cursor: 'not-allowed' }}
+                />
+                <button disabled className="w-full py-4 rounded-2xl font-bold text-base"
+                  style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.2)', cursor: 'not-allowed' }}>
+                  No Event Active
+                </button>
+                <p className="text-center text-white/40 text-sm">
+                  Use <button type="button" onClick={() => setActiveTab('practice')} className="text-emerald-400 underline underline-offset-2">Practice Mode</button> if you have a practice PIN
+                </p>
+              </div>
+            )
+          )}
+
+          {/* ── PRACTICE TAB ── */}
+          {activeTab === 'practice' && (
             <form onSubmit={handleJoinPractice} className="space-y-3">
               <input
                 type="tel"
@@ -218,7 +311,7 @@ export default function Home() {
                 style={{
                   background: practicePin.length === 6 ? 'linear-gradient(135deg, #059669, #065f46)' : 'rgba(255,255,255,0.08)',
                   color: practicePin.length === 6 ? 'white' : 'rgba(255,255,255,0.3)',
-                  cursor: practicePin.length === 6 ? 'pointer' : 'not-allowed',
+                  cursor: practicePin.length !== 6 ? 'not-allowed' : 'pointer',
                 }}>
                 Enter! <ChevronRight className="inline h-6 w-6" />
               </button>
@@ -388,7 +481,7 @@ export default function Home() {
           <p className="text-white/50 text-lg mb-8">No download. No setup. Just enter a PIN and go.</p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button
-              onClick={() => { setActiveTab('live'); pinRef.current?.focus(); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+              onClick={() => { setActiveTab('live'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
               className="px-10 py-5 rounded-2xl font-black text-xl transition-all active:scale-95"
               style={{ background: 'linear-gradient(135deg, #7c3aed, #4f46e5)', color: 'white' }}>
               <Zap className="inline h-6 w-6 mr-2" /> Join a Game
