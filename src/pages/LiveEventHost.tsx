@@ -47,6 +47,7 @@ export default function LiveEventHost() {
   // Use a ref so the listener useEffect doesn't tear down and recreate on every join
   const lastParticipantCountRef = useRef(0);
   const hasAutoStartedRef = useRef(false);
+  const hasArchivedRef = useRef(false);
   
   // Load existing event from URL or load competitions
   useEffect(() => {
@@ -124,6 +125,30 @@ export default function LiveEventHost() {
     const interval = setInterval(checkTimer, 500);
     return () => clearInterval(interval);
   }, [event?.phase, event?.currentQuestionIndex, event?.timerStartedAt, event?.status]);
+
+  // Stop music + archive whenever phase reaches results (covers auto-advance path)
+  useEffect(() => {
+    if (!event || event.phase !== 'results') return;
+
+    // Stop background music unconditionally — safe to call multiple times
+    stopBackgroundMusic();
+
+    // Archive once per session (handleEndEvent also calls this, so guard with ref)
+    if (hasArchivedRef.current) return;
+    hasArchivedRef.current = true;
+
+    const doArchive = async () => {
+      try {
+        const { archiveAndCleanupEvent } = await import('@/services/liveEventService');
+        await archiveAndCleanupEvent(event.id);
+        console.log('✅ Event archived from phase-watcher');
+      } catch (err) {
+        console.error('❌ Archive failed from phase-watcher:', err);
+        hasArchivedRef.current = false; // allow retry
+      }
+    };
+    doArchive();
+  }, [event?.phase]);
 
   // Auto-start when scheduledStartAt is reached
   useEffect(() => {
@@ -523,11 +548,10 @@ export default function LiveEventHost() {
         endedAt: Date.now()
       });
       
-      // Archive and cleanup
-      const { archiveAndCleanupEvent, logEventStatistics } = await import('@/services/liveEventService');
-      await archiveAndCleanupEvent(event.id);
+      // Archive is handled automatically by the phase-watcher useEffect above
+      const { logEventStatistics } = await import('@/services/liveEventService');
       await logEventStatistics(event.id);
-      
+
       alert('✅ Event ended. Results archived and guest data will be deleted in 60 seconds.');
     } catch (error) {
       console.error('Error ending event:', error);

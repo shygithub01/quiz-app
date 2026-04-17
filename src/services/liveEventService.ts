@@ -1180,14 +1180,20 @@ export async function archiveAndCleanupEvent(eventId: string): Promise<void> {
       };
     });
     
-    // Calculate expiration (24 hours from now)
-    const expiresAt = new Date();
-    expiresAt.setHours(expiresAt.getHours() + 24);
-    
-    // Save to Firestore
+    // Save to Firestore — no expiry, persists until manually deleted
     const { db } = await import('../components/ui/firebase');
-    const { collection, addDoc, Timestamp } = await import('firebase/firestore');
-    
+    const { collection, addDoc, Timestamp, query, where, getDocs } = await import('firebase/firestore');
+
+    // Check if already archived for this eventId to prevent duplicates
+    const existing = await getDocs(
+      query(collection(db, 'liveEventArchive'), where('eventId', '==', eventId))
+    );
+    if (!existing.empty) {
+      console.log('ℹ️ Event already archived, skipping duplicate');
+      setTimeout(async () => { await deleteEvent(eventId); }, 60000);
+      return;
+    }
+
     const archiveData = {
       eventId,
       competitionId: event.competitionId,
@@ -1195,12 +1201,12 @@ export async function archiveAndCleanupEvent(eventId: string): Promise<void> {
       pin: event.pin,
       startedAt: Timestamp.fromMillis(event.startedAt || event.createdAt),
       endedAt: Timestamp.fromMillis(event.endedAt || Date.now()),
+      totalQuestions: competition.questions?.length || 0,
       participantCount: participants.length,
       results,
-      expiresAt: Timestamp.fromDate(expiresAt),
       archivedAt: Timestamp.now()
     };
-    
+
     await addDoc(collection(db, 'liveEventArchive'), archiveData);
     console.log('✅ Event archived to Firestore');
     
@@ -1214,6 +1220,44 @@ export async function archiveAndCleanupEvent(eventId: string): Promise<void> {
     console.error('❌ Error archiving event:', error);
     throw error;
   }
+}
+
+/**
+ * Fetch all live event archives, newest first
+ */
+export async function getLiveEventArchives(): Promise<any[]> {
+  try {
+    const { db } = await import('../components/ui/firebase');
+    const { collection, getDocs, orderBy, query } = await import('firebase/firestore');
+    const snap = await getDocs(query(collection(db, 'liveEventArchive'), orderBy('archivedAt', 'desc')));
+    return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+  } catch (error) {
+    console.error('❌ Error fetching archives:', error);
+    return [];
+  }
+}
+
+/**
+ * Delete a single live event archive by its Firestore document ID
+ */
+export async function deleteLiveEventArchive(archiveId: string): Promise<void> {
+  const { db } = await import('../components/ui/firebase');
+  const { doc, deleteDoc } = await import('firebase/firestore');
+  await deleteDoc(doc(db, 'liveEventArchive', archiveId));
+}
+
+/**
+ * Delete a single participant from an archive
+ */
+export async function deleteArchiveParticipant(archiveId: string, sessionId: string): Promise<void> {
+  const { db } = await import('../components/ui/firebase');
+  const { doc, getDoc, updateDoc } = await import('firebase/firestore');
+  const ref = doc(db, 'liveEventArchive', archiveId);
+  const snap = await getDoc(ref);
+  if (!snap.exists()) return;
+  const data = snap.data();
+  const updatedResults = (data.results || []).filter((r: any) => r.sessionId !== sessionId);
+  await updateDoc(ref, { results: updatedResults, participantCount: updatedResults.length });
 }
 
 /**

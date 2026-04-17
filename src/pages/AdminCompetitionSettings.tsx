@@ -16,7 +16,12 @@ import {
   Star,
   Trophy,
   Plus,
-  Brain
+  Brain,
+  Zap,
+  ChevronDown,
+  ChevronUp,
+  Trash2,
+  Users
 } from 'lucide-react';
 
 const BG_STYLE = { background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 50%, #0a1628 100%)' };
@@ -31,6 +36,11 @@ export default function AdminCompetitionSettings() {
   const [allCompetitions, setAllCompetitions] = useState<any[]>([]);
   const [featuredCompetitionId, setFeaturedCompetitionId] = useState<string | null>(null);
   const [scholarshipCompetitions, setScholarshipCompetitions] = useState<any[]>([]);
+
+  // Live Event History
+  const [liveArchives, setLiveArchives] = useState<any[]>([]);
+  const [archivesLoading, setArchivesLoading] = useState(false);
+  const [expandedArchive, setExpandedArchive] = useState<string | null>(null);
 
   useEffect(() => {
     checkAdminAndLoad();
@@ -50,6 +60,7 @@ export default function AdminCompetitionSettings() {
     }
 
     await loadData();
+    await loadLiveArchives();
   };
 
   const loadData = async () => {
@@ -146,6 +157,39 @@ export default function AdminCompetitionSettings() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const loadLiveArchives = async () => {
+    try {
+      setArchivesLoading(true);
+      const { getLiveEventArchives } = await import('@/services/liveEventService');
+      setLiveArchives(await getLiveEventArchives());
+    } catch { /* silent */ } finally {
+      setArchivesLoading(false);
+    }
+  };
+
+  const handleDeleteArchive = async (archiveId: string, title: string) => {
+    if (!confirm(`Delete the results for "${title}"?\n\nThis permanently removes all scores and participant data for this event.`)) return;
+    try {
+      const { deleteLiveEventArchive } = await import('@/services/liveEventService');
+      await deleteLiveEventArchive(archiveId);
+      setLiveArchives(prev => prev.filter(a => a.id !== archiveId));
+      if (expandedArchive === archiveId) setExpandedArchive(null);
+    } catch { alert('Failed to delete archive'); }
+  };
+
+  const handleDeleteParticipant = async (archiveId: string, sessionId: string, name: string) => {
+    if (!confirm(`Remove ${name} from this event's results?`)) return;
+    try {
+      const { deleteArchiveParticipant } = await import('@/services/liveEventService');
+      await deleteArchiveParticipant(archiveId, sessionId);
+      setLiveArchives(prev => prev.map(a =>
+        a.id === archiveId
+          ? { ...a, results: a.results.filter((r: any) => r.sessionId !== sessionId), participantCount: a.participantCount - 1 }
+          : a
+      ));
+    } catch { alert('Failed to remove participant'); }
   };
 
   const formatDate = (date: Date) => {
@@ -387,6 +431,125 @@ export default function AdminCompetitionSettings() {
             )}
           </CardContent>
         </Card>
+        {/* ── Live Event History ── */}
+        <Card className={DARK_CARD}>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-white">
+              <Zap className="h-5 w-5 text-purple-400" />
+              Live Event History
+            </CardTitle>
+            <p className="text-sm text-white/50 mt-1">
+              Archived results from all completed live events — stored permanently until you delete them
+            </p>
+          </CardHeader>
+          <CardContent>
+            {archivesLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <div className="w-6 h-6 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+              </div>
+            ) : liveArchives.length === 0 ? (
+              <div className="text-center py-10">
+                <Zap className="h-12 w-12 text-white/10 mx-auto mb-3" />
+                <p className="text-white/40 text-sm">No live event results yet.</p>
+                <p className="text-white/30 text-xs mt-1">Results will appear here after each completed live event.</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {liveArchives.map(archive => {
+                  const isExpanded = expandedArchive === archive.id;
+                  const startedAt = archive.startedAt?.toDate ? archive.startedAt.toDate() : new Date(archive.startedAt);
+                  const sortedResults = [...(archive.results || [])].sort((a: any, b: any) => a.rank - b.rank);
+
+                  return (
+                    <div key={archive.id} className="rounded-2xl overflow-hidden"
+                      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+
+                      {/* Row header */}
+                      <div className="flex items-center gap-4 px-5 py-4">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-white truncate">{archive.competitionTitle}</p>
+                          <p className="text-white/40 text-xs mt-0.5">
+                            {startedAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                            {' · '}
+                            {startedAt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' })}
+                            {' · '}PIN {archive.pin}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2 text-white/50 text-sm flex-shrink-0">
+                          <Users className="h-4 w-4" />
+                          {archive.participantCount}
+                          <span className="text-white/30">·</span>
+                          <span>{archive.totalQuestions || '?'}Q</span>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <button
+                            onClick={() => setExpandedArchive(isExpanded ? null : archive.id)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                            style={{ background: 'rgba(167,139,250,0.15)', color: '#c4b5fd' }}>
+                            {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                            {isExpanded ? 'Hide' : 'View'}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteArchive(archive.id, archive.competitionTitle)}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                            style={{ background: 'rgba(239,68,68,0.12)', color: '#fca5a5' }}>
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Expanded leaderboard */}
+                      {isExpanded && (
+                        <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)' }}>
+                          {sortedResults.length === 0 ? (
+                            <p className="text-white/40 text-sm text-center py-6">No participant data</p>
+                          ) : (
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr style={{ background: 'rgba(255,255,255,0.03)' }}>
+                                  <th className="px-5 py-2 text-left text-xs text-white/40 uppercase font-medium">Rank</th>
+                                  <th className="px-3 py-2 text-left text-xs text-white/40 uppercase font-medium">Name</th>
+                                  <th className="px-3 py-2 text-right text-xs text-white/40 uppercase font-medium">Score</th>
+                                  <th className="px-3 py-2 text-right text-xs text-white/40 uppercase font-medium">Correct</th>
+                                  <th className="px-3 py-2 text-right text-xs text-white/40 uppercase font-medium w-10"></th>
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-white/5">
+                                {sortedResults.map((p: any) => (
+                                  <tr key={p.sessionId} className="hover:bg-white/5 transition-colors">
+                                    <td className="px-5 py-3 font-bold text-white/80">
+                                      {p.rank === 1 ? '🥇' : p.rank === 2 ? '🥈' : p.rank === 3 ? '🥉' : `#${p.rank}`}
+                                    </td>
+                                    <td className="px-3 py-3 text-white font-medium">{p.name}</td>
+                                    <td className="px-3 py-3 text-right text-purple-300 font-bold">{p.score}</td>
+                                    <td className="px-3 py-3 text-right text-white/60">
+                                      {p.correctAnswers ?? Object.values(p.answers || {}).filter((a: any) => a.correct).length}
+                                      /{archive.totalQuestions || '?'}
+                                    </td>
+                                    <td className="px-3 py-3 text-right">
+                                      <button
+                                        onClick={() => handleDeleteParticipant(archive.id, p.sessionId, p.name)}
+                                        className="text-white/20 hover:text-red-400 transition-colors"
+                                        title="Remove participant">
+                                        <Trash2 className="h-3.5 w-3.5" />
+                                      </button>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
       </div>
     </div>
   );
