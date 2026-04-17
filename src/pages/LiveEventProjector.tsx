@@ -173,6 +173,7 @@ export default function LiveEventProjector() {
   const [victoryPlayed, setVictoryPlayed] = useState(false);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
   const [eventWasLoaded, setEventWasLoaded] = useState(false);
+  const [dataChecked, setDataChecked] = useState(false);
   const [revealAnswer, setRevealAnswer] = useState(false);
   const [revealQuestion, setRevealQuestion] = useState<any>(null);
 
@@ -202,6 +203,8 @@ export default function LiveEventProjector() {
         }
       } catch (e) {
         clearTimeout(timeout);
+      } finally {
+        setDataChecked(true);
       }
     };
     loadData();
@@ -295,7 +298,9 @@ export default function LiveEventProjector() {
   };
 
   // ── Error / loading screens ──
-  if (event === null && competition === null)
+  // Guard with dataChecked — both start as null before the first fetch completes,
+  // so without this guard the projector flashes "Event Ended" on every open.
+  if (dataChecked && event === null && competition === null)
     return <FullScreenMsg icon="🏆" title="Event Ended" sub="This event has been completed." />;
   if (!event || !competition) {
     if (eventWasLoaded && !event) return <FullScreenMsg icon="🏆" title="Event Ended" sub="The host has ended the event." showHome />;
