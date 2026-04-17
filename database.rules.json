@@ -1,64 +1,64 @@
 {
   "rules": {
     "liveEvents": {
+      ".read": true,
       "$eventId": {
-        ".read": true,
         ".write": "auth != null"
       }
     },
     "eventParticipants": {
+      ".read": true,
       "$eventId": {
-        ".read": true,
         "$sessionId": {
           ".write": true
         }
       }
     },
     "eventAnswers": {
+      ".read": true,
       "$eventId": {
-        ".read": true,
         "$sessionId": {
           ".write": true
         }
       }
     },
     "eventAnswerCounts": {
+      ".read": true,
       "$eventId": {
-        ".read": true,
         ".write": true
       }
     },
     "eventLeaderboard": {
+      ".read": true,
       "$eventId": {
-        ".read": true,
         ".write": "auth != null"
       }
     },
     "practiceSessions": {
+      ".read": true,
       "$sessionId": {
-        ".read": true,
         ".write": "auth != null"
       }
     },
     "practiceParticipants": {
+      ".read": true,
       "$sessionId": {
-        ".read": true,
         "$participantId": {
           ".write": true
         }
       }
     },
     "practiceAttempts": {
+      ".read": true,
       "$sessionId": {
-        ".read": true,
         "$attemptId": {
           ".write": true
         }
       }
     },
     "practiceLeaderboard": {
+      ".read": true,
       "$sessionId": {
-        ".read": true,
         ".write": "auth != null"
       }
     }
