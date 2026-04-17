@@ -17,13 +17,13 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { getCompetitions } from '@/components/ui/firebase';
-import { 
+import {
   createLiveEvent,
   listenToEvent,
   listenToParticipants,
   updateEvent,
-  checkActiveEvents,
-  getEventById
+  getEventById,
+  getAnyCurrentEvent
 } from '@/services/liveEventService';
 import { LiveEvent, GuestParticipant } from '@/types/liveEvent';
 import { QRCodeSVG } from 'qrcode.react';
@@ -42,6 +42,7 @@ export default function LiveEventHost() {
   const [event, setEvent] = useState<LiveEvent | null>(null);
   const [participants, setParticipants] = useState<GuestParticipant[]>([]);
   const [hasActiveEvent, setHasActiveEvent] = useState(false);
+  const [completedEventId, setCompletedEventId] = useState<string | null>(null);
   const [showJoinFlash, setShowJoinFlash] = useState(false);
   const [showFullFlash, setShowFullFlash] = useState(false);
   // Use a ref so the listener useEffect doesn't tear down and recreate on every join
@@ -306,8 +307,17 @@ export default function LiveEventHost() {
   };
   
   const checkForActiveEvents = async () => {
-    const active = await checkActiveEvents();
-    setHasActiveEvent(active);
+    const current = await getAnyCurrentEvent();
+    if (!current) {
+      setHasActiveEvent(false);
+      setCompletedEventId(null);
+    } else if (current.status === 'completed') {
+      setHasActiveEvent(false);
+      setCompletedEventId(current.id);
+    } else {
+      setHasActiveEvent(true);
+      setCompletedEventId(null);
+    }
   };
   
   const handleCreateEvent = async () => {
@@ -731,6 +741,29 @@ export default function LiveEventHost() {
             </div>
         )}
 
+        {/* Completed Event Recovery Banner */}
+        {completedEventId && !event && (
+          <div className="rounded-2xl p-5" style={{ background: 'rgba(139,92,246,0.12)', border: '1.5px solid rgba(139,92,246,0.4)' }}>
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-start gap-3">
+                <Trophy className="h-6 w-6 text-purple-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="font-bold text-purple-300 mb-1">Recent Game Completed</h3>
+                  <p className="text-sm text-purple-200/70">
+                    A completed game is still available. Return to view results or delete it to start a new event.
+                  </p>
+                </div>
+              </div>
+              <Button
+                onClick={() => navigate(`/admin/live-event-host/${completedEventId}`)}
+                className="flex-shrink-0 bg-purple-600 hover:bg-purple-700 text-white"
+              >
+                Return to Results
+              </Button>
+            </div>
+          </div>
+        )}
+
         {!event ? (
           /* Step 1: Create Event */
           <Card>
@@ -989,14 +1022,30 @@ export default function LiveEventHost() {
                           <h3 className="text-2xl font-bold text-white mb-2">
                             🎉 Game Completed! 🎉
                           </h3>
-                          <p className="text-white/60 mb-4">
-                            Results are displayed on the projector view.
-                          </p>
-                          <p className="text-sm text-white/40">
-                            Delete this game to create a new one from your templates.
+                          <p className="text-white/60 mb-2">
+                            Results are saved to History. Delete this game to create a new one.
                           </p>
                         </div>
-                        
+
+                        <Button
+                          onClick={() => window.open(`/live-event/${event.id}/projector`, '_blank')}
+                          variant="outline"
+                          className="w-full"
+                        >
+                          <QrCode className="h-5 w-5 mr-2" />
+                          Open Projector View
+                        </Button>
+
+                        <Button
+                          onClick={() => navigate('/admin/competition-settings#history')}
+                          variant="outline"
+                          className="w-full"
+                          style={{ borderColor: 'rgba(139,92,246,0.4)', color: '#a78bfa' }}
+                        >
+                          <Trophy className="h-5 w-5 mr-2" />
+                          View in History
+                        </Button>
+
                         <Button
                           onClick={handleDeleteEvent}
                           variant="destructive"
@@ -1004,7 +1053,7 @@ export default function LiveEventHost() {
                         >
                           🗑️ Delete Game
                         </Button>
-                        
+
                         <Button
                           onClick={() => navigate('/admin/competitions')}
                           variant="outline"
@@ -1015,7 +1064,7 @@ export default function LiveEventHost() {
                       </div>
                     )}
                   </div>
-                  
+
                   {event.status !== 'completed' && (
                     <div className="pt-4 border-t">
                       <Button

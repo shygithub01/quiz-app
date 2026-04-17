@@ -444,13 +444,26 @@ export default function AdminCompetitionSettings() {
         {/* ── Live Event History ── */}
         <Card id="live-event-history" className={DARK_CARD}>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-white">
-              <Zap className="h-5 w-5 text-purple-400" />
-              Live Event History
-            </CardTitle>
-            <p className="text-sm text-white/50 mt-1">
-              Archived results from all completed live events — stored permanently until you delete them
-            </p>
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <CardTitle className="flex items-center gap-2 text-white">
+                  <Zap className="h-5 w-5 text-purple-400" />
+                  Live Event History
+                </CardTitle>
+                <p className="text-sm text-white/50 mt-1">
+                  Archived results from all completed live events — stored permanently until you delete them
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={loadLiveArchives}
+                disabled={archivesLoading}
+                className="flex-shrink-0 text-white/60 border-white/20 hover:bg-white/10"
+              >
+                {archivesLoading ? '...' : '↻ Refresh'}
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             {archivesLoading ? (

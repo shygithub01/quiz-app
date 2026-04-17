@@ -178,6 +178,27 @@ export async function getActiveEvent(): Promise<LiveEvent | null> {
 }
 
 /**
+ * Return any current event (including recently completed ones not yet deleted)
+ * Used by host page to show recovery banner for completed games
+ */
+export async function getAnyCurrentEvent(): Promise<LiveEvent | null> {
+  try {
+    const snapshot = await get(ref(realtimeDb, 'liveEvents'));
+    if (!snapshot.exists()) return null;
+    const events = snapshot.val();
+    const entry = Object.entries(events).find(([_, e]: [string, any]) =>
+      ['lobby', 'active', 'paused', 'completed'].includes((e as any).status)
+    );
+    if (!entry) return null;
+    const [eventId, eventData] = entry;
+    return { id: eventId, ...(eventData as object) } as LiveEvent;
+  } catch (error) {
+    console.error('Error getting current event:', error);
+    return null;
+  }
+}
+
+/**
  * Check if there are any active events
  */
 export async function checkActiveEvents(): Promise<boolean> {
