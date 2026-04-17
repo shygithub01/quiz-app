@@ -230,6 +230,9 @@ export default function LiveEventProjector() {
           setTimeout(() => setShowConfetti(false), 12000);
         }
       } else {
+        // Event was deleted from Firebase. If the last known phase was 'results',
+        // keep showing the results screen — don't flash "Event Ended" mid-celebration.
+        if (prevPhaseRef.current === 'results') return;
         setEvent(null);
       }
     });

@@ -147,6 +147,9 @@ export default function LiveEventParticipant() {
           questionStartTimeRef.current = Date.now();
         }
       } else {
+        // Event deleted from Firebase. If we were already on results,
+        // stay there — don't replace the dashboard with "Event Ended".
+        if (prevPhaseRef.current === 'results') return;
         setEvent(null);
       }
     });
