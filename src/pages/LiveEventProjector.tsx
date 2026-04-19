@@ -237,8 +237,8 @@ export default function LiveEventProjector() {
           setShowConfetti(true);
           setVictoryPlayed(true);
           setTimeout(() => setShowConfetti(false), 12000);
-          setTimeout(() => window.close(), 120000);
-          setCloseCountdown(120);
+          setTimeout(() => window.close(), 60000);
+          setCloseCountdown(60);
         }
       } else {
         // Event was deleted from Firebase. If the last known phase was 'results',
@@ -625,7 +625,7 @@ export default function LiveEventProjector() {
             </h2>
             {closeCountdown > 0 && (() => {
               const r = 42, circ = 2 * Math.PI * r;
-              const offset = circ * (1 - closeCountdown / 120);
+              const offset = circ * (1 - closeCountdown / 60);
               return (
                 <div className="flex flex-col items-center mt-4">
                   <div className="relative w-28 h-28 flex items-center justify-center">

@@ -321,8 +321,8 @@ export default function LiveEventParticipant() {
   const [closeCountdown, setCloseCountdown] = useState(0);
   useEffect(() => {
     if (event?.phase !== 'results') return;
-    setCloseCountdown(120);
-    const t = setTimeout(() => { window.close(); window.location.href = '/'; }, 120000);
+    setCloseCountdown(60);
+    const t = setTimeout(() => { window.close(); window.location.href = '/'; }, 60000);
     const iv = setInterval(() => setCloseCountdown(c => Math.max(0, c - 1)), 1000);
     return () => { clearTimeout(t); clearInterval(iv); };
   }, [event?.phase]);
@@ -933,7 +933,7 @@ export default function LiveEventParticipant() {
               <h2 className="text-2xl font-black text-white mb-4">Quiz Complete!</h2>
               {closeCountdown > 0 && (() => {
                 const r = 30, circ = 2 * Math.PI * r;
-                const offset = circ * (1 - closeCountdown / 120);
+                const offset = circ * (1 - closeCountdown / 60);
                 return (
                   <div className="flex flex-col items-center mb-3">
                     <div className="relative w-20 h-20 flex items-center justify-center">
