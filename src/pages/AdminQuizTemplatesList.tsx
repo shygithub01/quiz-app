@@ -82,6 +82,7 @@ export default function AdminQuizTemplatesList() {
     let qs = shuffleQuestions ? shuffleArray(rawQuestions) : [...rawQuestions];
     if (shuffleOptions) {
       qs = qs.map(q => {
+        if (!Array.isArray(q.options)) return q;
         const shuffled = shuffleArray(q.options as string[]);
         return { ...q, options: shuffled };
       });
