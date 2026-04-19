@@ -19,6 +19,7 @@ export default function LiveModesHub() {
   const [liveName, setLiveName] = useState('');
   const [liveLoading, setLiveLoading] = useState(false);
   const [liveError, setLiveError] = useState('');
+  const [livePin, setLivePin] = useState('');
   const [practicePin, setPracticePin] = useState('');
 
   useEffect(() => {
@@ -200,15 +201,34 @@ export default function LiveModesHub() {
                 </button>
               </div>
             ) : (
-              <div className="space-y-3">
-                <div className="rounded-xl px-4 py-3 text-center"
+              <form onSubmit={e => { e.preventDefault(); if (livePin.length === 6) navigate(`/live-event/join?pin=${livePin}`); }} className="space-y-3">
+                <div className="rounded-xl px-4 py-2 text-center"
                   style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                  <p className="text-white/40 text-sm">No live event is currently running</p>
+                  <p className="text-white/40 text-xs">No live event detected — enter PIN manually</p>
                 </div>
-                <p className="text-center text-white/30 text-xs">
-                  Get the PIN from your teacher or event host
-                </p>
-              </div>
+                <input
+                  type="tel" inputMode="numeric"
+                  value={livePin}
+                  onChange={e => setLivePin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="● ● ● ● ● ●"
+                  className="pin-input-hub w-full text-center font-black text-5xl py-6 px-4 rounded-2xl outline-none transition-all"
+                  style={{
+                    background: 'rgba(255,255,255,0.07)',
+                    border: livePin.length === 6 ? '2px solid #a78bfa' : '2px solid rgba(255,255,255,0.12)',
+                    color: 'white', letterSpacing: '0.3em',
+                  }}
+                />
+                <button type="submit" disabled={livePin.length !== 6}
+                  className="w-full py-5 rounded-2xl font-black text-xl transition-all active:scale-95 flex items-center justify-center gap-2"
+                  style={{
+                    background: livePin.length === 6 ? 'linear-gradient(135deg,#7c3aed,#4f46e5)' : 'rgba(255,255,255,0.06)',
+                    color: livePin.length === 6 ? 'white' : 'rgba(255,255,255,0.25)',
+                    cursor: livePin.length === 6 ? 'pointer' : 'not-allowed',
+                  }}>
+                  <Zap className="h-5 w-5" /> Join Live Event <ChevronRight className="h-5 w-5" />
+                </button>
+                <p className="text-center text-white/30 text-xs">Get the PIN from your teacher or event host</p>
+              </form>
             )
           )}
 
