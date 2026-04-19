@@ -448,7 +448,7 @@ export default function LiveEventProjector() {
                   </p>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  {revealQuestion.options.map((opt: string, idx: number) => {
+                  {(revealQuestion.options ?? []).map((opt: string, idx: number) => {
                     const isCorrect = opt === revealQuestion.correctAnswer;
                     return (
                       <div key={idx}
@@ -534,7 +534,7 @@ export default function LiveEventProjector() {
 
             {/* Color-coded options */}
             <div className="grid grid-cols-2 gap-4 flex-1">
-              {currentQuestion.options.map((option: string, idx: number) => {
+              {(currentQuestion.options ?? []).map((option: string, idx: number) => {
                 const col = OPTION_COLORS[idx] ?? { bg: '#6b7280', border: '#4b5563', label: String.fromCharCode(65 + idx) };
                 return (
                   <div key={idx}
