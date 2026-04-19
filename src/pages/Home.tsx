@@ -330,23 +330,23 @@ export default function Home() {
           </p>
         </div>
 
-        {/* ── Compact mode cards ── */}
-        <div className="slide-up-3 w-full max-w-md relative z-10 mt-4 grid grid-cols-2 gap-3">
+        {/* ── Mode info cards ── */}
+        <div className="slide-up-3 w-full max-w-md relative z-10 mt-4 grid grid-cols-1 gap-4">
           {[
-            { emoji: '⚡', title: 'Live Event', badge: 'Real-time', color: '#f59e0b', gradient: 'linear-gradient(135deg,#78350f,#92400e)', border: 'rgba(245,158,11,0.35)', features: ['All answer together', 'Fastest correct wins', 'Big screen leaderboard'], featureColor: '#fde68a' },
-            { emoji: '🎯', title: 'Practice', badge: 'Self-paced', color: '#34d399', gradient: 'linear-gradient(135deg,#064e3b,#065f46)', border: 'rgba(52,211,153,0.35)', features: ['Unlimited attempts', 'No time pressure', 'Track your progress'], featureColor: '#6ee7b7' },
+            { emoji: '⚡', title: 'Live Event', badge: 'Real-time Competition', color: '#f59e0b', gradient: 'linear-gradient(135deg,#78350f,#92400e)', border: 'rgba(245,158,11,0.35)', features: ['All players answer at the same time', 'Fastest correct answer scores highest', 'Live leaderboard on big screen'], featureColor: '#fde68a' },
+            { emoji: '🎯', title: 'Practice Mode', badge: 'Self-paced Learning', color: '#34d399', gradient: 'linear-gradient(135deg,#064e3b,#065f46)', border: 'rgba(52,211,153,0.35)', features: ['Unlimited attempts to improve', 'No time pressure — learn at your pace', 'Track your score over multiple tries'], featureColor: '#6ee7b7' },
           ].map((card, i) => (
-            <div key={i} className="rounded-2xl p-4" style={{ background: card.gradient, border: `1.5px solid ${card.border}` }}>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-2xl">{card.emoji}</span>
+            <div key={i} className="rounded-3xl p-5" style={{ background: card.gradient, border: `2px solid ${card.border}` }}>
+              <div className="flex items-center gap-3 mb-3">
+                <span className="text-3xl">{card.emoji}</span>
                 <div>
-                  <p className="text-xs font-bold" style={{ color: card.color }}>{card.badge}</p>
-                  <p className="text-white font-black text-sm leading-none">{card.title}</p>
+                  <p className="text-xs font-bold mb-0.5" style={{ color: card.color }}>{card.badge}</p>
+                  <p className="text-white font-black text-lg leading-none">{card.title}</p>
                 </div>
               </div>
-              <ul className="space-y-1">
+              <ul className="space-y-1.5">
                 {card.features.map((f, j) => (
-                  <li key={j} className="text-xs flex items-start gap-1" style={{ color: card.featureColor }}>
+                  <li key={j} className="text-sm flex items-start gap-2 font-medium" style={{ color: card.featureColor }}>
                     <span className="flex-shrink-0">✓</span>{f}
                   </li>
                 ))}

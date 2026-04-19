@@ -19,7 +19,6 @@ export default function LiveModesHub() {
   const [liveName, setLiveName] = useState('');
   const [liveLoading, setLiveLoading] = useState(false);
   const [liveError, setLiveError] = useState('');
-  const [livePin, setLivePin] = useState('');
   const [practicePin, setPracticePin] = useState('');
 
   useEffect(() => {
@@ -201,34 +200,23 @@ export default function LiveModesHub() {
                 </button>
               </div>
             ) : (
-              <form onSubmit={e => { e.preventDefault(); if (livePin.length === 6) navigate(`/live-event/join?pin=${livePin}`); }} className="space-y-3">
-                <div className="rounded-xl px-4 py-2 text-center"
+              <div className="space-y-3">
+                <div className="rounded-xl px-4 py-3 text-center"
                   style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                  <p className="text-white/40 text-xs">No live event detected — enter PIN manually</p>
+                  <p className="text-white/40 text-sm font-medium">No live event is currently running</p>
                 </div>
-                <input
-                  type="tel" inputMode="numeric"
-                  value={livePin}
-                  onChange={e => setLivePin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  placeholder="● ● ● ● ● ●"
-                  className="pin-input-hub w-full text-center font-black text-5xl py-6 px-4 rounded-2xl outline-none transition-all"
-                  style={{
-                    background: 'rgba(255,255,255,0.07)',
-                    border: livePin.length === 6 ? '2px solid #a78bfa' : '2px solid rgba(255,255,255,0.12)',
-                    color: 'white', letterSpacing: '0.3em',
-                  }}
+                <input type="tel" readOnly placeholder="— — — — — —"
+                  className="pin-input-hub w-full text-center font-black text-5xl py-6 px-4 rounded-2xl outline-none"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '2px solid rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.2)', letterSpacing: '0.3em', cursor: 'not-allowed' }}
                 />
-                <button type="submit" disabled={livePin.length !== 6}
-                  className="w-full py-5 rounded-2xl font-black text-xl transition-all active:scale-95 flex items-center justify-center gap-2"
-                  style={{
-                    background: livePin.length === 6 ? 'linear-gradient(135deg,#7c3aed,#4f46e5)' : 'rgba(255,255,255,0.06)',
-                    color: livePin.length === 6 ? 'white' : 'rgba(255,255,255,0.25)',
-                    cursor: livePin.length === 6 ? 'pointer' : 'not-allowed',
-                  }}>
-                  <Zap className="h-5 w-5" /> Join Live Event <ChevronRight className="h-5 w-5" />
+                <button disabled className="w-full py-4 rounded-2xl font-bold text-base"
+                  style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.2)', cursor: 'not-allowed' }}>
+                  No Event Active
                 </button>
-                <p className="text-center text-white/30 text-xs">Get the PIN from your teacher or event host</p>
-              </form>
+                <p className="text-center text-white/30 text-xs">
+                  Use <button type="button" onClick={() => setTab('practice')} className="text-emerald-400 underline underline-offset-2">Practice Mode</button> if you have a practice PIN
+                </p>
+              </div>
             )
           )}
 
