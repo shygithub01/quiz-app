@@ -787,9 +787,45 @@ export default function LiveEventParticipant() {
                 <XCircle className="h-24 w-24 text-white mb-4 drop-shadow-lg" />
               )}
 
-              <h2 className="text-5xl font-black text-white mb-5 tracking-tight">
+              <h2 className="text-5xl font-black text-white mb-4 tracking-tight">
                 {isCorrect ? 'Correct!' : 'Wrong!'}
               </h2>
+
+              {/* Circular countdown timer — bold, above answer boxes */}
+              {(() => {
+                const radius = 52;
+                const circumference = 2 * Math.PI * radius;
+                const progress = event.timerDuration > 0 ? remainingTime / event.timerDuration : 0;
+                const dashOffset = circumference * (1 - progress);
+                const urgent = remainingTime <= 10 && remainingTime > 0;
+                return (
+                  <div className={`relative w-36 h-36 flex items-center justify-center mb-5 ${urgent ? 'animate-pulse' : ''}`}>
+                    <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 144 144">
+                      {/* Track */}
+                      <circle
+                        cx="72" cy="72" r={radius}
+                        fill="none"
+                        stroke="rgba(255,255,255,0.15)"
+                        strokeWidth="12"
+                      />
+                      {/* Progress arc */}
+                      <circle
+                        cx="72" cy="72" r={radius}
+                        fill="none"
+                        stroke={urgent ? '#f87171' : '#facc15'}
+                        strokeWidth="12"
+                        strokeLinecap="round"
+                        strokeDasharray={circumference}
+                        strokeDashoffset={dashOffset}
+                        style={{ transition: 'stroke-dashoffset 0.1s linear, stroke 0.3s' }}
+                      />
+                    </svg>
+                    <span className={`text-5xl font-black tabular-nums drop-shadow-lg ${urgent ? 'text-red-300' : 'text-yellow-300'}`}>
+                      {remainingTime}
+                    </span>
+                  </div>
+                );
+              })()}
 
               {/* Answer comparison — both boxes identical size */}
               <div className="w-full max-w-xs space-y-3">
@@ -818,47 +854,6 @@ export default function LiveEventParticipant() {
                     </p>
                   </div>
                 )}
-              </div>
-
-              {/* Circular countdown timer */}
-              <div className="mt-6 flex flex-col items-center gap-2">
-                {(() => {
-                  const radius = 40;
-                  const circumference = 2 * Math.PI * radius;
-                  const progress = event.timerDuration > 0 ? remainingTime / event.timerDuration : 0;
-                  const dashOffset = circumference * (1 - progress);
-                  const urgent = remainingTime <= 10 && remainingTime > 0;
-                  return (
-                    <div className="relative w-24 h-24 flex items-center justify-center">
-                      <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 96 96">
-                        {/* Track */}
-                        <circle
-                          cx="48" cy="48" r={radius}
-                          fill="none"
-                          stroke="rgba(255,255,255,0.15)"
-                          strokeWidth="8"
-                        />
-                        {/* Progress arc */}
-                        <circle
-                          cx="48" cy="48" r={radius}
-                          fill="none"
-                          stroke={urgent ? '#f87171' : 'rgba(255,255,255,0.9)'}
-                          strokeWidth="8"
-                          strokeLinecap="round"
-                          strokeDasharray={circumference}
-                          strokeDashoffset={dashOffset}
-                          style={{ transition: 'stroke-dashoffset 0.1s linear, stroke 0.3s' }}
-                        />
-                      </svg>
-                      <span className={`text-3xl font-black tabular-nums ${urgent ? 'text-red-300 animate-pulse' : 'text-white'}`}>
-                        {remainingTime}
-                      </span>
-                    </div>
-                  );
-                })()}
-                <p className="text-white/60 text-xs font-semibold uppercase tracking-widest">
-                  Waiting for others
-                </p>
               </div>
             </div>
           );
