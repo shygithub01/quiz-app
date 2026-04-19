@@ -709,7 +709,7 @@ export default function LiveEventParticipant() {
 
             {/* Answer Options */}
             <div className="space-y-3 flex-1">
-              {(Array.isArray(currentQuestion.options) ? currentQuestion.options : Object.values(currentQuestion.options || {})).map((option: string, idx: number) => {
+              {(currentQuestion.options ?? []).map((option: string, idx: number) => {
                 const isSelected = selectedAnswer === option;
                 const isDisabled = hasAnswered || remainingTime === 0;
 
