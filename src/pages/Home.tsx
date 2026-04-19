@@ -254,14 +254,21 @@ export default function Home() {
             ) : liveEvent ? (
               <div className="space-y-3">
                 <div className="rounded-xl px-4 py-3 text-center"
-                  style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.2)' }}>
-                  <p className="text-red-300 text-sm font-semibold">Event already in progress</p>
-                  <p className="text-white/40 text-xs mt-1">Late joining is not available</p>
+                  style={{ background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.25)' }}>
+                  <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse inline-block mr-2 align-middle" />
+                  <p className="text-yellow-300 text-sm font-semibold inline">Event in progress — late join available</p>
                 </div>
                 <input type="tel" value={liveEvent.pin} readOnly
                   className="pin-input w-full text-center font-black text-5xl py-6 px-4 rounded-2xl outline-none"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '2px solid rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.25)', letterSpacing: '0.3em', cursor: 'not-allowed' }}
+                  style={{ background: 'rgba(167,139,250,0.08)', border: '2px solid rgba(167,139,250,0.25)', color: 'rgba(196,181,253,0.6)', letterSpacing: '0.3em', cursor: 'not-allowed' }}
                 />
+                <button
+                  type="button"
+                  onClick={() => navigate('/live-event/join')}
+                  className="w-full py-5 rounded-2xl font-black text-xl transition-all active:scale-95"
+                  style={{ background: 'linear-gradient(135deg, #7c3aed, #4f46e5)', color: 'white' }}>
+                  Join Late <ChevronRight className="inline h-6 w-6" />
+                </button>
                 <p className="text-center text-white/40 text-sm">
                   Use <button type="button" onClick={() => setActiveTab('practice')} className="text-emerald-400 underline underline-offset-2">Practice Mode</button> if you have a practice PIN
                 </p>
