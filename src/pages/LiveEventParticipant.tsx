@@ -837,33 +837,17 @@ export default function LiveEventParticipant() {
                 );
               })()}
 
-              {/* Answer comparison — both boxes identical size */}
+              {/* Score feedback */}
               <div className="w-full max-w-xs space-y-3">
-                {/* Their answer */}
-                <div className={`rounded-2xl px-5 py-4 text-center border-2 ${
-                  isCorrect
-                    ? 'bg-white/20 border-white/30'
-                    : 'bg-white/10 border-red-300/50'
-                }`}>
+                <div className="bg-white/10 border-2 border-white/20 rounded-2xl px-5 py-4 text-center">
                   <p className="text-white/60 text-xs font-bold uppercase tracking-widest mb-1">
-                    {isCorrect ? 'Your answer' : 'You answered'}
+                    Your Score
                   </p>
-                  <p className="text-white font-black text-xl leading-snug">
-                    {selectedAnswer}
-                  </p>
+                  <p className="text-white font-black text-4xl">{myScore}</p>
                 </div>
-
-                {/* Correct answer — same box style, shown when wrong */}
-                {!isCorrect && (
-                  <div className="bg-green-500/25 border-2 border-green-400/60 rounded-2xl px-5 py-4 text-center">
-                    <p className="text-green-300/80 text-xs font-bold uppercase tracking-widest mb-1">
-                      Correct answer
-                    </p>
-                    <p className="text-white font-black text-xl leading-snug">
-                      {currentQuestion.correctAnswer}
-                    </p>
-                  </div>
-                )}
+                <p className="text-white/50 text-sm text-center">
+                  {isCorrect ? 'Great job! Waiting for others...' : 'Waiting for others...'}
+                </p>
               </div>
             </div>
           );
