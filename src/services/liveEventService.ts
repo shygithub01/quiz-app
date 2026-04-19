@@ -1197,6 +1197,7 @@ export async function archiveAndCleanupEvent(eventId: string): Promise<void> {
         rank: entry.rank,
         correctAnswers: entry.correctAnswers,
         fastestFingerBonus: entry.fastestFingerBonus,
+        totalTime: entry.totalTime ?? null,
         answers: answerDetails
       };
     });

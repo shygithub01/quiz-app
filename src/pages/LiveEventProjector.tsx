@@ -130,6 +130,11 @@ function AnimatedLeaderboard({
                   </p>
                   <p className={`text-sm font-semibold ${isFirst ? 'text-yellow-100' : 'text-white/50'}`}>
                     {entry.score} pts · {entry.correctAnswers}✓
+                    {entry.totalTime != null && entry.totalTime > 0 && (
+                      <span className={`ml-2 ${isFirst ? 'text-yellow-200/70' : 'text-white/30'}`}>
+                        · {entry.totalTime.toFixed(1)}s
+                      </span>
+                    )}
                   </p>
                 </div>
 

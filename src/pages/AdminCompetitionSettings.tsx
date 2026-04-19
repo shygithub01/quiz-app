@@ -535,6 +535,7 @@ export default function AdminCompetitionSettings() {
                                   <th className="px-3 py-2 text-left text-xs text-white/40 uppercase font-medium">Name</th>
                                   <th className="px-3 py-2 text-right text-xs text-white/40 uppercase font-medium">Score</th>
                                   <th className="px-3 py-2 text-right text-xs text-white/40 uppercase font-medium">Correct</th>
+                                  <th className="px-3 py-2 text-right text-xs text-white/40 uppercase font-medium">Time</th>
                                   <th className="px-3 py-2 text-right text-xs text-white/40 uppercase font-medium w-10"></th>
                                 </tr>
                               </thead>
@@ -549,6 +550,12 @@ export default function AdminCompetitionSettings() {
                                     <td className="px-3 py-3 text-right text-white/60">
                                       {p.correctAnswers ?? Object.values(p.answers || {}).filter((a: any) => a.correct).length}
                                       /{archive.totalQuestions || '?'}
+                                    </td>
+                                    <td className="px-3 py-3 text-right text-white/40 text-xs font-mono">
+                                      {(() => {
+                                        const t = p.totalTime ?? Object.values(p.answers || {}).reduce((sum: number, a: any) => sum + (a.timeToAnswer || 0), 0);
+                                        return t > 0 ? `${t.toFixed(1)}s` : '—';
+                                      })()}
                                     </td>
                                     <td className="px-3 py-3 text-right">
                                       <button
