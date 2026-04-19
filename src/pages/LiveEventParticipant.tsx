@@ -322,7 +322,7 @@ export default function LiveEventParticipant() {
   useEffect(() => {
     if (event?.phase !== 'results') return;
     setCloseCountdown(120);
-    const t = setTimeout(() => window.close(), 120000);
+    const t = setTimeout(() => { window.close(); window.location.href = '/'; }, 120000);
     const iv = setInterval(() => setCloseCountdown(c => Math.max(0, c - 1)), 1000);
     return () => { clearTimeout(t); clearInterval(iv); };
   }, [event?.phase]);
