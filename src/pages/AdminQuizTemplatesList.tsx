@@ -80,6 +80,19 @@ export default function AdminQuizTemplatesList() {
 
   const buildQuestions = (rawQuestions: any[]) => {
     let qs = shuffleQuestions ? shuffleArray(rawQuestions) : [...rawQuestions];
+
+    // Normalize {A,B,C,D} object options → array + convert correctAnswer letter → text
+    qs = qs.map(q => {
+      if (!Array.isArray(q.options) && q.options && typeof q.options === 'object') {
+        const optArr = ['A', 'B', 'C', 'D'].map(k => q.options[k]).filter((v: any) => v != null && v !== '');
+        const correctText = ['A', 'B', 'C', 'D'].includes(q.correctAnswer)
+          ? (q.options[q.correctAnswer] || q.correctAnswer)
+          : q.correctAnswer;
+        return { ...q, options: optArr, correctAnswer: correctText };
+      }
+      return q;
+    });
+
     if (shuffleOptions) {
       qs = qs.map(q => {
         if (!Array.isArray(q.options)) return q;
