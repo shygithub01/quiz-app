@@ -317,6 +317,16 @@ export default function LiveEventParticipant() {
     return () => clearInterval(interval);
   }, [event?.phase, event?.currentQuestionIndex, event?.timerStartedAt, event?.status, competition]);
 
+  // Auto-close after 2 minutes on results screen
+  const [closeCountdown, setCloseCountdown] = useState(0);
+  useEffect(() => {
+    if (event?.phase !== 'results') return;
+    setCloseCountdown(120);
+    const t = setTimeout(() => window.close(), 120000);
+    const iv = setInterval(() => setCloseCountdown(c => Math.max(0, c - 1)), 1000);
+    return () => { clearTimeout(t); clearInterval(iv); };
+  }, [event?.phase]);
+
   // Fetch participant's own answers when results phase is reached
   useEffect(() => {
     if (!eventId || !sessionId || event?.phase !== 'results') return;
@@ -921,6 +931,9 @@ export default function LiveEventParticipant() {
                 {myRank === 1 ? '🏆' : myRank === 2 ? '🥈' : myRank === 3 ? '🥉' : '🎉'}
               </div>
               <h2 className="text-2xl font-black text-white mb-4">Quiz Complete!</h2>
+              {closeCountdown > 0 && (
+                <p className="text-white/40 text-xs mt-1 mb-2">Closing in {closeCountdown}s</p>
+              )}
 
               <div className="bg-white/10 rounded-3xl p-5 w-full border border-white/20 mb-2">
                 <div className="flex items-center justify-around">

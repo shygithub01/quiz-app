@@ -176,6 +176,7 @@ export default function LiveEventProjector() {
   const [remainingTime, setRemainingTime] = useState(0);
   const [showConfetti, setShowConfetti] = useState(false);
   const [victoryPlayed, setVictoryPlayed] = useState(false);
+  const [closeCountdown, setCloseCountdown] = useState(0);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
   const [eventWasLoaded, setEventWasLoaded] = useState(false);
   const [dataChecked, setDataChecked] = useState(false);
@@ -236,6 +237,8 @@ export default function LiveEventProjector() {
           setShowConfetti(true);
           setVictoryPlayed(true);
           setTimeout(() => setShowConfetti(false), 12000);
+          setTimeout(() => window.close(), 120000);
+          setCloseCountdown(120);
         }
       } else {
         // Event was deleted from Firebase. If the last known phase was 'results',
@@ -286,6 +289,13 @@ export default function LiveEventProjector() {
     const iv = setInterval(update, 100);
     return () => clearInterval(iv);
   }, [event?.phase, event?.timerStartedAt, event?.timerDuration, event?.pausedDuration, event?.status]);
+
+  // Tick down the closing countdown
+  useEffect(() => {
+    if (closeCountdown <= 0) return;
+    const iv = setInterval(() => setCloseCountdown(c => Math.max(0, c - 1)), 1000);
+    return () => clearInterval(iv);
+  }, [closeCountdown > 0]);
 
   const handleAutoAdvance = async () => {
     if (!event || !competition || !eventId) return;
@@ -613,6 +623,9 @@ export default function LiveEventProjector() {
             <h2 className="font-black" style={{ fontSize: 'clamp(2.5rem, 6vw, 5rem)' }}>
               🎉 Competition Complete! 🎉
             </h2>
+            {closeCountdown > 0 && (
+              <p className="text-white/30 text-lg mt-2">Closing in {closeCountdown}s</p>
+            )}
           </div>
 
           {/* Podium */}
