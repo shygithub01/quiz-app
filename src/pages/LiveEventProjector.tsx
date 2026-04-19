@@ -622,7 +622,10 @@ export default function LiveEventProjector() {
                 <div className="flex flex-col items-center gap-2">
                   <div className="text-5xl">🥈</div>
                   <div className="font-bold text-2xl text-center max-w-[180px] truncate">{leaderboard[1].name}</div>
-                  <div className="text-lg text-white/70">{leaderboard[1].score} pts</div>
+                  <div className="text-lg text-white/70 font-bold">{leaderboard[1].score} pts</div>
+                  {leaderboard[1].totalTime != null && leaderboard[1].totalTime > 0 && (
+                    <div className="text-sm font-bold text-white/40">{leaderboard[1].totalTime.toFixed(1)}s</div>
+                  )}
                   <div className="w-36 rounded-t-2xl flex items-center justify-center font-black text-4xl"
                     style={{ height: 110, background: 'linear-gradient(180deg,#94a3b8,#64748b)' }}>2</div>
                 </div>
@@ -631,7 +634,10 @@ export default function LiveEventProjector() {
                 <Star className="h-10 w-10 text-yellow-300 animate-spin" style={{ animationDuration: '3s' }} />
                 <div className="text-6xl">🥇</div>
                 <div className="font-black text-4xl text-center max-w-[220px] truncate text-yellow-300">{leaderboard[0].name}</div>
-                <div className="text-2xl text-yellow-200">{leaderboard[0].score} pts</div>
+                <div className="text-2xl text-yellow-200 font-black">{leaderboard[0].score} pts</div>
+                {leaderboard[0].totalTime != null && leaderboard[0].totalTime > 0 && (
+                  <div className="text-base font-bold text-yellow-200/50">{leaderboard[0].totalTime.toFixed(1)}s</div>
+                )}
                 <div className="w-44 rounded-t-2xl flex items-center justify-center font-black text-5xl"
                   style={{ height: 150, background: 'linear-gradient(180deg,#f59e0b,#d97706)' }}>1</div>
               </div>
@@ -639,7 +645,10 @@ export default function LiveEventProjector() {
                 <div className="flex flex-col items-center gap-2">
                   <div className="text-5xl">🥉</div>
                   <div className="font-bold text-2xl text-center max-w-[180px] truncate">{leaderboard[2].name}</div>
-                  <div className="text-lg text-white/70">{leaderboard[2].score} pts</div>
+                  <div className="text-lg text-white/70 font-bold">{leaderboard[2].score} pts</div>
+                  {leaderboard[2].totalTime != null && leaderboard[2].totalTime > 0 && (
+                    <div className="text-sm font-bold text-white/40">{leaderboard[2].totalTime.toFixed(1)}s</div>
+                  )}
                   <div className="w-36 rounded-t-2xl flex items-center justify-center font-black text-4xl"
                     style={{ height: 80, background: 'linear-gradient(180deg,#cd7f32,#92400e)' }}>3</div>
                 </div>
@@ -657,6 +666,9 @@ export default function LiveEventProjector() {
                     <span className="text-white/40 w-8 text-center font-bold">{entry.rank}</span>
                     <span className="flex-1 truncate">{entry.name}</span>
                     <span className="text-purple-300 font-bold">{entry.score}</span>
+                    {entry.totalTime != null && entry.totalTime > 0 && (
+                      <span className="text-white/30 text-base font-bold ml-2">{entry.totalTime.toFixed(1)}s</span>
+                    )}
                   </div>
                 ))}
               </div>
