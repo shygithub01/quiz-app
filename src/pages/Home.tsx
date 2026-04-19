@@ -44,6 +44,34 @@ const STATS = [
   { value: '∞', label: 'Practice attempts' },
 ];
 
+function PinBoxes({ value, readOnly = false, onChange, accentColor = '#a78bfa' }: {
+  value: string; readOnly?: boolean; onChange?: (v: string) => void; accentColor?: string;
+}) {
+  return (
+    <div className="relative my-1">
+      <div className="flex gap-2 justify-center" style={{ pointerEvents: readOnly ? 'none' : undefined }}>
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i}
+            className="w-10 h-12 rounded-xl flex items-center justify-center font-black text-xl text-white transition-all"
+            style={{
+              background: value[i] ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.04)',
+              border: value[i] ? `2px solid ${accentColor}` : '2px solid rgba(255,255,255,0.1)',
+              color: readOnly && value[i] ? `${accentColor}cc` : 'white',
+            }}>
+            {value[i] || <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', display: 'inline-block' }} />}
+          </div>
+        ))}
+      </div>
+      {!readOnly && onChange && (
+        <input type="tel" inputMode="numeric" value={value}
+          onChange={e => onChange(e.target.value.replace(/\D/g, '').slice(0, 6))}
+          className="absolute inset-0 w-full h-full" style={{ opacity: 0, cursor: 'text' }}
+          autoComplete="one-time-code" />
+      )}
+    </div>
+  );
+}
+
 export default function Home() {
   const { user, signIn } = useAuth();
   const navigate = useNavigate();
@@ -180,6 +208,7 @@ export default function Home() {
 
         {/* ── PIN JOIN BOX ── */}
         <div className="slide-up-3 w-full max-w-md relative z-10 mt-6">
+          <div className="rounded-3xl p-5" style={{ background: 'rgba(255,255,255,0.05)', border: '1.5px solid rgba(255,255,255,0.12)' }}>
           {/* Tab switcher */}
           <div className="flex rounded-2xl p-1 mb-4" style={{ background: 'rgba(255,255,255,0.08)' }}>
             <button
@@ -216,10 +245,7 @@ export default function Home() {
                   <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse flex-shrink-0" />
                   <p className="text-green-300 text-xs font-semibold">Live event in progress</p>
                 </div>
-                <input type="tel" value={liveEvent.pin} readOnly
-                  className="pin-input w-full text-center font-black text-5xl py-6 px-4 rounded-2xl outline-none"
-                  style={{ background: 'rgba(167,139,250,0.08)', border: '2px solid rgba(167,139,250,0.25)', color: 'rgba(196,181,253,0.6)', letterSpacing: '0.3em', cursor: 'not-allowed' }}
-                />
+                <PinBoxes value={liveEvent.pin} readOnly accentColor="#a78bfa" />
                 <input
                   type="text"
                   value={liveName}
@@ -258,10 +284,7 @@ export default function Home() {
                   <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse inline-block mr-2 align-middle" />
                   <p className="text-yellow-300 text-sm font-semibold inline">Event in progress — late join available</p>
                 </div>
-                <input type="tel" value={liveEvent.pin} readOnly
-                  className="pin-input w-full text-center font-black text-5xl py-6 px-4 rounded-2xl outline-none"
-                  style={{ background: 'rgba(167,139,250,0.08)', border: '2px solid rgba(167,139,250,0.25)', color: 'rgba(196,181,253,0.6)', letterSpacing: '0.3em', cursor: 'not-allowed' }}
-                />
+                <PinBoxes value={liveEvent.pin} readOnly accentColor="#a78bfa" />
                 <button
                   type="button"
                   onClick={() => navigate('/live-event/join')}
@@ -279,10 +302,7 @@ export default function Home() {
                   style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
                   <p className="text-white/40 text-sm font-medium">No live event is currently running</p>
                 </div>
-                <input type="tel" readOnly placeholder="— — — — — —"
-                  className="pin-input w-full text-center font-black text-5xl py-6 px-4 rounded-2xl outline-none"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '2px solid rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.2)', letterSpacing: '0.3em', cursor: 'not-allowed' }}
-                />
+                <PinBoxes value="" readOnly />
                 <button disabled className="w-full py-4 rounded-2xl font-bold text-base"
                   style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.2)', cursor: 'not-allowed' }}>
                   No Event Active
@@ -297,20 +317,7 @@ export default function Home() {
           {/* ── PRACTICE TAB ── */}
           {activeTab === 'practice' && (
             <form onSubmit={handleJoinPractice} className="space-y-3">
-              <input
-                type="tel"
-                inputMode="numeric"
-                value={practicePin}
-                onChange={e => setPracticePin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="Enter PIN"
-                className="pin-input w-full text-center font-black text-5xl py-6 px-4 rounded-2xl outline-none transition-all"
-                style={{
-                  background: 'rgba(255,255,255,0.08)',
-                  border: practicePin.length === 6 ? '2px solid #34d399' : '2px solid rgba(255,255,255,0.15)',
-                  color: 'white',
-                  letterSpacing: '0.3em',
-                }}
-              />
+              <PinBoxes value={practicePin} onChange={v => setPracticePin(v)} accentColor="#34d399" />
               <button
                 type="submit"
                 disabled={practicePin.length !== 6}
@@ -328,31 +335,7 @@ export default function Home() {
           <p className="text-center text-white/30 text-sm mt-3">
             Get the PIN from your teacher or event host
           </p>
-        </div>
-
-        {/* ── Mode info cards ── */}
-        <div className="slide-up-3 w-full max-w-md relative z-10 mt-4 grid grid-cols-1 gap-4">
-          {[
-            { emoji: '⚡', title: 'Live Event', badge: 'Real-time Competition', color: '#f59e0b', gradient: 'linear-gradient(135deg,#78350f,#92400e)', border: 'rgba(245,158,11,0.35)', features: ['All players answer at the same time', 'Fastest correct answer scores highest', 'Live leaderboard on big screen'], featureColor: '#fde68a' },
-            { emoji: '🎯', title: 'Practice Mode', badge: 'Self-paced Learning', color: '#34d399', gradient: 'linear-gradient(135deg,#064e3b,#065f46)', border: 'rgba(52,211,153,0.35)', features: ['Unlimited attempts to improve', 'No time pressure — learn at your pace', 'Track your score over multiple tries'], featureColor: '#6ee7b7' },
-          ].map((card, i) => (
-            <div key={i} className="rounded-3xl p-5" style={{ background: card.gradient, border: `2px solid ${card.border}` }}>
-              <div className="flex items-center gap-3 mb-3">
-                <span className="text-3xl">{card.emoji}</span>
-                <div>
-                  <p className="text-xs font-bold mb-0.5" style={{ color: card.color }}>{card.badge}</p>
-                  <p className="text-white font-black text-lg leading-none">{card.title}</p>
-                </div>
-              </div>
-              <ul className="space-y-1.5">
-                {card.features.map((f, j) => (
-                  <li key={j} className="text-sm flex items-start gap-2 font-medium" style={{ color: card.featureColor }}>
-                    <span className="flex-shrink-0">✓</span>{f}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
+          </div>{/* end glass card */}
         </div>
 
       </section>
@@ -491,7 +474,7 @@ export default function Home() {
               { step: '03', icon: '🎉', title: 'Win & Learn', desc: 'See the podium, review correct answers, and track your progress over time.' },
             ].map((s, i) => (
               <div key={i} className="relative">
-                <div className="font-black text-8xl absolute -top-4 -left-2 select-none pointer-events-none"
+                <div className="font-black text-8xl absolute -top-4 -left-2 select-none pointer-events-none hidden md:block"
                   style={{ color: 'rgba(167,139,250,0.08)' }}>{s.step}</div>
                 <div className="relative z-10 pt-6">
                   <div className="text-4xl mb-3">{s.icon}</div>

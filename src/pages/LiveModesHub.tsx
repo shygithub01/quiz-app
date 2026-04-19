@@ -5,6 +5,34 @@ import { Zap, Target, ArrowRight, ChevronRight, AlertTriangle } from 'lucide-rea
 import { useAuth } from '@/contexts/AuthContext';
 import { isAdmin } from '@/components/ui/firebase';
 
+function PinBoxes({ value, readOnly = false, onChange, accentColor = '#a78bfa' }: {
+  value: string; readOnly?: boolean; onChange?: (v: string) => void; accentColor?: string;
+}) {
+  return (
+    <div className="relative my-1">
+      <div className="flex gap-2 justify-center" style={{ pointerEvents: readOnly ? 'none' : undefined }}>
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i}
+            className="w-10 h-12 rounded-xl flex items-center justify-center font-black text-xl text-white transition-all"
+            style={{
+              background: value[i] ? 'rgba(255,255,255,0.1)' : 'rgba(255,255,255,0.04)',
+              border: value[i] ? `2px solid ${accentColor}` : '2px solid rgba(255,255,255,0.1)',
+              color: readOnly && value[i] ? `${accentColor}cc` : 'white',
+            }}>
+            {value[i] || <span style={{ width: 5, height: 5, borderRadius: '50%', background: 'rgba(255,255,255,0.15)', display: 'inline-block' }} />}
+          </div>
+        ))}
+      </div>
+      {!readOnly && onChange && (
+        <input type="tel" inputMode="numeric" value={value}
+          onChange={e => onChange(e.target.value.replace(/\D/g, '').slice(0, 6))}
+          className="absolute inset-0 w-full h-full" style={{ opacity: 0, cursor: 'text' }}
+          autoComplete="one-time-code" />
+      )}
+    </div>
+  );
+}
+
 export default function LiveModesHub() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -151,10 +179,7 @@ export default function LiveModesHub() {
                   <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse flex-shrink-0" />
                   <p className="text-green-300 text-xs font-semibold">Live event in progress</p>
                 </div>
-                <input type="tel" value={liveEvent.pin} readOnly
-                  className="pin-input-hub w-full text-center font-black text-5xl py-6 px-4 rounded-2xl outline-none"
-                  style={{ background: 'rgba(167,139,250,0.08)', border: '2px solid rgba(167,139,250,0.25)', color: 'rgba(196,181,253,0.6)', letterSpacing: '0.3em', cursor: 'not-allowed' }}
-                />
+                <PinBoxes value={liveEvent.pin} readOnly accentColor="#a78bfa" />
                 <input
                   type="text"
                   value={liveName}
@@ -189,10 +214,7 @@ export default function LiveModesHub() {
                   <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse inline-block mr-2 align-middle" />
                   <p className="text-yellow-300 text-sm font-semibold inline">Event in progress — late join available</p>
                 </div>
-                <input type="tel" value={liveEvent.pin} readOnly
-                  className="pin-input-hub w-full text-center font-black text-5xl py-6 px-4 rounded-2xl outline-none"
-                  style={{ background: 'rgba(167,139,250,0.08)', border: '2px solid rgba(167,139,250,0.25)', color: 'rgba(196,181,253,0.6)', letterSpacing: '0.3em', cursor: 'not-allowed' }}
-                />
+                <PinBoxes value={liveEvent.pin} readOnly accentColor="#a78bfa" />
                 <button type="button" onClick={() => navigate('/live-event/join')}
                   className="w-full py-5 rounded-2xl font-black text-xl transition-all active:scale-95"
                   style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', color: 'white' }}>
@@ -205,10 +227,7 @@ export default function LiveModesHub() {
                   style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
                   <p className="text-white/40 text-sm font-medium">No live event is currently running</p>
                 </div>
-                <input type="tel" readOnly placeholder="— — — — — —"
-                  className="pin-input-hub w-full text-center font-black text-5xl py-6 px-4 rounded-2xl outline-none"
-                  style={{ background: 'rgba(255,255,255,0.04)', border: '2px solid rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.2)', letterSpacing: '0.3em', cursor: 'not-allowed' }}
-                />
+                <PinBoxes value="" readOnly />
                 <button disabled className="w-full py-4 rounded-2xl font-bold text-base"
                   style={{ background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.2)', cursor: 'not-allowed' }}>
                   No Event Active
@@ -223,18 +242,7 @@ export default function LiveModesHub() {
           {/* ── PRACTICE TAB ── */}
           {tab === 'practice' && (
             <form onSubmit={handleJoinPractice} className="space-y-3">
-              <input
-                type="tel" inputMode="numeric"
-                value={practicePin}
-                onChange={e => setPracticePin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                placeholder="● ● ● ● ● ●"
-                className="pin-input-hub w-full text-center font-black text-5xl py-6 px-4 rounded-2xl outline-none transition-all"
-                style={{
-                  background: 'rgba(255,255,255,0.07)',
-                  border: practicePin.length === 6 ? '2px solid #34d399' : '2px solid rgba(255,255,255,0.12)',
-                  color: 'white', letterSpacing: '0.3em',
-                }}
-              />
+              <PinBoxes value={practicePin} onChange={v => setPracticePin(v)} accentColor="#34d399" />
               <button type="submit" disabled={practicePin.length !== 6}
                 className="w-full py-5 rounded-2xl font-black text-xl transition-all active:scale-95 flex items-center justify-center gap-2"
                 style={{
