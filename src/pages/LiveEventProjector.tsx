@@ -623,9 +623,24 @@ export default function LiveEventProjector() {
             <h2 className="font-black" style={{ fontSize: 'clamp(2.5rem, 6vw, 5rem)' }}>
               🎉 Competition Complete! 🎉
             </h2>
-            {closeCountdown > 0 && (
-              <p className="text-white/30 text-lg mt-2">Closing in {closeCountdown}s</p>
-            )}
+            {closeCountdown > 0 && (() => {
+              const r = 42, circ = 2 * Math.PI * r;
+              const offset = circ * (1 - closeCountdown / 120);
+              return (
+                <div className="flex flex-col items-center mt-4">
+                  <div className="relative w-28 h-28 flex items-center justify-center">
+                    <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 100 100">
+                      <circle cx="50" cy="50" r={r} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="8" />
+                      <circle cx="50" cy="50" r={r} fill="none" stroke="#e2e8f0" strokeWidth="8"
+                        strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={offset}
+                        style={{ transition: 'stroke-dashoffset 1s linear' }} />
+                    </svg>
+                    <span className="text-3xl font-black text-white tabular-nums drop-shadow-lg">{closeCountdown}</span>
+                  </div>
+                  <p className="text-white/50 text-sm mt-1 tracking-widest uppercase">closing</p>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Podium */}

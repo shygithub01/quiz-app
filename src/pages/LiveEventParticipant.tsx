@@ -931,9 +931,24 @@ export default function LiveEventParticipant() {
                 {myRank === 1 ? '🏆' : myRank === 2 ? '🥈' : myRank === 3 ? '🥉' : '🎉'}
               </div>
               <h2 className="text-2xl font-black text-white mb-4">Quiz Complete!</h2>
-              {closeCountdown > 0 && (
-                <p className="text-white/40 text-xs mt-1 mb-2">Closing in {closeCountdown}s</p>
-              )}
+              {closeCountdown > 0 && (() => {
+                const r = 30, circ = 2 * Math.PI * r;
+                const offset = circ * (1 - closeCountdown / 120);
+                return (
+                  <div className="flex flex-col items-center mb-3">
+                    <div className="relative w-20 h-20 flex items-center justify-center">
+                      <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 80 80">
+                        <circle cx="40" cy="40" r={r} fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="8" />
+                        <circle cx="40" cy="40" r={r} fill="none" stroke="#e2e8f0" strokeWidth="8"
+                          strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={offset}
+                          style={{ transition: 'stroke-dashoffset 1s linear' }} />
+                      </svg>
+                      <span className="text-xl font-black text-white tabular-nums drop-shadow-lg">{closeCountdown}</span>
+                    </div>
+                    <p className="text-white/50 text-xs mt-1 tracking-widest uppercase">closing</p>
+                  </div>
+                );
+              })()}
 
               <div className="bg-white/10 rounded-3xl p-5 w-full border border-white/20 mb-2">
                 <div className="flex items-center justify-around">
