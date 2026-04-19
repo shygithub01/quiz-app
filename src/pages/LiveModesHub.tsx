@@ -10,28 +10,68 @@ export default function LiveModesHub() {
   const { user } = useAuth();
   const [userIsAdmin, setUserIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [livePin, setLivePin] = useState('');
-  const [practicePin, setPracticePin] = useState('');
   const [tab, setTab] = useState<'live' | 'practice'>('live');
   const [activeEvent, setActiveEvent] = useState<any>(null);
 
+  // Same live-event detection as Home
+  const [liveEvent, setLiveEvent] = useState<any>(null);
+  const [liveCheckDone, setLiveCheckDone] = useState(false);
+  const [liveName, setLiveName] = useState('');
+  const [liveLoading, setLiveLoading] = useState(false);
+  const [liveError, setLiveError] = useState('');
+  const [practicePin, setPracticePin] = useState('');
+
   useEffect(() => {
-    const checkAdmin = async () => {
+    const init = async () => {
+      // Check live event for everyone
+      try {
+        const { getActiveEvent } = await import('@/services/liveEventService');
+        const active = await getActiveEvent();
+        setLiveEvent(active);
+        if (active && user?.uid) setActiveEvent(active);
+      } catch {
+        setLiveEvent(null);
+      } finally {
+        setLiveCheckDone(true);
+      }
+
+      // Check admin status
       if (user?.uid) {
         const adminStatus = await isAdmin(user.uid);
         setUserIsAdmin(adminStatus);
-        if (adminStatus) {
-          const { getActiveEvent } = await import('@/services/liveEventService');
-          const running = await getActiveEvent();
-          if (running) setActiveEvent(running);
-        }
-      } else {
-        setUserIsAdmin(false);
       }
       setLoading(false);
     };
-    checkAdmin();
+    init();
   }, [user]);
+
+  const handleJoinLiveEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!liveEvent || liveName.trim().length < 2) return;
+    const storedSession = sessionStorage.getItem(`liveEvent_${liveEvent.id}_session`);
+    if (storedSession) {
+      navigate(`/live-event/participate/${liveEvent.id}/${storedSession}`);
+      return;
+    }
+    try {
+      setLiveLoading(true);
+      setLiveError('');
+      const { joinEvent } = await import('@/services/liveEventService');
+      const sessionId = await joinEvent(liveEvent.id, liveName.trim());
+      sessionStorage.setItem(`liveEvent_${liveEvent.id}_session`, sessionId);
+      sessionStorage.setItem(`liveEvent_${liveEvent.id}_name`, liveName.trim());
+      navigate(`/live-event/participate/${liveEvent.id}/${sessionId}`);
+    } catch (err: any) {
+      setLiveError(err.message || 'Failed to join. Please try again.');
+    } finally {
+      setLiveLoading(false);
+    }
+  };
+
+  const handleJoinPractice = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (practicePin.length === 6) navigate(`/practice/join?pin=${practicePin}`);
+  };
 
   if (loading) {
     return (
@@ -45,114 +85,164 @@ export default function LiveModesHub() {
     );
   }
 
-  const handleJoinLive = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (livePin.length === 6) navigate(`/live-event/join?pin=${livePin}`);
-  };
-
-  const handleJoinPractice = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (practicePin.length === 6) navigate(`/practice/join?pin=${practicePin}`);
-  };
-
   return (
-    <div className="w-full min-h-screen" style={{ background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 50%, #0a1628 100%)' }}>
+    <div className="w-full min-h-screen overflow-x-hidden"
+      style={{ background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 50%, #0a1628 100%)' }}>
       <style>{`
-        .pin-input-hub::placeholder { color: rgba(255,255,255,0.2); letter-spacing: 0.5em; }
+        .pin-input-hub::placeholder { color: rgba(255,255,255,0.25); letter-spacing: 0.5em; }
+        @keyframes pulse-glow-hub {
+          0%, 100% { box-shadow: 0 0 20px rgba(167,139,250,0.4); }
+          50% { box-shadow: 0 0 40px rgba(167,139,250,0.8), 0 0 80px rgba(167,139,250,0.3); }
+        }
       `}</style>
 
       {/* Header */}
-      <div className="text-center pt-12 pb-8 px-4">
-        <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full mb-5 text-sm font-bold"
+      <div className="text-center pt-8 pb-5 px-4"
+        style={{ paddingTop: 'max(2rem, env(safe-area-inset-top))' }}>
+        <div className="inline-flex items-center gap-2 px-5 py-2 rounded-full mb-4 text-sm font-bold"
           style={{ background: 'rgba(167,139,250,0.12)', border: '1px solid rgba(167,139,250,0.3)', color: '#c4b5fd' }}>
           <Zap className="h-4 w-4 text-yellow-400" /> Live Modes Hub
         </div>
-        <h1 className="font-black text-white mb-3" style={{ fontSize: 'clamp(2rem, 5vw, 3.5rem)' }}>
+        <h1 className="font-black text-white mb-2" style={{ fontSize: 'clamp(1.6rem, 5vw, 3rem)' }}>
           Choose your mode
         </h1>
-        <p className="text-white/50 text-lg max-w-xl mx-auto">
+        <p className="text-white/50 text-sm max-w-xl mx-auto">
           Jump into a live game or host your own. All you need is a PIN.
         </p>
       </div>
 
-      <div className="max-w-6xl mx-auto px-4 pb-16 space-y-6">
+      <div className="max-w-md mx-auto px-4 pb-16 space-y-5">
 
-        {/* ── PIN ENTRY CARD ── */}
-        <div className="rounded-3xl p-6 md:p-8"
+        {/* ── PIN ENTRY — matches Home screen ── */}
+        <div className="rounded-3xl p-5"
           style={{ background: 'rgba(255,255,255,0.04)', border: '1.5px solid rgba(255,255,255,0.1)' }}>
-          <h2 className="font-black text-white text-2xl mb-5 text-center">Join a session</h2>
 
           {/* Tab toggle */}
-          <div className="flex rounded-2xl p-1 mb-5 max-w-sm mx-auto" style={{ background: 'rgba(255,255,255,0.06)' }}>
+          <div className="flex rounded-2xl p-1 mb-4" style={{ background: 'rgba(255,255,255,0.06)' }}>
             <button onClick={() => setTab('live')}
               className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all"
-              style={{ background: tab === 'live' ? 'linear-gradient(135deg,#7c3aed,#4f46e5)' : 'transparent', color: tab === 'live' ? 'white' : 'rgba(255,255,255,0.4)' }}>
+              style={{
+                background: tab === 'live' ? 'linear-gradient(135deg,#7c3aed,#4f46e5)' : 'transparent',
+                color: tab === 'live' ? 'white' : 'rgba(255,255,255,0.4)',
+              }}>
               <Zap className="h-4 w-4" /> Live Event
             </button>
             <button onClick={() => setTab('practice')}
               className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all"
-              style={{ background: tab === 'practice' ? 'linear-gradient(135deg,#059669,#065f46)' : 'transparent', color: tab === 'practice' ? 'white' : 'rgba(255,255,255,0.4)' }}>
+              style={{
+                background: tab === 'practice' ? 'linear-gradient(135deg,#059669,#065f46)' : 'transparent',
+                color: tab === 'practice' ? 'white' : 'rgba(255,255,255,0.4)',
+              }}>
               <Target className="h-4 w-4" /> Practice
             </button>
           </div>
 
-          <div className="max-w-sm mx-auto">
-            {tab === 'live' ? (
-              <form onSubmit={handleJoinLive} className="space-y-3">
+          {/* ── LIVE TAB ── */}
+          {tab === 'live' && (
+            !liveCheckDone ? (
+              <div className="flex flex-col items-center py-8 gap-3">
+                <div className="w-7 h-7 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+                <p className="text-white/40 text-sm">Checking for live events...</p>
+              </div>
+            ) : liveEvent && liveEvent.phase === 'lobby' ? (
+              <form onSubmit={handleJoinLiveEvent} className="space-y-3">
+                <div className="flex items-center gap-2 rounded-xl px-3 py-2"
+                  style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)' }}>
+                  <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse flex-shrink-0" />
+                  <p className="text-green-300 text-xs font-semibold">Live event in progress</p>
+                </div>
+                <input type="tel" value={liveEvent.pin} readOnly
+                  className="pin-input-hub w-full text-center font-black text-5xl py-6 px-4 rounded-2xl outline-none"
+                  style={{ background: 'rgba(167,139,250,0.08)', border: '2px solid rgba(167,139,250,0.25)', color: 'rgba(196,181,253,0.6)', letterSpacing: '0.3em', cursor: 'not-allowed' }}
+                />
                 <input
-                  type="tel" inputMode="numeric"
-                  value={livePin}
-                  onChange={e => setLivePin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  placeholder="Enter PIN"
-                  className="pin-input-hub w-full text-center font-black py-5 rounded-2xl outline-none transition-all"
+                  type="text"
+                  value={liveName}
+                  onChange={e => { setLiveName(e.target.value); setLiveError(''); }}
+                  placeholder="Enter your name"
+                  minLength={2} maxLength={50} autoFocus
+                  className="w-full text-center font-bold text-xl py-5 px-4 rounded-2xl outline-none transition-all"
                   style={{
-                    fontSize: '2.5rem', letterSpacing: '0.3em',
-                    background: 'rgba(255,255,255,0.07)',
-                    border: livePin.length === 6 ? '2px solid #a78bfa' : '2px solid rgba(255,255,255,0.12)',
+                    background: 'rgba(255,255,255,0.08)',
+                    border: liveName.trim().length >= 2 ? '2px solid #a78bfa' : '2px solid rgba(255,255,255,0.15)',
                     color: 'white',
                   }}
                 />
-                <button type="submit" disabled={livePin.length !== 6}
-                  className="w-full py-4 rounded-2xl font-black text-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+                {liveError && <p className="text-red-400 text-xs text-center">{liveError}</p>}
+                <button type="submit" disabled={liveName.trim().length < 2 || liveLoading}
+                  className="w-full py-5 rounded-2xl font-black text-xl transition-all active:scale-95"
                   style={{
-                    background: livePin.length === 6 ? 'linear-gradient(135deg,#7c3aed,#4f46e5)' : 'rgba(255,255,255,0.06)',
-                    color: livePin.length === 6 ? 'white' : 'rgba(255,255,255,0.25)',
-                    cursor: livePin.length === 6 ? 'pointer' : 'not-allowed',
+                    background: liveName.trim().length >= 2 ? 'linear-gradient(135deg,#7c3aed,#4f46e5)' : 'rgba(255,255,255,0.08)',
+                    color: liveName.trim().length >= 2 ? 'white' : 'rgba(255,255,255,0.3)',
+                    cursor: liveName.trim().length >= 2 ? 'pointer' : 'not-allowed',
+                    ...(liveName.trim().length >= 2 && !liveLoading ? { animation: 'pulse-glow-hub 2s ease-in-out infinite' } : {}),
                   }}>
-                  <Zap className="h-5 w-5" /> Join Live Event <ChevronRight className="h-5 w-5" />
+                  {liveLoading
+                    ? <><span className="inline-block w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2 align-middle" />Joining...</>
+                    : <>Join Event <ChevronRight className="inline h-6 w-6" /></>}
                 </button>
               </form>
+            ) : liveEvent ? (
+              <div className="space-y-3">
+                <div className="rounded-xl px-4 py-3 text-center"
+                  style={{ background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.25)' }}>
+                  <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse inline-block mr-2 align-middle" />
+                  <p className="text-yellow-300 text-sm font-semibold inline">Event in progress — late join available</p>
+                </div>
+                <input type="tel" value={liveEvent.pin} readOnly
+                  className="pin-input-hub w-full text-center font-black text-5xl py-6 px-4 rounded-2xl outline-none"
+                  style={{ background: 'rgba(167,139,250,0.08)', border: '2px solid rgba(167,139,250,0.25)', color: 'rgba(196,181,253,0.6)', letterSpacing: '0.3em', cursor: 'not-allowed' }}
+                />
+                <button type="button" onClick={() => navigate('/live-event/join')}
+                  className="w-full py-5 rounded-2xl font-black text-xl transition-all active:scale-95"
+                  style={{ background: 'linear-gradient(135deg,#7c3aed,#4f46e5)', color: 'white' }}>
+                  Join Late <ChevronRight className="inline h-6 w-6" />
+                </button>
+              </div>
             ) : (
-              <form onSubmit={handleJoinPractice} className="space-y-3">
-                <input
-                  type="tel" inputMode="numeric"
-                  value={practicePin}
-                  onChange={e => setPracticePin(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  placeholder="Enter PIN"
-                  className="pin-input-hub w-full text-center font-black py-5 rounded-2xl outline-none transition-all"
-                  style={{
-                    fontSize: '2.5rem', letterSpacing: '0.3em',
-                    background: 'rgba(255,255,255,0.07)',
-                    border: practicePin.length === 6 ? '2px solid #34d399' : '2px solid rgba(255,255,255,0.12)',
-                    color: 'white',
-                  }}
-                />
-                <button type="submit" disabled={practicePin.length !== 6}
-                  className="w-full py-4 rounded-2xl font-black text-lg transition-all active:scale-95 flex items-center justify-center gap-2"
-                  style={{
-                    background: practicePin.length === 6 ? 'linear-gradient(135deg,#059669,#065f46)' : 'rgba(255,255,255,0.06)',
-                    color: practicePin.length === 6 ? 'white' : 'rgba(255,255,255,0.25)',
-                    cursor: practicePin.length === 6 ? 'pointer' : 'not-allowed',
-                  }}>
-                  <Target className="h-5 w-5" /> Join Practice <ChevronRight className="h-5 w-5" />
-                </button>
-              </form>
-            )}
-          </div>
+              <div className="space-y-3">
+                <div className="rounded-xl px-4 py-3 text-center"
+                  style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <p className="text-white/40 text-sm">No live event is currently running</p>
+                </div>
+                <p className="text-center text-white/30 text-xs">
+                  Get the PIN from your teacher or event host
+                </p>
+              </div>
+            )
+          )}
+
+          {/* ── PRACTICE TAB ── */}
+          {tab === 'practice' && (
+            <form onSubmit={handleJoinPractice} className="space-y-3">
+              <input
+                type="tel" inputMode="numeric"
+                value={practicePin}
+                onChange={e => setPracticePin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                placeholder="● ● ● ● ● ●"
+                className="pin-input-hub w-full text-center font-black text-5xl py-6 px-4 rounded-2xl outline-none transition-all"
+                style={{
+                  background: 'rgba(255,255,255,0.07)',
+                  border: practicePin.length === 6 ? '2px solid #34d399' : '2px solid rgba(255,255,255,0.12)',
+                  color: 'white', letterSpacing: '0.3em',
+                }}
+              />
+              <button type="submit" disabled={practicePin.length !== 6}
+                className="w-full py-5 rounded-2xl font-black text-xl transition-all active:scale-95 flex items-center justify-center gap-2"
+                style={{
+                  background: practicePin.length === 6 ? 'linear-gradient(135deg,#059669,#065f46)' : 'rgba(255,255,255,0.06)',
+                  color: practicePin.length === 6 ? 'white' : 'rgba(255,255,255,0.25)',
+                  cursor: practicePin.length === 6 ? 'pointer' : 'not-allowed',
+                }}>
+                <Target className="h-5 w-5" /> Join Practice <ChevronRight className="h-5 w-5" />
+              </button>
+              <p className="text-center text-white/30 text-xs">Get the PIN from your teacher or event host</p>
+            </form>
+          )}
         </div>
 
-        {/* ── PARTICIPANT CARDS ── */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+        {/* ── MODE INFO CARDS ── */}
+        <div className="grid grid-cols-1 gap-4">
           <ModeCard
             emoji="⚡"
             title="Live Event"
@@ -164,12 +254,8 @@ export default function LiveModesHub() {
               'All players answer at the same time',
               'Fastest correct answer scores highest',
               'Live leaderboard on big screen',
-              'Perfect for events & gatherings',
             ]}
             featureColor="#fde68a"
-            cta="Join a Live Event"
-            ctaGradient="linear-gradient(135deg,#d97706,#b45309)"
-            onClick={() => navigate('/live-event/join')}
           />
           <ModeCard
             emoji="🎯"
@@ -182,19 +268,14 @@ export default function LiveModesHub() {
               'Unlimited attempts to improve',
               'No time pressure — learn at your pace',
               'Track your score over multiple tries',
-              'Great for exam prep',
             ]}
             featureColor="#6ee7b7"
-            cta="Join a Practice Session"
-            ctaGradient="linear-gradient(135deg,#059669,#065f46)"
-            onClick={() => navigate('/practice/join')}
           />
         </div>
 
-        {/* ── ADMIN / HOST SECTION ── */}
+        {/* ── ADMIN HOST SECTION ── */}
         {userIsAdmin && (
           <>
-            {/* Active event recovery banner */}
             {activeEvent && (
               <div className="flex items-center gap-4 rounded-2xl px-5 py-4"
                 style={{ background: 'rgba(234,179,8,0.15)', border: '1.5px solid rgba(234,179,8,0.4)' }}>
@@ -212,8 +293,7 @@ export default function LiveModesHub() {
                       : `Question ${(activeEvent.currentQuestionIndex ?? 0) + 1} · ${activeEvent.phase}`}
                   </p>
                 </div>
-                <button
-                  onClick={() => navigate(`/live-event/${activeEvent.id}/host`)}
+                <button onClick={() => navigate(`/live-event/${activeEvent.id}/host`)}
                   className="px-4 py-2 rounded-xl font-bold text-sm flex-shrink-0 active:scale-95 transition-transform"
                   style={{ background: '#eab308', color: '#713f12' }}>
                   Resume
@@ -221,17 +301,17 @@ export default function LiveModesHub() {
               </div>
             )}
 
-            <div className="flex items-center gap-4 mt-4">
+            <div className="flex items-center gap-4">
               <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
-              <span className="text-white/30 font-bold text-sm uppercase tracking-widest">Host Controls</span>
+              <span className="text-white/30 font-bold text-xs uppercase tracking-widest">Host Controls</span>
               <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div className="grid grid-cols-1 gap-4">
               <HostCard
                 emoji="🎙️"
                 title="Host Live Event"
-                desc="Launch a real-time quiz from your templates. Control the flow, see live answers."
+                desc="Launch a real-time quiz from your templates."
                 gradient="linear-gradient(135deg,#1e1b4b,#2e1065)"
                 border="rgba(139,92,246,0.4)"
                 cta="Launch from Quiz Templates"
@@ -243,7 +323,7 @@ export default function LiveModesHub() {
               <HostCard
                 emoji="📚"
                 title="Host Practice Session"
-                desc="Set up a self-paced session for students. Share a PIN and monitor progress."
+                desc="Set up a self-paced session for students."
                 gradient="linear-gradient(135deg,#064e3b,#065f46)"
                 border="rgba(52,211,153,0.3)"
                 cta="Launch from Quiz Templates"
@@ -262,31 +342,29 @@ export default function LiveModesHub() {
 
 // ── Sub-components ──────────────────────────────────────────────────────────
 
-function ModeCard({ emoji, title, badge, badgeColor, gradient, border, features, featureColor, cta, ctaGradient, onClick }: {
+function ModeCard({ emoji, title, badge, badgeColor, gradient, border, features, featureColor }: {
   emoji: string; title: string; badge: string; badgeColor: string;
   gradient: string; border: string; features: string[]; featureColor: string;
-  cta: string; ctaGradient: string; onClick: () => void;
 }) {
   return (
-    <div className="rounded-3xl p-6 flex flex-col" style={{ background: gradient, border: `2px solid ${border}` }}>
-      <div className="text-5xl mb-3">{emoji}</div>
-      <div className="inline-flex items-center self-start gap-1.5 px-3 py-1 rounded-full text-xs font-bold mb-3"
-        style={{ background: 'rgba(0,0,0,0.25)', color: badgeColor }}>
-        {badge}
+    <div className="rounded-3xl p-5 flex flex-col" style={{ background: gradient, border: `2px solid ${border}` }}>
+      <div className="flex items-center gap-3 mb-3">
+        <span className="text-3xl">{emoji}</span>
+        <div>
+          <div className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold mb-1"
+            style={{ background: 'rgba(0,0,0,0.25)', color: badgeColor }}>
+            {badge}
+          </div>
+          <h3 className="font-black text-white text-lg leading-none">{title}</h3>
+        </div>
       </div>
-      <h3 className="font-black text-white text-2xl mb-4">{title}</h3>
-      <ul className="space-y-2 mb-6 flex-1">
+      <ul className="space-y-1.5">
         {features.map((f, i) => (
           <li key={i} className="flex items-start gap-2 text-sm font-medium" style={{ color: featureColor }}>
-            <span className="mt-0.5 flex-shrink-0">✓</span> {f}
+            <span className="flex-shrink-0">✓</span> {f}
           </li>
         ))}
       </ul>
-      <button onClick={onClick}
-        className="w-full py-4 rounded-2xl font-black text-white text-base transition-all active:scale-95 flex items-center justify-center gap-2"
-        style={{ background: ctaGradient }}>
-        {cta} <ArrowRight className="h-4 w-4" />
-      </button>
     </div>
   );
 }
@@ -297,10 +375,12 @@ function HostCard({ emoji, title, desc, gradient, border, cta, ctaColor, onClick
   secondaryCta: string; secondaryOnClick: () => void;
 }) {
   return (
-    <div className="rounded-3xl p-6 flex flex-col" style={{ background: gradient, border: `2px solid ${border}` }}>
-      <div className="text-4xl mb-3">{emoji}</div>
-      <h3 className="font-black text-white text-xl mb-2">{title}</h3>
-      <p className="text-white/50 text-sm leading-relaxed mb-5 flex-1">{desc}</p>
+    <div className="rounded-3xl p-5 flex flex-col" style={{ background: gradient, border: `2px solid ${border}` }}>
+      <div className="flex items-center gap-3 mb-3">
+        <span className="text-3xl">{emoji}</span>
+        <h3 className="font-black text-white text-lg">{title}</h3>
+      </div>
+      <p className="text-white/50 text-sm leading-relaxed mb-4">{desc}</p>
       <div className="space-y-2">
         <button onClick={onClick}
           className="w-full py-3 rounded-xl font-bold text-sm transition-all active:scale-95 flex items-center justify-center gap-2"
