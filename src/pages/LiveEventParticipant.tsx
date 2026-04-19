@@ -951,35 +951,74 @@ export default function LiveEventParticipant() {
               </div>
             </div>
 
-            {/* Top 3 leaderboard */}
+            {/* Podium */}
             {leaderboard.length > 0 && (
               <div className="mb-4">
-                <p className="text-white/40 text-xs font-bold uppercase tracking-widest mb-2 px-1">Top Players</p>
-                <div className="space-y-2">
-                  {leaderboard.slice(0, 3).map(entry => {
-                    const isMe = entry.sessionId === sessionId;
+                <p className="text-white/40 text-xs font-bold uppercase tracking-widest mb-3 px-1 text-center">Final Standings</p>
+                <div className="flex items-end justify-center gap-3 mb-3">
+                  {/* 2nd place */}
+                  {leaderboard[1] && (() => {
+                    const isMe = leaderboard[1].sessionId === sessionId;
                     return (
-                      <div key={entry.sessionId}
-                        className={`flex items-center gap-3 px-4 py-3 rounded-2xl ${
-                          isMe ? 'bg-purple-500 border-2 border-purple-300' : 'bg-white/10 border border-white/10'
-                        }`}>
-                        <span className="text-lg w-7 text-center flex-shrink-0">{rankMedal(entry.rank)}</span>
-                        <p className={`flex-1 font-bold text-sm truncate ${isMe ? 'text-white' : 'text-white/90'}`}>
-                          {entry.name}{isMe ? ' (You)' : ''}
+                      <div className="flex flex-col items-center gap-1">
+                        <span className="text-3xl">🥈</span>
+                        <p className={`font-bold text-sm text-center max-w-[90px] truncate ${isMe ? 'text-purple-300' : 'text-white/80'}`}>
+                          {leaderboard[1].name}{isMe ? ' (You)' : ''}
                         </p>
-                        <span className={`font-black text-sm ${isMe ? 'text-white' : 'text-white/80'}`}>{entry.score} pts</span>
+                        <p className="text-xs font-bold text-white/50">{leaderboard[1].score} pts</p>
+                        {leaderboard[1].totalTime != null && leaderboard[1].totalTime > 0 && (
+                          <p className="text-[10px] font-bold text-white/30">{leaderboard[1].totalTime.toFixed(1)}s</p>
+                        )}
+                        <div className="w-20 rounded-t-xl flex items-center justify-center font-black text-2xl text-white"
+                          style={{ height: 64, background: 'linear-gradient(180deg,#94a3b8,#64748b)' }}>2</div>
                       </div>
                     );
-                  })}
-                  {/* Show my entry pinned if outside top 3 */}
-                  {myRank > 3 && (
-                    <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-purple-500 border-2 border-purple-300">
-                      <span className="text-lg w-7 text-center flex-shrink-0">#{myRank}</span>
-                      <p className="flex-1 font-bold text-white text-sm truncate">{myName} (You)</p>
-                      <span className="font-black text-white text-sm">{myScore} pts</span>
-                    </div>
-                  )}
+                  })()}
+                  {/* 1st place */}
+                  {(() => {
+                    const isMe = leaderboard[0].sessionId === sessionId;
+                    return (
+                      <div className="flex flex-col items-center gap-1">
+                        <span className="text-4xl">🥇</span>
+                        <p className={`font-black text-base text-center max-w-[110px] truncate ${isMe ? 'text-yellow-300' : 'text-white'}`}>
+                          {leaderboard[0].name}{isMe ? ' (You)' : ''}
+                        </p>
+                        <p className="text-sm font-black text-yellow-200">{leaderboard[0].score} pts</p>
+                        {leaderboard[0].totalTime != null && leaderboard[0].totalTime > 0 && (
+                          <p className="text-[10px] font-bold text-yellow-200/40">{leaderboard[0].totalTime.toFixed(1)}s</p>
+                        )}
+                        <div className="w-24 rounded-t-xl flex items-center justify-center font-black text-3xl text-white"
+                          style={{ height: 88, background: 'linear-gradient(180deg,#f59e0b,#d97706)' }}>1</div>
+                      </div>
+                    );
+                  })()}
+                  {/* 3rd place */}
+                  {leaderboard[2] && (() => {
+                    const isMe = leaderboard[2].sessionId === sessionId;
+                    return (
+                      <div className="flex flex-col items-center gap-1">
+                        <span className="text-3xl">🥉</span>
+                        <p className={`font-bold text-sm text-center max-w-[90px] truncate ${isMe ? 'text-purple-300' : 'text-white/80'}`}>
+                          {leaderboard[2].name}{isMe ? ' (You)' : ''}
+                        </p>
+                        <p className="text-xs font-bold text-white/50">{leaderboard[2].score} pts</p>
+                        {leaderboard[2].totalTime != null && leaderboard[2].totalTime > 0 && (
+                          <p className="text-[10px] font-bold text-white/30">{leaderboard[2].totalTime.toFixed(1)}s</p>
+                        )}
+                        <div className="w-20 rounded-t-xl flex items-center justify-center font-black text-2xl text-white"
+                          style={{ height: 48, background: 'linear-gradient(180deg,#cd7f32,#92400e)' }}>3</div>
+                      </div>
+                    );
+                  })()}
                 </div>
+                {/* Pinned: my entry if outside top 3 */}
+                {myRank > 3 && (
+                  <div className="flex items-center gap-3 px-4 py-3 rounded-2xl bg-purple-500 border-2 border-purple-300 mt-2">
+                    <span className="text-lg w-7 text-center flex-shrink-0 font-black">#{myRank}</span>
+                    <p className="flex-1 font-bold text-white text-sm truncate">{myName} (You)</p>
+                    <span className="font-black text-white text-sm">{myScore} pts</span>
+                  </div>
+                )}
               </div>
             )}
 
