@@ -464,7 +464,8 @@ export default function LiveEventHost() {
         await calculateLeaderboard(
           event.id,
           competition.questions || [],
-          event.settings.enableFastestFingerBonus
+          event.settings.enableFastestFingerBonus,
+          event.currentQuestionIndex + 1
         );
         console.log('✅ Leaderboard calculated successfully');
       } catch (leaderboardError) {

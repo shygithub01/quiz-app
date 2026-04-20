@@ -902,7 +902,8 @@ async function calculateFastestFingerBonus(
 export async function calculateLeaderboard(
   eventId: string,
   questions: any[],
-  enableFastestFingerBonus: boolean
+  enableFastestFingerBonus: boolean,
+  questionsAsked?: number
 ): Promise<void> {
   try {
     if (!questions || !Array.isArray(questions)) {
@@ -946,6 +947,7 @@ export async function calculateLeaderboard(
     }
 
     // ── Score every participant in memory ──
+    const effectiveQCount = Math.min(questionsAsked ?? questions.length, questions.length);
     const scores = Object.entries(participants).map(([sessionId, participant]: [string, any]) => {
       const sessionAnswers = allAnswers[sessionId] || {};
       let score = 0;
@@ -954,7 +956,7 @@ export async function calculateLeaderboard(
       let totalTime = 0;
       let answeredCount = 0;
 
-      for (let qi = 0; qi < questions.length; qi++) {
+      for (let qi = 0; qi < effectiveQCount; qi++) {
         const ans = sessionAnswers[qi];
         if (!ans) continue;
 
@@ -974,8 +976,8 @@ export async function calculateLeaderboard(
         }
       }
 
-      // Penalise unanswered questions
-      const unanswered = questions.length - answeredCount;
+      // Penalise unanswered questions (only those already asked)
+      const unanswered = effectiveQCount - answeredCount;
       if (unanswered > 0) totalTime += unanswered * timerDuration;
 
       console.log(`📊 ${participant.name}: score=${score}, answered=${answeredCount}/${questions.length}`);

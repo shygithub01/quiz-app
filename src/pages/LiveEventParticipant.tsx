@@ -1091,9 +1091,14 @@ export default function LiveEventParticipant() {
                                 }`}>
                                   <span className="flex-shrink-0">{isCorrect ? '✓' : '✗'}</span>
                                   <span className="truncate">{myAns.answer}</span>
-                                  {myAns.timeToAnswer > 0 && (
-                                    <span className="ml-auto flex-shrink-0 text-white/30">{myAns.timeToAnswer.toFixed(1)}s</span>
-                                  )}
+                                  <span className="ml-auto flex-shrink-0 flex items-center gap-2">
+                                    {isCorrect && (
+                                      <span className="text-green-400/80 font-bold">+100 pts</span>
+                                    )}
+                                    {myAns.timeToAnswer > 0 && (
+                                      <span className="text-white/30">{myAns.timeToAnswer.toFixed(1)}s</span>
+                                    )}
+                                  </span>
                                 </div>
                                 {/* Correct answer if wrong */}
                                 {!isCorrect && (
