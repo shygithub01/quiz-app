@@ -166,6 +166,38 @@ export default function LiveEventParticipant() {
     loadParticipantName();
   }, [eventId, sessionId]);
 
+  // Kick detection: if our own participant node is deleted after we joined, redirect home
+  useEffect(() => {
+    if (!eventId || !sessionId) return;
+
+    let mounted = true;
+    let wasPresentOnce = false;
+
+    const listenForKick = async () => {
+      const { onValue, ref } = await import('firebase/database');
+      const { realtimeDb } = await import('@/components/ui/firebase');
+      const participantRef = ref(realtimeDb, `eventParticipants/${eventId}/${sessionId}`);
+      return onValue(participantRef, (snapshot) => {
+        if (!mounted) return;
+        if (snapshot.exists()) {
+          wasPresentOnce = true;
+        } else if (wasPresentOnce) {
+          // Was present, now gone — kicked by admin
+          alert('You have been removed from this event by the host.');
+          navigate('/');
+        }
+      });
+    };
+
+    let unsub: (() => void) | undefined;
+    listenForKick().then(fn => { unsub = fn; });
+
+    return () => {
+      mounted = false;
+      unsub?.();
+    };
+  }, [eventId, sessionId]);
+
   // Real-time listeners
   useEffect(() => {
     if (!eventId) return;
@@ -413,7 +445,6 @@ export default function LiveEventParticipant() {
 
   const handleAnswerSelect = async (answer: string) => {
     if (!event || !eventId || !sessionId || hasAnswered || remainingTime === 0) return;
-
     setSelectedAnswer(answer);
 
     try {
@@ -584,6 +615,7 @@ export default function LiveEventParticipant() {
       {/* Content Area */}
       <div className="flex-1 flex flex-col px-4 pb-4 overflow-y-auto">
 
+
         {/* ── LOBBY ── */}
         {event.phase === 'lobby' && (
           <div className="flex-1 flex flex-col items-center justify-center text-center py-8 pb-24">
@@ -722,6 +754,13 @@ export default function LiveEventParticipant() {
             </div>
 
             {/* Question Text */}
+            {currentQuestion.audioUrl && (
+              <div className="flex items-center justify-center gap-2 mb-2 text-purple-300 text-xs font-semibold animate-pulse">
+                <span>🎵</span>
+                <span>Listen and answer!</span>
+                <span>🎵</span>
+              </div>
+            )}
             <div className="bg-white/10 rounded-2xl p-4 mb-4 border border-white/10">
               <p className="text-white text-lg md:text-xl font-bold leading-relaxed text-center">
                 {currentQuestion.question}

@@ -1,15 +1,15 @@
 // Admin Edit Quiz Template - Edit existing quiz template questions
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { isAdmin, getQuizTemplate } from '../components/ui/firebase';
 import { doc, updateDoc, Timestamp } from 'firebase/firestore';
-import { db } from '../components/ui/firebase';
+import { db, uploadQuestionAudio } from '../components/ui/firebase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   CheckCircle, XCircle, Edit2, Save, AlertTriangle,
-  Brain, ArrowLeft, Plus, Upload, X
+  Brain, ArrowLeft, Plus, Upload, X, Music, Loader2
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -19,6 +19,7 @@ interface Question {
   options: { A: string; B: string; C: string; D: string };
   correctAnswer: string;
   explanation: string;
+  audioUrl?: string;
 }
 
 // ── Helpers ──────────────────────────────────────────────
@@ -56,6 +57,7 @@ function normalizeImportedQuestion(raw: any, id: number): Question | null {
       options,
       correctAnswer,
       explanation: raw.explanation || '',
+      ...(raw.audioUrl ? { audioUrl: raw.audioUrl } : {}),
     };
   } catch {
     return null;
@@ -91,6 +93,8 @@ export default function AdminEditQuizTemplate() {
   const [showImport, setShowImport] = useState(false);
   const [importText, setImportText] = useState('');
   const [importError, setImportError] = useState('');
+  const [uploadingAudio, setUploadingAudio] = useState(false);
+  const audioInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { checkAdminAndLoad(); }, [user, templateId]);
 
@@ -145,6 +149,25 @@ export default function AdminEditQuizTemplate() {
   };
 
   const handleCancelEdit = () => { setEditingIndex(null); setEditedQuestion(null); };
+
+  const handleAudioUpload = async (file: File) => {
+    if (!editedQuestion) return;
+    const isAudio = file.type.startsWith('audio/') || /\.(mp3|wav|ogg|m4a|mp4)$/i.test(file.name);
+    if (!isAudio) {
+      toast({ title: 'Invalid file', description: 'Please select an audio file (MP3, etc.)', variant: 'destructive' });
+      return;
+    }
+    try {
+      setUploadingAudio(true);
+      const url = await uploadQuestionAudio(editedQuestion.id, file);
+      setEditedQuestion(prev => prev ? { ...prev, audioUrl: url } : null);
+      toast({ title: 'Audio uploaded!', description: 'Song will play when this question appears.' });
+    } catch {
+      toast({ title: 'Upload failed', description: 'Could not upload audio. Try again.', variant: 'destructive' });
+    } finally {
+      setUploadingAudio(false);
+    }
+  };
 
   const handleRemoveQuestion = (index: number) => {
     if (!confirm('Remove this question?')) return;
@@ -313,7 +336,8 @@ export default function AdminEditQuizTemplate() {
     "question": "What is the classical dance form of Odisha?",
     "options": ["Bharatanatyam", "Odissi", "Kathak", "Kuchipudi"],
     "correctAnswer": "Odissi",
-    "explanation": "Odissi is one of the oldest classical dance forms from Odisha."
+    "explanation": "Odissi is one of the oldest classical dance forms from Odisha.",
+    "audioUrl": "https://..."  (optional — public MP3 URL)
   }
 ]`}</pre>
                 <p className="text-xs text-white/40">
@@ -505,6 +529,62 @@ export default function AdminEditQuizTemplate() {
                       </p>
                     )}
                   </div>
+
+                  {/* Audio */}
+                  {isEditing ? (
+                    <div className="rounded-lg p-3" style={{ background: 'rgba(168,85,247,0.1)', border: '1px solid rgba(168,85,247,0.3)' }}>
+                      <p className="text-xs font-semibold text-purple-300 mb-2 flex items-center gap-1">
+                        <Music className="h-3.5 w-3.5" /> Question Audio (optional)
+                      </p>
+                      <input
+                        ref={audioInputRef}
+                        type="file"
+                        accept=".mp3,.mp4,.wav,.ogg,.m4a,audio/*"
+                        className="hidden"
+                        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleAudioUpload(f); }}
+                      />
+                      {editedQuestion?.audioUrl ? (
+                        <div className="space-y-2">
+                          <audio controls src={editedQuestion.audioUrl} className="w-full h-8" style={{ accentColor: '#a855f7' }} />
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => audioInputRef.current?.click()}
+                              disabled={uploadingAudio}
+                              className="flex items-center gap-1 px-3 py-1.5 rounded text-xs font-semibold text-purple-300 hover:text-purple-100"
+                              style={{ background: 'rgba(168,85,247,0.2)', border: '1px solid rgba(168,85,247,0.4)' }}
+                            >
+                              <Upload className="h-3 w-3" /> Replace
+                            </button>
+                            <button
+                              onClick={() => setEditedQuestion(prev => prev ? { ...prev, audioUrl: undefined } : null)}
+                              className="flex items-center gap-1 px-3 py-1.5 rounded text-xs font-semibold text-red-400 hover:text-red-300"
+                              style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)' }}
+                            >
+                              <X className="h-3 w-3" /> Remove
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => audioInputRef.current?.click()}
+                          disabled={uploadingAudio}
+                          className="flex items-center gap-2 px-3 py-2 rounded text-sm font-semibold text-purple-300 hover:text-purple-100 w-full justify-center"
+                          style={{ background: 'rgba(168,85,247,0.15)', border: '1.5px dashed rgba(168,85,247,0.4)' }}
+                        >
+                          {uploadingAudio ? (
+                            <><Loader2 className="h-4 w-4 animate-spin" /> Uploading...</>
+                          ) : (
+                            <><Music className="h-4 w-4" /> Upload MP3 song for this question</>
+                          )}
+                        </button>
+                      )}
+                    </div>
+                  ) : q.audioUrl ? (
+                    <div className="flex items-center gap-2 rounded-lg px-3 py-2" style={{ background: 'rgba(168,85,247,0.1)', border: '1px solid rgba(168,85,247,0.3)' }}>
+                      <Music className="h-4 w-4 text-purple-400 flex-shrink-0" />
+                      <span className="text-purple-300 text-xs font-semibold">Song attached</span>
+                    </div>
+                  ) : null}
                 </CardContent>
               </Card>
             );

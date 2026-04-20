@@ -2,6 +2,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { 
   getFirestore, 
   collection, 
@@ -43,6 +44,7 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
 const realtimeDb = getDatabase(app);
+const storage = getStorage(app);
 
 // ===== USER ROLE MANAGEMENT =====
 
@@ -572,7 +574,11 @@ export {
   
   // Practice Attempts functions
   getPracticeAttempts,
-  getPracticeParticipantCount
+  getPracticeParticipantCount,
+
+  // Storage
+  storage,
+  uploadQuestionAudio
 };
 
 // ===== COMPETITION FUNCTIONS =====
@@ -1430,6 +1436,15 @@ const getPracticeParticipantCount = async (competitionId: string): Promise<numbe
     console.error('❌ Error counting practice participants:', error);
     return 0;
   }
+};
+
+// ===== STORAGE FUNCTIONS =====
+
+const uploadQuestionAudio = async (questionId: number, file: File): Promise<string> => {
+  const path = `audio/questions/${questionId}/${file.name}`;
+  const ref = storageRef(storage, path);
+  await uploadBytes(ref, file);
+  return getDownloadURL(ref);
 };
 
 // ===== USER ACTIVITY TRACKING FUNCTIONS =====

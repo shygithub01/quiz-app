@@ -31,6 +31,7 @@ export interface Question {
   options: string[];
   correctAnswer: string;
   explanation: string;
+  audioUrl?: string;
 }
 
 export interface QuizAttempt {

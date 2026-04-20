@@ -898,12 +898,26 @@ export default function LiveEventHost() {
                           className="flex items-center justify-between p-2 rounded"
                           style={{ background: 'rgba(255,255,255,0.05)' }}
                         >
-                          <span className="font-medium text-white">{p.name}</span>
-                          <span className={`text-xs px-2 py-1 rounded ${
-                            p.isActive ? 'bg-green-500/20 text-green-300' : 'bg-white/10 text-white/40'
-                          }`}>
-                            {p.isActive ? 'Active' : 'Inactive'}
-                          </span>
+                          <span className="font-medium text-white truncate flex-1 mr-2">{p.name || <span className="text-white/30 italic">unknown</span>}</span>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <span className={`text-xs px-2 py-1 rounded ${
+                              p.isActive ? 'bg-green-500/20 text-green-300' : 'bg-white/10 text-white/40'
+                            }`}>
+                              {p.isActive ? 'Active' : 'Inactive'}
+                            </span>
+                            <button
+                              onClick={async () => {
+                                const displayName = p.name || p.sessionId?.slice(0, 8) || 'this participant';
+                                if (!eventId || !confirm(`Remove "${displayName}" from the event?`)) return;
+                                const { removeParticipant } = await import('@/services/liveEventService');
+                                await removeParticipant(eventId, p.sessionId);
+                              }}
+                              className="text-xs px-2 py-1 rounded text-red-400 hover:text-red-300 hover:bg-red-500/20 transition-colors"
+                              title="Kick participant"
+                            >
+                              ✕
+                            </button>
+                          </div>
                         </div>
                       ))
                     )}
