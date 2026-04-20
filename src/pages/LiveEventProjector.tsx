@@ -201,6 +201,17 @@ export default function LiveEventProjector() {
           setEvent(eventData);
           clearTimeout(timeout);
           const compData = await getCompetitionById(eventData.competitionId);
+          if (compData?.questions) {
+            compData.questions = compData.questions.map((q: any) => {
+              if (!Array.isArray(q.options) && q.options && typeof q.options === 'object') {
+                const optArr = ['A','B','C','D'].map((k:string) => q.options[k]).filter(Boolean);
+                const correctText = ['A','B','C','D'].includes(q.correctAnswer)
+                  ? (q.options[q.correctAnswer] || q.correctAnswer) : q.correctAnswer;
+                return { ...q, options: optArr, correctAnswer: correctText };
+              }
+              return q;
+            });
+          }
           setCompetition(compData);
         } else {
           clearTimeout(timeout);
