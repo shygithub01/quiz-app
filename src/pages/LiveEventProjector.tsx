@@ -189,6 +189,7 @@ export default function LiveEventProjector() {
   // Tracks which question index we already fired auto-advance for,
   // so the 100ms timer loop never calls it more than once per question
   const autoAdvancedForRef = useRef<number>(-1);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Load event + competition
   useEffect(() => {
@@ -307,6 +308,27 @@ export default function LiveEventProjector() {
     const iv = setInterval(() => setCloseCountdown(c => Math.max(0, c - 1)), 1000);
     return () => clearInterval(iv);
   }, [closeCountdown > 0]);
+
+  // Audio playback: play question song when question starts, stop on phase change
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    if (event?.phase !== 'question' || !competition) return;
+    const q = competition.questions?.[event.currentQuestionIndex];
+    if (!q?.audioUrl) return;
+
+    const audio = new Audio(q.audioUrl);
+    audio.volume = 0.7;
+    audioRef.current = audio;
+    audio.play().catch(() => {});
+
+    return () => {
+      audio.pause();
+      audioRef.current = null;
+    };
+  }, [event?.phase, event?.currentQuestionIndex, competition]);
 
   const handleAutoAdvance = async () => {
     if (!event || !competition || !eventId) return;
@@ -546,6 +568,12 @@ export default function LiveEventProjector() {
             </div>
 
             {/* Question text */}
+            {currentQuestion.audioUrl && (
+              <div className="flex items-center justify-center gap-3 text-purple-300 font-bold animate-pulse"
+                style={{ fontSize: 'clamp(0.9rem, 1.5vw, 1.2rem)' }}>
+                <span>🎵</span><span>Listen to the song!</span><span>🎵</span>
+              </div>
+            )}
             <div className="bg-white/10 backdrop-blur-sm rounded-3xl px-8 py-6 border border-white/15">
               <p className="font-black text-center leading-snug"
                 style={{ fontSize: 'clamp(1.5rem, 3vw, 2.5rem)' }}>
