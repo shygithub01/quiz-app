@@ -154,9 +154,16 @@ function playMusicLoop(): void {
   playChord();
 }
 
-/**
- * Check if music is currently playing
- */
+export function muteBackgroundMusic(): void {
+  if (!masterGain || !audioContext || !isPlaying) return;
+  masterGain.gain.setTargetAtTime(0, audioContext.currentTime, 0.3);
+}
+
+export function unmuteBackgroundMusic(): void {
+  if (!masterGain || !audioContext || !isPlaying) return;
+  masterGain.gain.setTargetAtTime(0.15, audioContext.currentTime, 0.3);
+}
+
 export function isMusicPlaying(): boolean {
   return isPlaying;
 }

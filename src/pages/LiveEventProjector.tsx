@@ -363,8 +363,8 @@ export default function LiveEventProjector() {
   const joinURL = `${window.location.origin}/live-event/join?pin=${event.pin}`;
 
   return (
-    <div className="min-h-screen text-white overflow-hidden relative"
-      style={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #4c1d95 40%, #be185d 100%)' }}>
+    <div className="fixed inset-0 text-white overflow-hidden flex flex-col"
+      style={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #4c1d95 40%, #be185d 100%)', zIndex: 9999 }}>
 
       {/* Background orbs */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
@@ -398,7 +398,7 @@ export default function LiveEventProjector() {
 
       {/* ── LOBBY ── */}
       {event.phase === 'lobby' && (
-        <div className="flex flex-col items-center justify-center min-h-screen p-8 gap-8">
+        <div className="flex flex-col items-center justify-center flex-1 p-8 gap-8">
           <div className="text-center">
             <h1 className="font-black leading-tight mb-2" style={{ fontSize: 'clamp(2.5rem, 6vw, 5rem)' }}>
               {competition.title}
@@ -456,7 +456,7 @@ export default function LiveEventProjector() {
 
       {/* ── COUNTDOWN ── */}
       {event.phase === 'countdown' && (
-        <div className="flex items-center justify-center min-h-screen">
+        <div className="flex items-center justify-center flex-1">
           <style>{`@keyframes zoom-in{from{transform:scale(2);opacity:0}to{transform:scale(1);opacity:1}}`}</style>
           <div className="text-center">
             {countdown > 0 ? (
@@ -477,7 +477,7 @@ export default function LiveEventProjector() {
 
       {/* ── QUESTION PHASE ── */}
       {(event.phase === 'question' || (event.phase === 'leaderboard' && revealAnswer)) && currentQuestion && (
-        <div className="flex min-h-screen p-5 gap-5">
+        <div className="flex flex-1 p-5 gap-5 min-h-0">
 
           {/* Answer reveal overlay */}
           {revealAnswer && revealQuestion && (
@@ -648,7 +648,7 @@ export default function LiveEventProjector() {
 
       {/* ── LEADERBOARD PHASE ── */}
       {event.phase === 'leaderboard' && !revealAnswer && (
-        <div className="flex flex-col items-center justify-center min-h-screen p-8 gap-8">
+        <div className="flex flex-col items-center justify-center flex-1 p-8 gap-8">
           <div className="flex items-center gap-3">
             <Trophy className="h-8 w-8 text-yellow-400" />
             <p className="font-black text-3xl uppercase tracking-widest text-white/80">Top Players</p>
@@ -678,7 +678,7 @@ export default function LiveEventProjector() {
 
       {/* ── RESULTS ── */}
       {event.phase === 'results' && (
-        <div className="flex flex-col min-h-screen p-8 gap-6 justify-center">
+        <div className="flex flex-col flex-1 p-8 gap-4 justify-center overflow-hidden">
           <div className="text-center">
             <Trophy className="h-20 w-20 text-yellow-400 mx-auto mb-3 animate-bounce" />
             <h2 className="font-black" style={{ fontSize: 'clamp(2.5rem, 6vw, 5rem)' }}>
