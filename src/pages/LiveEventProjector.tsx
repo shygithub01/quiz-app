@@ -125,7 +125,7 @@ function AnimatedLeaderboard({
 
                 {/* Name + score */}
                 <div className="flex-1 min-w-0">
-                  <p className="font-black text-white truncate leading-tight" style={{ fontSize: '1.15rem' }}>
+                  <p className="font-black text-white truncate leading-tight" style={{ fontSize: 'clamp(1rem, 1.4vw, 1.5rem)' }}>
                     {entry.name}
                   </p>
                   <p className={`text-sm font-semibold ${isFirst ? 'text-yellow-100' : 'text-white/50'}`}>
@@ -539,21 +539,43 @@ export default function LiveEventProjector() {
                 </span>
               </div>
 
-              {/* Answered progress */}
-              <div className="flex-1">
-                <div className="flex justify-between text-sm font-semibold mb-1">
+              {/* Answered progress + question segments */}
+              <div className="flex-1 flex flex-col gap-2">
+                <div className="flex justify-between text-sm font-semibold">
                   <span className="text-white/50 flex items-center gap-1">
                     <Clock className="h-4 w-4" /> Answered
                   </span>
                   <span className="text-white font-bold">{answeredCount} / {activeParticipants.length}</span>
                 </div>
-                <div className="h-3 bg-white/15 rounded-full overflow-hidden">
+                {/* Answer fill bar */}
+                <div className="h-2 bg-white/15 rounded-full overflow-hidden">
                   <div className="h-full rounded-full transition-all duration-500"
                     style={{
                       width: activeParticipants.length > 0
                         ? `${(answeredCount / activeParticipants.length) * 100}%` : '0%',
                       background: 'linear-gradient(90deg, #818cf8, #f472b6)',
                     }} />
+                </div>
+                {/* Question progress segments */}
+                <div className="flex items-center gap-1">
+                  {competition.questions.map((_: unknown, i: number) => (
+                    <div
+                      key={i}
+                      className="flex-1 rounded-full transition-all duration-300"
+                      style={{
+                        height: 5,
+                        background:
+                          i < event.currentQuestionIndex
+                            ? '#a78bfa'
+                            : i === event.currentQuestionIndex
+                            ? timerCritical ? '#ef4444' : '#e879f9'
+                            : 'rgba(255,255,255,0.15)',
+                        boxShadow: i === event.currentQuestionIndex
+                          ? timerCritical ? '0 0 8px #ef4444' : '0 0 8px #e879f9'
+                          : 'none',
+                      }}
+                    />
+                  ))}
                 </div>
               </div>
 
@@ -609,7 +631,7 @@ export default function LiveEventProjector() {
           <div
             className="flex-shrink-0 rounded-3xl p-5 flex flex-col"
             style={{
-              width: 320,
+              width: 'clamp(280px, 22vw, 400px)',
               background: 'rgba(0,0,0,0.35)',
               backdropFilter: 'blur(12px)',
               border: '1.5px solid rgba(255,255,255,0.12)',

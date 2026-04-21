@@ -114,7 +114,7 @@ export async function validateNameUniqueness(
 export async function createLiveEvent(
   competitionId: string,
   settings: LiveEventSettings,
-  maxParticipants: number = 50,
+  maxParticipants: number = 100,
   scheduledStartAt?: number
 ): Promise<{ eventId: string; pin: string }> {
   try {

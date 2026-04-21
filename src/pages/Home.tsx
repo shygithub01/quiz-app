@@ -88,20 +88,27 @@ export default function Home() {
 
   useEffect(() => {
     loadFeaturedCompetition();
-    checkLiveEvent();
-  }, []);
 
-  const checkLiveEvent = async () => {
-    try {
-      const { getActiveEvent } = await import('@/services/liveEventService');
-      const active = await getActiveEvent();
-      setLiveEvent(active);
-    } catch {
-      setLiveEvent(null);
-    } finally {
-      setLiveCheckDone(true);
-    }
-  };
+    let stopped = false;
+    let intervalId: ReturnType<typeof setInterval>;
+
+    const checkLiveEvent = async () => {
+      try {
+        const { getActiveEvent } = await import('@/services/liveEventService');
+        const active = await getActiveEvent();
+        setLiveEvent(active);
+      } catch {
+        setLiveEvent(null);
+      } finally {
+        setLiveCheckDone(true);
+      }
+    };
+
+    checkLiveEvent();
+    intervalId = setInterval(() => { if (!stopped) checkLiveEvent(); }, 5000);
+
+    return () => { stopped = true; clearInterval(intervalId); };
+  }, []);
 
   const loadFeaturedCompetition = async () => {
     try {
