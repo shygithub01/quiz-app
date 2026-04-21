@@ -345,6 +345,7 @@ export default function LiveEventHost() {
       if (createdEvent) {
         setEvent(createdEvent);
         setHasActiveEvent(true);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       }
       
       alert(`✅ Event created!\n\nPIN: ${pin}\n\nShare this PIN with participants or show the QR code.`);
@@ -586,10 +587,8 @@ export default function LiveEventHost() {
       const { deleteEvent } = await import('@/services/liveEventService');
       await deleteEvent(event.id);
       
-      alert('✅ Game deleted! All data cleared. Create a new event to continue.');
-      
-      // Navigate to the host page without event ID to create a new event
-      window.location.href = '/admin/live-event-host';
+      navigate('/');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     } catch (error) {
       console.error('Error deleting event:', error);
       alert('Failed to delete event');
@@ -613,7 +612,7 @@ export default function LiveEventHost() {
   }
 
   return (
-    <div className="min-h-screen p-4 md:p-6" style={{ background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 50%, #0a1628 100%)' }}>
+    <div className="min-h-screen p-4 md:p-6 pb-24" style={{ background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 50%, #0a1628 100%)' }}>
       {/* Join Confetti Effect */}
       {showJoinFlash && (
         <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
@@ -947,21 +946,23 @@ export default function LiveEventHost() {
                               of {event.maxParticipants} maximum
                             </p>
                             {participants.filter(p => p.isActive).length >= event.maxParticipants && (
-                              <div className="mt-4 px-6 py-3 bg-yellow-400 text-yellow-900 rounded-full text-xl font-bold inline-block animate-bounce">
-                                🎉 EVENT FULL! 🎉
+                              <div className="mt-4 flex flex-col items-center gap-3">
+                                <div className="px-6 py-3 bg-yellow-400 text-yellow-900 rounded-full text-xl font-bold inline-block animate-bounce">
+                                  🎉 EVENT FULL! 🎉
+                                </div>
+                                <button
+                                  onClick={async () => {
+                                    const newMax = event.maxParticipants + 50;
+                                    await updateEvent(event.id, { maxParticipants: newMax });
+                                  }}
+                                  className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white rounded-full text-sm font-bold transition-colors"
+                                >
+                                  + Extend by 50 (→ {event.maxParticipants + 50})
+                                </button>
                               </div>
                             )}
                           </div>
                         </div>
-                        
-                        <Button
-                          onClick={handleStartEvent}
-                          disabled={participants.filter(p => p.isActive).length === 0}
-                          className="col-span-2 bg-green-600 hover:bg-green-700 text-white font-bold text-lg py-6 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          <Play className="h-6 w-6 mr-2" />
-                          Start Event
-                        </Button>
                         
                         <Button
                           onClick={handleDeleteEvent}
@@ -1100,6 +1101,27 @@ export default function LiveEventHost() {
           </div>
         )}
       </div>
+
+      {/* Sticky Start Event bar — visible at all scroll positions during lobby */}
+      {event && event.status === 'lobby' && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 p-4"
+          style={{ background: 'rgba(15,10,30,0.92)', backdropFilter: 'blur(12px)', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+          <div className="max-w-4xl mx-auto flex items-center gap-4">
+            <div className="flex-1 text-sm text-white/50">
+              <span className="font-bold text-white text-lg">{participants.filter(p => p.isActive).length}</span>
+              <span className="ml-1">/ {event.maxParticipants} joined</span>
+            </div>
+            <Button
+              onClick={handleStartEvent}
+              disabled={participants.filter(p => p.isActive).length === 0}
+              className="bg-green-600 hover:bg-green-700 text-white font-bold px-8 py-3 text-base disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Play className="h-5 w-5 mr-2" />
+              Start Event
+            </Button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

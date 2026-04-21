@@ -360,6 +360,11 @@ export default function LiveEventParticipant() {
     return () => clearInterval(interval);
   }, [event?.phase, event?.currentQuestionIndex, event?.timerStartedAt, event?.status, competition]);
 
+  // Scroll to top on every phase/question change so user always sees the header
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [event?.phase, event?.currentQuestionIndex]);
+
   // Auto-close after 2 minutes on results screen
   const [closeCountdown, setCloseCountdown] = useState(0);
   useEffect(() => {
@@ -560,7 +565,6 @@ export default function LiveEventParticipant() {
 
   const currentQuestion = competition.questions?.[event.currentQuestionIndex];
   const totalQuestions = competition.questions?.length || 0;
-  const timerPercent = event.timerDuration > 0 ? (remainingTime / event.timerDuration) * 100 : 0;
   const timerUrgent = remainingTime <= 10 && remainingTime > 0;
 
   // ──────────────── Main Render ────────────────
@@ -613,7 +617,7 @@ export default function LiveEventParticipant() {
       </div>
 
       {/* Content Area */}
-      <div className="flex-1 flex flex-col px-4 pb-4 overflow-y-auto">
+      <div className="flex-1 flex flex-col px-4 pb-20 overflow-y-auto">
 
 
         {/* ── LOBBY ── */}
@@ -720,35 +724,40 @@ export default function LiveEventParticipant() {
         {event.phase === 'question' && currentQuestion && (
           <div className="flex-1 flex flex-col">
             {/* Progress + Timer */}
-            <div className="mb-4">
-              {/* Progress line */}
-              <div className="flex items-center justify-between text-white/60 text-xs mb-2">
-                <span>Q{event.currentQuestionIndex + 1} of {totalQuestions}</span>
-                <span className={`font-bold text-base ${timerUrgent ? 'text-red-400 animate-pulse' : 'text-white'}`}>
-                  {remainingTime}s
-                </span>
+            <div className="mb-3">
+              {/* Segmented question progress bar */}
+              <div className="flex items-center gap-1 mb-2">
+                {Array.from({ length: totalQuestions }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="flex-1 rounded-full transition-all duration-300"
+                    style={{
+                      height: 6,
+                      background:
+                        i < event.currentQuestionIndex
+                          ? '#a78bfa'
+                          : i === event.currentQuestionIndex
+                          ? timerUrgent ? '#f87171' : '#e879f9'
+                          : 'rgba(255,255,255,0.15)',
+                      boxShadow: i === event.currentQuestionIndex
+                        ? timerUrgent ? '0 0 6px #f87171' : '0 0 6px #e879f9'
+                        : 'none',
+                    }}
+                  />
+                ))}
               </div>
 
-              {/* Timer bar */}
-              <div className="w-full h-2 bg-white/20 rounded-full overflow-hidden">
-                <div
-                  className={`h-full rounded-full transition-all duration-100 ${
-                    timerUrgent ? 'bg-red-400' : 'bg-green-400'
-                  }`}
-                  style={{ width: `${timerPercent}%` }}
-                />
-              </div>
-
-              {/* Big timer circle on mobile */}
-              <div className="flex justify-center mt-3">
-                <div className={`w-16 h-16 rounded-full flex items-center justify-center border-4 ${
-                  timerUrgent
-                    ? 'border-red-400 bg-red-500/20'
-                    : 'border-white/30 bg-white/10'
-                }`}>
-                  <span className={`text-xl font-black ${timerUrgent ? 'text-red-400' : 'text-white'}`}>
-                    {remainingTime}
-                  </span>
+              {/* Timer circle + seconds row */}
+              <div className="flex items-center justify-between px-1">
+                <span className="text-white/50 text-xs">Q{event.currentQuestionIndex + 1} of {totalQuestions}</span>
+                <div className="flex items-center gap-2">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center border-4 ${
+                    timerUrgent ? 'border-red-400 bg-red-500/20' : 'border-purple-400/60 bg-white/10'
+                  }`}>
+                    <span className={`text-base font-black ${timerUrgent ? 'text-red-400 animate-pulse' : 'text-white'}`}>
+                      {remainingTime}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -761,14 +770,14 @@ export default function LiveEventParticipant() {
                 <span>🎵</span>
               </div>
             )}
-            <div className="bg-white/10 rounded-2xl p-4 mb-4 border border-white/10">
-              <p className="text-white text-lg md:text-xl font-bold leading-relaxed text-center">
+            <div className="bg-white/10 rounded-2xl p-3 mb-3 border border-white/10">
+              <p className="text-white text-base md:text-xl font-bold leading-snug text-center">
                 {currentQuestion.question}
               </p>
             </div>
 
             {/* Answer Options */}
-            <div className="space-y-3 flex-1">
+            <div className="space-y-2 pb-[env(safe-area-inset-bottom)]">
               {(currentQuestion.options ?? []).map((option: string, idx: number) => {
                 const isSelected = selectedAnswer === option;
                 const isDisabled = hasAnswered || remainingTime === 0;
@@ -779,9 +788,9 @@ export default function LiveEventParticipant() {
                     onClick={() => handleAnswerSelect(option)}
                     disabled={isDisabled}
                     className={`
-                      w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-left
+                      w-full flex items-center gap-3 px-4 py-3 rounded-2xl text-left
                       transition-all duration-150 active:scale-[0.98] touch-manipulation
-                      border-2 min-h-[72px]
+                      border-2 min-h-[58px]
                       ${isSelected
                         ? 'bg-purple-500 border-purple-300 text-white shadow-lg scale-[1.01]'
                         : isDisabled

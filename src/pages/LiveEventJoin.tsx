@@ -23,6 +23,7 @@ export default function LiveEventJoin() {
   const [error, setError] = useState('');
   const [pinLocked, setPinLocked] = useState(false);
   const [eventInProgress, setEventInProgress] = useState(false);
+  const [eventJustWentLive, setEventJustWentLive] = useState(false);
 
   const pinInputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -36,24 +37,44 @@ export default function LiveEventJoin() {
     }
   }, [searchParams]);
 
-  // Auto-fill PIN from active event (only one event at a time)
+  // Auto-fill PIN from active event — polls until one appears
   useEffect(() => {
     const pinFromQR = searchParams.get('pin');
     if (pinFromQR) return; // QR takes priority
 
-    const fetchActiveEvent = async () => {
+    let stopped = false;
+    let intervalId: ReturnType<typeof setInterval>;
+
+    const checkForEvent = async (isFirstCheck: boolean) => {
       try {
         const active = await getActiveEvent();
         if (active && active.status !== 'completed') {
           setPin(active.pin);
           setPinLocked(true);
           if (active.phase !== 'lobby') setEventInProgress(true);
+          if (!isFirstCheck) setEventJustWentLive(true);
+        } else {
+          // Event gone — reset so user knows
+          setPin('');
+          setPinLocked(false);
+          setEventInProgress(false);
+          setEventJustWentLive(false);
         }
       } catch {
-        // silently ignore — PIN stays empty, user types manually
+        // silently ignore
       }
     };
-    fetchActiveEvent();
+
+    checkForEvent(true);
+    // Poll every 5s so users who opened the page early get PIN auto-filled
+    intervalId = setInterval(() => {
+      if (!stopped) checkForEvent(false);
+    }, 5000);
+
+    return () => {
+      stopped = true;
+      clearInterval(intervalId);
+    };
   }, []);
 
   // Auto-focus: skip PIN (it's pre-filled), go straight to name
@@ -128,6 +149,14 @@ export default function LiveEventJoin() {
       {/* Form card */}
       <div className="flex-1 px-5">
         <form onSubmit={handleJoin} className="space-y-5">
+
+          {/* Event just went live banner */}
+          {eventJustWentLive && !error && (
+            <div className="flex items-center gap-3 bg-green-500/20 border border-green-400/40 rounded-2xl px-4 py-3 animate-pulse">
+              <span className="text-xl">🎉</span>
+              <p className="text-green-200 text-sm font-semibold">Event just went live! PIN filled — enter your name and join.</p>
+            </div>
+          )}
 
           {/* In-progress notice */}
           {eventInProgress && !error && (

@@ -22,7 +22,7 @@ export default function AdminQuizTemplatesList() {
 
   // Live Event settings
   const [questionTimer, setQuestionTimer] = useState(30);
-  const [maxParticipants, setMaxParticipants] = useState(50);
+  const [maxParticipants, setMaxParticipants] = useState(100);
   const [scheduledStartEt, setScheduledStartEt] = useState('');
 
   // Practice settings
@@ -124,7 +124,7 @@ export default function AdminQuizTemplatesList() {
     setLaunchMode(mode);
     setPracticeTitle(`${template.title} — ${mode === 'practiceLiveEvent' ? 'Practice' : mode === 'scholarshipPractice' ? 'Scholarship Practice' : mode === 'scholarship' ? 'Scholarship' : 'Live Event'}`);
     setQuestionTimer(30);
-    setMaxParticipants(50);
+    setMaxParticipants(template?.liveEventSettings?.maxParticipants || 100);
     setPracticeEndDays(7);
     setShuffleQuestions(false);
     setShuffleOptions(true);
