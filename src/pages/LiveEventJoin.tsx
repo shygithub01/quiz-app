@@ -10,6 +10,7 @@ import {
   validatePINFormat,
   validateNameLength
 } from '@/services/liveEventService';
+import { unlockAudioOnGesture } from '@/utils/audioUnlock';
 
 const PIN_LENGTH = 6;
 
@@ -96,6 +97,7 @@ export default function LiveEventJoin() {
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    unlockAudioOnGesture(); // unlock iOS audio during this user gesture, before any async work
 
     if (!validatePINFormat(pin)) {
       setError('PIN must be exactly 6 digits');

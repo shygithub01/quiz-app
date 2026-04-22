@@ -115,7 +115,8 @@ export async function createLiveEvent(
   competitionId: string,
   settings: LiveEventSettings,
   maxParticipants: number = 100,
-  scheduledStartAt?: number
+  scheduledStartAt?: number,
+  eventMode: 'inPerson' | 'remote' = 'inPerson'
 ): Promise<{ eventId: string; pin: string }> {
   try {
     const eventId = generateEventId();
@@ -140,6 +141,7 @@ export async function createLiveEvent(
       pausedDuration: 0,
       maxParticipants,
       settings,
+      eventMode,
       createdAt: Date.now(),
       startedAt: null,
       endedAt: null,
@@ -912,6 +914,19 @@ export async function calculateLeaderboard(
     }
 
     console.log('✅ Calculating leaderboard with', questions.length, 'questions');
+
+    // Normalize correctAnswer: some competitions stored letter ('A'/'B'…) or index instead of text
+    const LKEYS = ['A', 'B', 'C', 'D'];
+    questions = questions.map(q => {
+      const ca = q.correctAnswer;
+      if (Array.isArray(q.options)) {
+        if (typeof ca === 'number') return { ...q, correctAnswer: q.options[ca] ?? ca };
+        if (LKEYS.includes(ca)) return { ...q, correctAnswer: q.options[LKEYS.indexOf(ca)] ?? ca };
+      } else if (q.options && typeof q.options === 'object') {
+        if (LKEYS.includes(ca)) return { ...q, correctAnswer: q.options[ca] ?? ca };
+      }
+      return q;
+    });
 
     // ── 3 reads in parallel, regardless of participant / question count ──
     const [participantsSnapshot, allAnswersSnapshot, eventSnapshot] = await Promise.all([

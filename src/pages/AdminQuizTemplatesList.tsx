@@ -31,6 +31,7 @@ export default function AdminQuizTemplatesList() {
 
   // Shuffle settings (shared)
   const [shuffleQuestions, setShuffleQuestions] = useState(false);
+  const [eventMode, setEventMode] = useState<'inPerson' | 'remote'>('inPerson');
   const [shuffleOptions, setShuffleOptions] = useState(true);
 
   // Active event recovery
@@ -81,14 +82,26 @@ export default function AdminQuizTemplatesList() {
   const buildQuestions = (rawQuestions: any[]) => {
     let qs = shuffleQuestions ? shuffleArray(rawQuestions) : [...rawQuestions];
 
-    // Normalize {A,B,C,D} object options → array + convert correctAnswer letter → text
+    // Normalize options → array + convert correctAnswer letter/index → text
+    const LETTER_KEYS = ['A', 'B', 'C', 'D'];
     qs = qs.map(q => {
       if (!Array.isArray(q.options) && q.options && typeof q.options === 'object') {
-        const optArr = ['A', 'B', 'C', 'D'].map(k => q.options[k]).filter((v: any) => v != null && v !== '');
-        const correctText = ['A', 'B', 'C', 'D'].includes(q.correctAnswer)
+        // {A,B,C,D} object → array
+        const optArr = LETTER_KEYS.map(k => q.options[k]).filter((v: any) => v != null && v !== '');
+        const correctText = LETTER_KEYS.includes(q.correctAnswer)
           ? (q.options[q.correctAnswer] || q.correctAnswer)
           : q.correctAnswer;
         return { ...q, options: optArr, correctAnswer: correctText };
+      }
+      if (Array.isArray(q.options)) {
+        // Options already an array — correctAnswer may still be a letter ('A'/'B'/'C'/'D') or numeric index
+        let correctText = q.correctAnswer;
+        if (typeof q.correctAnswer === 'number') {
+          correctText = q.options[q.correctAnswer] ?? q.correctAnswer;
+        } else if (LETTER_KEYS.includes(q.correctAnswer)) {
+          correctText = q.options[LETTER_KEYS.indexOf(q.correctAnswer)] ?? q.correctAnswer;
+        }
+        return { ...q, correctAnswer: correctText };
       }
       return q;
     });
@@ -174,7 +187,8 @@ export default function AdminQuizTemplatesList() {
         competitionId,
         { questionTimer, enableFastestFingerBonus: true, autoAdvanceOnTimer: true },
         maxParticipants,
-        scheduledStartAt
+        scheduledStartAt,
+        eventMode
       );
 
       closeLaunchModal();
@@ -397,11 +411,19 @@ export default function AdminQuizTemplatesList() {
           </Button>
           <Button
             size="sm"
+            onClick={() => navigate('/admin/quiz-templates/new')}
+            className="bg-purple-600 hover:bg-purple-700 text-white"
+          >
+            <Plus className="h-4 w-4 mr-1" />
+            New Quiz Template
+          </Button>
+          <Button
+            size="sm"
             onClick={() => navigate('/admin/create-competition')}
             className="bg-indigo-500 hover:bg-indigo-600 text-white"
           >
             <Plus className="h-4 w-4 mr-1" />
-            Create New
+            Create Competition
           </Button>
         </div>
       </div>
@@ -567,6 +589,30 @@ export default function AdminQuizTemplatesList() {
                       className="w-full px-3 py-2 rounded-lg text-white"
                       style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}
                     />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-white/70 mb-2">Event Mode</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {(['inPerson', 'remote'] as const).map((mode) => (
+                        <button
+                          key={mode}
+                          type="button"
+                          onClick={() => setEventMode(mode)}
+                          className={`py-2.5 px-3 rounded-lg text-sm font-semibold border transition-colors text-left ${
+                            eventMode === mode
+                              ? 'bg-purple-600 border-purple-500 text-white'
+                              : 'bg-white/5 border-white/15 text-white/60 hover:bg-white/10'
+                          }`}
+                        >
+                          <div className="font-bold">{mode === 'inPerson' ? '🏛️ In-Person' : '🌐 Remote / Online'}</div>
+                          <div className="text-xs mt-0.5 font-normal opacity-80">
+                            {mode === 'inPerson'
+                              ? 'Projector plays audio. Devices muted.'
+                              : 'Audio plays on each participant\'s device.'}
+                          </div>
+                        </button>
+                      ))}
+                    </div>
                   </div>
                   <div>
                     <label className="block text-sm font-semibold text-white/70 mb-1">

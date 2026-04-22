@@ -86,6 +86,7 @@ export default function LiveEventParticipant() {
   const [myAnswers, setMyAnswers] = useState<Record<number, { answer: string; timeToAnswer: number }>>({});
   const [lobbyCountdownMs, setLobbyCountdownMs] = useState(0);
   const [showFiveMinWarning, setShowFiveMinWarning] = useState(false);
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
 
   const questionStartTimeRef = useRef<number>(0);
   const reconnectTimeoutRef = useRef<number>(0);
@@ -94,6 +95,37 @@ export default function LiveEventParticipant() {
   const lastQuestionRef = useRef<any>(null);
   // Tracks which question we already fired the participant fallback for
   const participantAutoAdvancedForRef = useRef<number>(-1);
+  // Single persistent audio element for remote-mode playback.
+  // Created on mount so it exists when the user taps the unlock overlay.
+  const participantAudioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    participantAudioRef.current = new Audio();
+  }, []);
+
+  // iOS Safari requires audio.play() to be called directly from a user gesture
+  // on THIS page. The overlay tap is that gesture — it unlocks the element once
+  // so all subsequent question plays work without any further interaction.
+  const handleAudioUnlock = () => {
+    const el = participantAudioRef.current;
+    if (!el) return;
+    el.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+    el.play().then(() => { el.pause(); setAudioUnlocked(true); }).catch(() => setAudioUnlocked(true));
+  };
+
+  // Play audio on participant device in Remote mode — reuses the unlocked element
+  useEffect(() => {
+    const el = participantAudioRef.current;
+    if (el) el.pause();
+    if (event?.eventMode !== 'remote' || event?.phase !== 'question' || !audioUnlocked) return;
+    const audioUrl = competition?.questions?.[event.currentQuestionIndex]?.audioUrl;
+    if (!audioUrl || !el) return;
+    el.src = audioUrl;
+    el.volume = 0.8;
+    el.currentTime = 0;
+    el.play().catch(() => {});
+    return () => { el.pause(); };
+  }, [event?.phase, event?.currentQuestionIndex, event?.eventMode, competition, audioUnlocked]);
 
   // Load event and competition
   useEffect(() => {
@@ -109,12 +141,22 @@ export default function LiveEventParticipant() {
           clearTimeout(timeout);
           const compData = await getCompetitionById(eventData.competitionId);
           if (compData?.questions) {
+            const LKEYS = ['A','B','C','D'];
             compData.questions = compData.questions.map((q: any) => {
               if (!Array.isArray(q.options) && q.options && typeof q.options === 'object') {
-                const optArr = ['A','B','C','D'].map((k:string) => q.options[k]).filter(Boolean);
-                const correctText = ['A','B','C','D'].includes(q.correctAnswer)
+                const optArr = LKEYS.map((k:string) => q.options[k]).filter(Boolean);
+                const correctText = LKEYS.includes(q.correctAnswer)
                   ? (q.options[q.correctAnswer] || q.correctAnswer) : q.correctAnswer;
                 return { ...q, options: optArr, correctAnswer: correctText };
+              }
+              if (Array.isArray(q.options)) {
+                let correctText = q.correctAnswer;
+                if (typeof q.correctAnswer === 'number') {
+                  correctText = q.options[q.correctAnswer] ?? q.correctAnswer;
+                } else if (LKEYS.includes(q.correctAnswer)) {
+                  correctText = q.options[LKEYS.indexOf(q.correctAnswer)] ?? q.correctAnswer;
+                }
+                return { ...q, correctAnswer: correctText };
               }
               return q;
             });
@@ -566,12 +608,33 @@ export default function LiveEventParticipant() {
   const currentQuestion = competition.questions?.[event.currentQuestionIndex];
   const totalQuestions = competition.questions?.length || 0;
   const timerUrgent = remainingTime <= 10 && remainingTime > 0;
+  const hasAudioQuestions = (competition.questions || []).some((q: any) => !!q.audioUrl);
 
   // ──────────────── Main Render ────────────────
   return (
     <div className="min-h-[100dvh] bg-gradient-to-br from-purple-900 via-purple-800 to-indigo-900 flex flex-col"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
+      {/* iOS audio unlock overlay — shown once for Remote events before any audio plays */}
+      {event.eventMode === 'remote' && !audioUnlocked && hasAudioQuestions && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center cursor-pointer select-none"
+          style={{ background: 'rgba(15,5,40,0.92)', backdropFilter: 'blur(8px)' }}
+          onClick={handleAudioUnlock}
+        >
+          <div className="text-center px-8">
+            <div className="text-7xl mb-5 animate-bounce">🔊</div>
+            <p className="text-2xl font-black text-white mb-2">Tap to Enable Audio</p>
+            <p className="text-white/60 text-sm leading-relaxed">
+              This event has audio questions.<br />One tap enables sound for the whole session.
+            </p>
+            <div className="mt-8 px-6 py-3 rounded-full bg-white/10 border border-white/20 text-white/80 text-sm font-semibold animate-pulse">
+              Tap anywhere to continue →
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Sticky Header */}
       <div className="sticky top-0 z-20 px-4 pt-3 pb-2"
         style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}
@@ -668,6 +731,7 @@ export default function LiveEventParticipant() {
                       <span>·</span>
                       <span>⏱ {event.settings?.questionTimer || 30}s each</span>
                     </div>
+
                   </>
                 ) : (
                   /* Countdown hit 0 — waiting for Firebase phase change */
@@ -766,7 +830,7 @@ export default function LiveEventParticipant() {
             {currentQuestion.audioUrl && (
               <div className="flex items-center justify-center gap-2 mb-2 text-purple-300 text-xs font-semibold animate-pulse">
                 <span>🎵</span>
-                <span>Listen and answer!</span>
+                <span>{event.eventMode === 'remote' ? 'Audio playing on your device — listen and answer!' : 'Listen and answer!'}</span>
                 <span>🎵</span>
               </div>
             )}
