@@ -29,6 +29,7 @@ export interface LiveEvent {
   pausedDuration: number; // accumulated pause time in milliseconds
   maxParticipants: number;
   settings: LiveEventSettings;
+  eventMode: 'inPerson' | 'remote'; // inPerson = participant audio muted (projector plays); remote = audio plays on each device
   createdAt: number; // Unix timestamp
   startedAt: number | null; // Unix timestamp
   endedAt: number | null; // Unix timestamp

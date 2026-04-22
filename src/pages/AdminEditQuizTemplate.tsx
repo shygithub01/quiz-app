@@ -3,13 +3,14 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { isAdmin, getQuizTemplate } from '../components/ui/firebase';
-import { doc, updateDoc, Timestamp } from 'firebase/firestore';
+import { doc, updateDoc, Timestamp, collection, getDocs } from 'firebase/firestore';
 import { db, uploadQuestionAudio } from '../components/ui/firebase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   CheckCircle, XCircle, Edit2, Save, AlertTriangle,
-  Brain, ArrowLeft, Plus, Upload, X, Music, Loader2
+  Brain, ArrowLeft, Plus, Upload, X, Music, Loader2, Pencil,
+  Library, ChevronDown, ChevronRight
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -64,6 +65,28 @@ function normalizeImportedQuestion(raw: any, id: number): Question | null {
   }
 }
 
+function normalizeQuestion(raw: any, id: number): Question {
+  let options: { A: string; B: string; C: string; D: string };
+  if (Array.isArray(raw.options)) {
+    options = { A: raw.options[0] || '', B: raw.options[1] || '', C: raw.options[2] || '', D: raw.options[3] || '' };
+  } else {
+    options = { A: raw.options?.A || '', B: raw.options?.B || '', C: raw.options?.C || '', D: raw.options?.D || '' };
+  }
+  const KEYS = ['A', 'B', 'C', 'D'] as const;
+  let correctAnswer = 'A';
+  const rawCA = raw.correctAnswer;
+  if (typeof rawCA === 'number') {
+    correctAnswer = KEYS[rawCA] ?? 'A';
+  } else if (KEYS.includes(rawCA)) {
+    correctAnswer = rawCA;
+  } else if (rawCA) {
+    const trimmed = String(rawCA).trim();
+    const entry = Object.entries(options).find(([, v]) => v.trim() === trimmed);
+    correctAnswer = entry ? entry[0] : 'A';
+  }
+  return { id, question: raw.question || '', options, correctAnswer, explanation: raw.explanation || '', ...(raw.audioUrl ? { audioUrl: raw.audioUrl } : {}) };
+}
+
 function blankQuestion(id: number): Question {
   return {
     id,
@@ -89,6 +112,14 @@ export default function AdminEditQuizTemplate() {
   const [templateTitle, setTemplateTitle] = useState('');
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [editedQuestion, setEditedQuestion] = useState<Question | null>(null);
+
+  const [editingTitle, setEditingTitle] = useState(false);
+
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [libraryTemplates, setLibraryTemplates] = useState<any[]>([]);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
+  const [selectedQuestions, setSelectedQuestions] = useState<{ templateId: string; question: Question }[]>([]);
 
   const [showImport, setShowImport] = useState(false);
   const [importText, setImportText] = useState('');
@@ -149,6 +180,38 @@ export default function AdminEditQuizTemplate() {
   };
 
   const handleCancelEdit = () => { setEditingIndex(null); setEditedQuestion(null); };
+
+  const openLibrary = async () => {
+    setShowLibrary(true);
+    if (libraryTemplates.length > 0) return;
+    try {
+      setLibraryLoading(true);
+      const snap = await getDocs(collection(db, 'quizTemplates'));
+      setLibraryTemplates(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    } finally {
+      setLibraryLoading(false);
+    }
+  };
+
+  const isQuestionSelected = (tid: string, qId: number) =>
+    selectedQuestions.some(s => s.templateId === tid && s.question.id === qId);
+
+  const toggleQuestionSelect = (tid: string, q: Question) => {
+    setSelectedQuestions(prev =>
+      isQuestionSelected(tid, q.id)
+        ? prev.filter(s => !(s.templateId === tid && s.question.id === q.id))
+        : [...prev, { templateId: tid, question: q }]
+    );
+  };
+
+  const addSelectedToQuiz = () => {
+    const nextId = questions.length > 0 ? Math.max(...questions.map(q => q.id)) + 1 : 1;
+    const toAdd = selectedQuestions.map((s, i) => ({ ...s.question, id: nextId + i }));
+    setQuestions(prev => [...prev, ...toAdd]);
+    setSelectedQuestions([]);
+    setShowLibrary(false);
+    toast({ title: `${toAdd.length} question${toAdd.length !== 1 ? 's' : ''} added`, description: "Click 'Save All Changes' to persist." });
+  };
 
   const handleAudioUpload = async (file: File) => {
     if (!editedQuestion) return;
@@ -234,6 +297,7 @@ export default function AdminEditQuizTemplate() {
     try {
       setSaving(true);
       await updateDoc(doc(db, 'quizTemplates', templateId), {
+        title: templateTitle,
         questions,
         updatedAt: Timestamp.now()
       });
@@ -267,7 +331,27 @@ export default function AdminEditQuizTemplate() {
                   <Brain className="h-8 w-8" />
                   Edit Quiz Template
                 </CardTitle>
-                <p className="text-purple-100 mt-1">{templateTitle}</p>
+                <div className="mt-2 flex items-center gap-2">
+                  {editingTitle ? (
+                    <input
+                      type="text"
+                      value={templateTitle}
+                      onChange={(e) => setTemplateTitle(e.target.value)}
+                      onBlur={() => setEditingTitle(false)}
+                      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === 'Escape') setEditingTitle(false); }}
+                      className="text-white text-base font-medium bg-white/10 border border-white/30 rounded px-2 py-1 outline-none w-72"
+                      autoFocus
+                    />
+                  ) : (
+                    <button
+                      onClick={() => setEditingTitle(true)}
+                      className="flex items-center gap-2 text-purple-100 hover:text-white group"
+                    >
+                      <span className="text-base font-medium">{templateTitle || 'Untitled Quiz'}</span>
+                      <Pencil className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100" />
+                    </button>
+                  )}
+                </div>
               </div>
               <Button
                 variant="outline"
@@ -304,6 +388,15 @@ export default function AdminEditQuizTemplate() {
             Add Question
           </Button>
           <Button
+            onClick={openLibrary}
+            disabled={editingIndex !== null}
+            variant="outline"
+            className="border-purple-400/50 text-purple-300 hover:bg-purple-500/20 bg-transparent"
+          >
+            <Library className="h-4 w-4 mr-2" />
+            Add from Library
+          </Button>
+          <Button
             onClick={() => { setShowImport(true); setImportError(''); setImportText(''); }}
             disabled={editingIndex !== null}
             variant="outline"
@@ -313,6 +406,85 @@ export default function AdminEditQuizTemplate() {
             Import from JSON (ChatGPT)
           </Button>
         </div>
+
+        {/* Library Drawer */}
+        {showLibrary && (
+          <Card style={{ background: 'rgba(99,60,180,0.12)', border: '1px solid rgba(139,92,246,0.4)' }}>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg text-purple-200 flex items-center gap-2">
+                  <Library className="h-5 w-5" />
+                  Pick Questions from Library
+                </CardTitle>
+                <button onClick={() => { setShowLibrary(false); setSelectedQuestions([]); }} className="text-white/40 hover:text-white/80">
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+              <p className="text-sm text-white/50">Expand a template, check the questions you want, then click Add.</p>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {libraryLoading && (
+                <div className="flex items-center justify-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400" />
+                </div>
+              )}
+              {!libraryLoading && libraryTemplates.length === 0 && (
+                <p className="text-center text-white/40 py-6">No other quiz templates found.</p>
+              )}
+              {libraryTemplates
+                .filter(t => t.id !== templateId)
+                .map(template => {
+                  const qs: Question[] = (template.questions || []).map((q: any, i: number) => normalizeQuestion(q, i));
+                  const isExpanded = expandedTemplate === template.id;
+                  return (
+                    <div key={template.id} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '0.5rem' }}>
+                      <button
+                        className="w-full flex items-center justify-between p-3 text-left hover:bg-white/5 rounded-t"
+                        onClick={() => setExpandedTemplate(prev => prev === template.id ? null : template.id)}
+                      >
+                        <div>
+                          <span className="font-semibold text-white">{template.title || 'Untitled'}</span>
+                          <span className="ml-2 text-xs text-white/40">{qs.length} questions</span>
+                        </div>
+                        {isExpanded ? <ChevronDown className="h-4 w-4 text-white/50" /> : <ChevronRight className="h-4 w-4 text-white/50" />}
+                      </button>
+                      {isExpanded && (
+                        <div className="px-3 pb-3 space-y-2">
+                          {qs.map(q => {
+                            const selected = isQuestionSelected(template.id, q.id);
+                            return (
+                              <label
+                                key={q.id}
+                                className="flex items-start gap-3 p-2 rounded cursor-pointer hover:bg-white/5"
+                                style={selected ? { background: 'rgba(139,92,246,0.15)', borderRadius: '0.375rem' } : {}}
+                              >
+                                <input
+                                  type="checkbox"
+                                  checked={selected}
+                                  onChange={() => toggleQuestionSelect(template.id, q)}
+                                  className="mt-0.5 accent-purple-500"
+                                />
+                                <span className="text-sm text-white/80 leading-snug">{q.question || <span className="italic text-white/30">No text</span>}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              {selectedQuestions.length > 0 && (
+                <div className="flex items-center justify-between pt-2 border-t border-white/10">
+                  <span className="text-sm text-purple-300">{selectedQuestions.length} question{selectedQuestions.length !== 1 ? 's' : ''} selected</span>
+                  <Button onClick={addSelectedToQuiz} className="bg-purple-600 hover:bg-purple-700 text-white">
+                    <CheckCircle className="h-4 w-4 mr-2" />
+                    Add Selected
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* JSON Import Panel */}
         {showImport && (

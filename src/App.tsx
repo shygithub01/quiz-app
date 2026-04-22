@@ -20,6 +20,7 @@ import AdminCompetitionParticipants from "./pages/AdminCompetitionParticipants";
 import AdminEditCompetition from "./pages/AdminEditCompetition";
 import AdminQuizTemplatesList from "./pages/AdminQuizTemplatesList";
 import AdminEditQuizTemplate from "./pages/AdminEditQuizTemplate";
+import AdminCreateQuizTemplate from "./pages/AdminCreateQuizTemplate";
 import AdminCompetitionSettings from "./pages/AdminCompetitionSettings";
 import AdminDebugCompetition from "./pages/AdminDebugCompetition";
 import AdminRestore from "./pages/AdminRestore";
@@ -90,6 +91,7 @@ const App = () => (
                   <Route path="admin/users/:userId" element={<AdminUserDetails />} />
                   <Route path="admin/manage-admins" element={<AdminManagement />} />
                   <Route path="admin/quiz-templates/list" element={<AdminQuizTemplatesList />} />
+                  <Route path="admin/quiz-templates/new" element={<AdminCreateQuizTemplate />} />
                   <Route path="admin/quiz-templates/:templateId/edit" element={<AdminEditQuizTemplate />} />
                   <Route path="admin/competition-settings" element={<AdminCompetitionSettings />} />
                   <Route path="admin/debug-competition" element={<AdminDebugCompetition />} />
