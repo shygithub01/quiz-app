@@ -7,7 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Target, Trophy, Calendar } from 'lucide-react';
 import { getCompetitions } from '@/components/ui/firebase';
-import { createPracticeSession } from '@/services/practiceService';
+import { createPracticeSession, getActivePracticeSessionForCompetition } from '@/services/practiceService';
+import { getActiveLiveEventForCompetition } from '@/services/liveEventService';
 import { auth } from '@/components/ui/firebase';
 
 export default function PracticeLiveHost() {
@@ -32,13 +33,7 @@ export default function PracticeLiveHost() {
     try {
       setLoading(true);
       const allCompetitions = await getCompetitions();
-      
-      // Filter for Practice Live Mode templates
-      const practiceLiveTemplates = allCompetitions.filter(
-        (comp: any) => comp.isPracticeLive === true
-      );
-      
-      setCompetitions(practiceLiveTemplates);
+      setCompetitions(allCompetitions);
     } catch (error) {
       console.error('Error loading competitions:', error);
       alert('Failed to load competitions');
@@ -60,7 +55,19 @@ export default function PracticeLiveHost() {
       if (!competition) {
         throw new Error('Competition not found');
       }
-      
+
+      const activeLive = await getActiveLiveEventForCompetition(selectedCompetition);
+      if (activeLive) {
+        alert(`⚠️ "${competition.title}" already has an active Live Event (PIN: ${activeLive.pin}).\n\nEnd the live event first before starting a practice session for this question bank.`);
+        return;
+      }
+
+      const existingPractice = await getActivePracticeSessionForCompetition(selectedCompetition);
+      if (existingPractice) {
+        alert(`⚠️ "${competition.title}" already has an active Practice session (PIN: ${existingPractice.pin}).\n\nEnd the existing practice session before creating a new one for this question bank.`);
+        return;
+      }
+
       // Calculate end date based on session duration
       let calculatedEndDate = Date.now();
       if (sessionDuration === 'week') {

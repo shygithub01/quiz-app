@@ -75,6 +75,22 @@ export async function createPracticeSession(
   }
 }
 
+export async function getActivePracticeSessionForCompetition(competitionId: string): Promise<PracticeSession | null> {
+  try {
+    const snapshot = await get(ref(realtimeDb, 'practiceSessions'));
+    if (!snapshot.exists()) return null;
+    const sessions = snapshot.val();
+    const entry = Object.entries(sessions).find(([_, s]: [string, any]) =>
+      (s as any).competitionId === competitionId && (s as any).status === 'active'
+    );
+    if (!entry) return null;
+    const [id, data] = entry;
+    return { id, ...(data as object) } as PracticeSession;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Get active session count for a teacher
  */

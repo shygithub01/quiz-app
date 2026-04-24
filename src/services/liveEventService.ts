@@ -197,6 +197,23 @@ export async function getActiveParticipantCount(eventId: string): Promise<number
  * Return any current event (including recently completed ones not yet deleted)
  * Used by host page to show recovery banner for completed games
  */
+export async function getActiveLiveEventForCompetition(competitionId: string): Promise<LiveEvent | null> {
+  try {
+    const snapshot = await get(ref(realtimeDb, 'liveEvents'));
+    if (!snapshot.exists()) return null;
+    const events = snapshot.val();
+    const entry = Object.entries(events).find(([_, e]: [string, any]) =>
+      (e as any).competitionId === competitionId &&
+      ['lobby', 'active', 'paused'].includes((e as any).status)
+    );
+    if (!entry) return null;
+    const [eventId, eventData] = entry;
+    return { id: eventId, ...(eventData as object) } as LiveEvent;
+  } catch {
+    return null;
+  }
+}
+
 export async function getAnyCurrentEvent(): Promise<LiveEvent | null> {
   try {
     const snapshot = await get(ref(realtimeDb, 'liveEvents'));

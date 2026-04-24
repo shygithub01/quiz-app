@@ -27,6 +27,7 @@ import {
   reactivateParticipant,
   reactivateAllParticipants
 } from '@/services/liveEventService';
+import { getActivePracticeSessionForCompetition } from '@/services/practiceService';
 import { LiveEvent, GuestParticipant } from '@/types/liveEvent';
 import { QRCodeSVG } from 'qrcode.react';
 import { startBackgroundMusic, stopBackgroundMusic } from '@/utils/backgroundMusic';
@@ -270,10 +271,7 @@ export default function LiveEventHost() {
         
         // Also load competitions for the control panel
         const allCompetitions = await getCompetitions();
-        const liveEventCompetitions = allCompetitions.filter(
-          (comp: any) => comp.isLiveEvent === true
-        );
-        setCompetitions(liveEventCompetitions);
+        setCompetitions(allCompetitions);
         // Note: participant listener is set up by the useEffect that watches event.id —
         // no manual listener needed here (the old one leaked and never cleaned up)
       } else {
@@ -293,13 +291,7 @@ export default function LiveEventHost() {
     try {
       setLoading(true);
       const allCompetitions = await getCompetitions();
-      
-      // Filter for live event enabled competitions
-      const liveEventCompetitions = allCompetitions.filter(
-        (comp: any) => comp.isLiveEvent === true
-      );
-      
-      setCompetitions(liveEventCompetitions);
+      setCompetitions(allCompetitions);
     } catch (error) {
       console.error('Error loading competitions:', error);
       alert('Failed to load competitions');
@@ -333,7 +325,13 @@ export default function LiveEventHost() {
       if (!competition) {
         throw new Error('Competition not found');
       }
-      
+
+      const activeSession = await getActivePracticeSessionForCompetition(selectedCompetition);
+      if (activeSession) {
+        alert(`⚠️ "${competition.title}" already has an active Practice session (PIN: ${activeSession.pin}).\n\nEnd the practice session first before starting a live event for this question bank.`);
+        return;
+      }
+
       const { eventId, pin } = await createLiveEvent(
         selectedCompetition,
         competition.liveEventSettings,
