@@ -85,6 +85,7 @@ export default function Home() {
   const [liveName, setLiveName] = useState('');
   const [liveLoading, setLiveLoading] = useState(false);
   const [liveError, setLiveError] = useState('');
+  const [liveParticipantCount, setLiveParticipantCount] = useState(0);
 
   useEffect(() => {
     loadFeaturedCompetition();
@@ -94,11 +95,18 @@ export default function Home() {
 
     const checkLiveEvent = async () => {
       try {
-        const { getActiveEvent } = await import('@/services/liveEventService');
+        const { getActiveEvent, getActiveParticipantCount } = await import('@/services/liveEventService');
         const active = await getActiveEvent();
         setLiveEvent(active);
+        if (active?.id) {
+          const count = await getActiveParticipantCount(active.id);
+          setLiveParticipantCount(count);
+        } else {
+          setLiveParticipantCount(0);
+        }
       } catch {
         setLiveEvent(null);
+        setLiveParticipantCount(0);
       } finally {
         setLiveCheckDone(true);
       }
@@ -247,10 +255,15 @@ export default function Home() {
               </div>
             ) : liveEvent && liveEvent.phase === 'lobby' ? (
               <form onSubmit={handleJoinLiveEvent} className="space-y-3">
-                <div className="flex items-center gap-2 rounded-xl px-3 py-2"
+                <div className="flex items-center justify-between rounded-xl px-3 py-2"
                   style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)' }}>
-                  <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse flex-shrink-0" />
-                  <p className="text-green-300 text-xs font-semibold">Live event in progress</p>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse flex-shrink-0" />
+                    <p className="text-green-300 text-xs font-semibold">Live event — lobby open</p>
+                  </div>
+                  {liveParticipantCount > 0 && (
+                    <span className="text-green-300 text-xs font-bold">{liveParticipantCount} joined</span>
+                  )}
                 </div>
                 <PinBoxes value={liveEvent.pin} readOnly accentColor="#a78bfa" />
                 <input
@@ -286,10 +299,15 @@ export default function Home() {
               </form>
             ) : liveEvent ? (
               <div className="space-y-3">
-                <div className="rounded-xl px-4 py-3 text-center"
+                <div className="flex items-center justify-between rounded-xl px-4 py-3"
                   style={{ background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.25)' }}>
-                  <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse inline-block mr-2 align-middle" />
-                  <p className="text-yellow-300 text-sm font-semibold inline">Event in progress — late join available</p>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse flex-shrink-0" />
+                    <p className="text-yellow-300 text-sm font-semibold">Event in progress — late join available</p>
+                  </div>
+                  {liveParticipantCount > 0 && (
+                    <span className="text-yellow-300 text-xs font-bold">{liveParticipantCount} active</span>
+                  )}
                 </div>
                 <PinBoxes value={liveEvent.pin} readOnly accentColor="#a78bfa" />
                 <button

@@ -10,10 +10,113 @@ import {
   getEventById,
   listenToEvent,
   listenToLeaderboard,
+  listenToParticipants,
   submitAnswer,
   updateHeartbeat
 } from '@/services/liveEventService';
 import { LiveEvent, LeaderboardEntry } from '@/types/liveEvent';
+
+function EventEndedRedirect({ navigate }: { navigate: (path: string) => void }) {
+  const [countdown, setCountdown] = useState(3);
+  useEffect(() => {
+    const iv = setInterval(() => setCountdown(c => c - 1), 1000);
+    const t = setTimeout(() => navigate('/'), 3000);
+    return () => { clearInterval(iv); clearTimeout(t); };
+  }, [navigate]);
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-900 to-indigo-900 flex items-center justify-center p-6">
+      <div className="text-center text-white max-w-sm w-full">
+        <Trophy className="h-16 w-16 text-yellow-400 mx-auto mb-4" />
+        <h2 className="text-2xl font-bold mb-3">Event Ended</h2>
+        <p className="text-white/70 mb-6">The host has ended this event.</p>
+        <p className="text-white/40 text-sm mb-4">Redirecting in {countdown}s...</p>
+        <button onClick={() => navigate('/')} className="w-full py-4 bg-white text-purple-700 font-bold text-lg rounded-2xl active:scale-95 transition-transform">
+          Go Home
+        </button>
+      </div>
+    </div>
+  );
+}
+
+const HYPE_MSGS = [
+  'The competition is heating up! 🔥',
+  'Get your answers ready! 🧠',
+  'It\'s almost time to shine! ⭐',
+  'Stay focused — top score wins! 🏆',
+  'Good luck, competitor! 💪',
+  'Every second counts! ⚡',
+  'You\'ve got this! 🚀',
+];
+
+function LobbyWaiting({ myName, lobbyCount, countFlash, hypeIdx, maxParticipants, questions, timerSecs }: {
+  myName: string; lobbyCount: number; countFlash: boolean; hypeIdx: number;
+  maxParticipants: number; questions: number; timerSecs: number;
+}) {
+  const pct = maxParticipants > 0 ? Math.min(1, lobbyCount / maxParticipants) : 0;
+  const r = 64, cx = 80, cy = 80;
+  const circ = 2 * Math.PI * r;
+  const dash = circ * pct;
+
+  return (
+    <div className="flex flex-col items-center w-full max-w-xs mx-auto">
+      <h2 className="text-xl font-bold text-white mb-1">Welcome, {myName}!</h2>
+      <p className="text-white/50 text-sm mb-6">Waiting for host to start...</p>
+
+      {/* Animated circular SVG counter */}
+      <div className={`relative mb-5 transition-transform duration-300 ${countFlash ? 'scale-110' : 'scale-100'}`}>
+        <svg width="160" height="160" viewBox="0 0 160 160" className="block">
+          {/* Outer slow-pulse ring */}
+          <circle cx={cx} cy={cy} r={r + 8} fill="none" stroke="rgba(167,139,250,0.12)" strokeWidth="2" />
+          {/* Track */}
+          <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="10" />
+          {/* Fill arc */}
+          <circle cx={cx} cy={cy} r={r} fill="none"
+            stroke="url(#lobbyGrad)" strokeWidth="10"
+            strokeLinecap="round"
+            strokeDasharray={`${dash} ${circ}`}
+            transform="rotate(-90 80 80)"
+            style={{ transition: 'stroke-dasharray 0.6s ease' }} />
+          {/* Inner glow circle */}
+          <circle cx={cx} cy={cy} r={r - 14} fill="rgba(124,58,237,0.25)" />
+          <defs>
+            <linearGradient id="lobbyGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#a78bfa" />
+              <stop offset="100%" stopColor="#f472b6" />
+            </linearGradient>
+          </defs>
+        </svg>
+        {/* Count + label centred inside SVG */}
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className={`font-black tabular-nums leading-none transition-all duration-300 ${lobbyCount >= 100 ? 'text-4xl' : 'text-5xl'} ${countFlash ? 'text-yellow-300' : 'text-white'}`}>
+            {lobbyCount}
+          </span>
+          <span className="text-white/50 text-xs mt-1 font-medium">joined</span>
+        </div>
+        {/* Ping on join */}
+        {countFlash && <div className="absolute inset-0 rounded-full bg-purple-400/20 animate-ping pointer-events-none" style={{ borderRadius: '50%' }} />}
+      </div>
+
+      {/* Hype message */}
+      <p key={hypeIdx} className="text-purple-300 text-sm font-semibold text-center mb-5 animate-pulse">
+        {HYPE_MSGS[hypeIdx % HYPE_MSGS.length]}
+      </p>
+
+      {/* Quiz stats */}
+      <div className="flex gap-4 text-white/40 text-xs mb-5">
+        <span>📋 {questions} questions</span>
+        <span>·</span>
+        <span>⏱ {timerSecs}s each</span>
+      </div>
+
+      {/* Waiting dots */}
+      <div className="flex items-center gap-1">
+        <span className="w-2 h-2 bg-purple-400/60 rounded-full animate-bounce" />
+        <span className="w-2 h-2 bg-purple-400/60 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }} />
+        <span className="w-2 h-2 bg-purple-400/60 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
+      </div>
+    </div>
+  );
+}
 
 // Medal emoji by rank
 function rankMedal(rank: number) {
@@ -87,6 +190,9 @@ export default function LiveEventParticipant() {
   const [lobbyCountdownMs, setLobbyCountdownMs] = useState(0);
   const [showFiveMinWarning, setShowFiveMinWarning] = useState(false);
   const [audioUnlocked, setAudioUnlocked] = useState(false);
+  const [lobbyCount, setLobbyCount] = useState(0);
+  const [countFlash, setCountFlash] = useState(false);
+  const [hypeIdx, setHypeIdx] = useState(0);
 
   const questionStartTimeRef = useRef<number>(0);
   const reconnectTimeoutRef = useRef<number>(0);
@@ -98,9 +204,16 @@ export default function LiveEventParticipant() {
   // Single persistent audio element for remote-mode playback.
   // Created on mount so it exists when the user taps the unlock overlay.
   const participantAudioRef = useRef<HTMLAudioElement | null>(null);
+  const lastTickedSecondRef = useRef<number>(-1);
+  // Shared AudioContext for timer ticks — created once, reused every tick.
+  const tickAudioCtxRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
     participantAudioRef.current = new Audio();
+    // Pre-create AudioContext on mount; it starts suspended on iOS until user gesture.
+    try {
+      tickAudioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    } catch (_) {}
   }, []);
 
   // iOS Safari requires audio.play() to be called directly from a user gesture
@@ -111,6 +224,8 @@ export default function LiveEventParticipant() {
     if (!el) return;
     el.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
     el.play().then(() => { el.pause(); setAudioUnlocked(true); }).catch(() => setAudioUnlocked(true));
+    // Also resume the shared AudioContext so tick sounds work on iOS
+    tickAudioCtxRef.current?.resume().catch(() => {});
   };
 
   // Play audio on participant device in Remote mode — reuses the unlocked element
@@ -269,6 +384,11 @@ export default function LiveEventParticipant() {
         // Event deleted from Firebase. If we were already on results,
         // stay there — don't replace the dashboard with "Event Ended".
         if (prevPhaseRef.current === 'results') return;
+        // If still in lobby when deleted, auto-redirect home (don't leave user stranded)
+        if (prevPhaseRef.current === 'lobby' || prevPhaseRef.current === '') {
+          navigate('/');
+          return;
+        }
         setEvent(null);
       }
     });
@@ -313,6 +433,29 @@ export default function LiveEventParticipant() {
     return () => clearInterval(interval);
   }, [eventId, sessionId, event?.phase]);
 
+  // Live participant count during lobby
+  useEffect(() => {
+    if (!eventId || !event || event.phase !== 'lobby') return;
+    const unsub = listenToParticipants(eventId, (participants) => {
+      const count = participants.filter(p => p.isActive).length;
+      setLobbyCount(prev => {
+        if (count > prev) {
+          setCountFlash(true);
+          setTimeout(() => setCountFlash(false), 600);
+        }
+        return count;
+      });
+    });
+    return unsub;
+  }, [eventId, event?.phase]);
+
+  // Rotate hype message every 4 seconds during lobby
+  useEffect(() => {
+    if (!event || event.phase !== 'lobby') return;
+    const iv = setInterval(() => setHypeIdx(i => i + 1), 4000);
+    return () => clearInterval(iv);
+  }, [event?.phase]);
+
   // Lobby countdown to scheduledStartAt
   useEffect(() => {
     if (event?.phase !== 'lobby' || !event.scheduledStartAt) return;
@@ -341,15 +484,43 @@ export default function LiveEventParticipant() {
     return () => clearInterval(interval);
   }, [event?.phase]);
 
+  const playTimerTick = (isFinal: boolean) => {
+    try {
+      const ctx = tickAudioCtxRef.current;
+      if (!ctx) return;
+      // iOS suspends AudioContext until user gesture; resume in case it was suspended
+      if (ctx.state === 'suspended') { ctx.resume().catch(() => {}); return; }
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = isFinal ? 880 : 660;
+      osc.type = 'sine';
+      gain.gain.setValueAtTime(0.35, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + (isFinal ? 0.25 : 0.12));
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + (isFinal ? 0.25 : 0.12));
+    } catch (_) {}
+  };
+
   // Timer countdown
   useEffect(() => {
-    if (!event || event.phase !== 'question' || !event.timerStartedAt) return;
+    if (!event || event.phase !== 'question' || !event.timerStartedAt) {
+      lastTickedSecondRef.current = -1;
+      return;
+    }
 
     const updateTimer = () => {
       const now = Date.now();
       const elapsed = now - event.timerStartedAt! - event.pausedDuration;
       const remaining = Math.max(0, event.timerDuration - elapsed / 1000);
-      setRemainingTime(Math.ceil(remaining));
+      const ceiled = Math.ceil(remaining);
+      setRemainingTime(ceiled);
+
+      if (ceiled <= 5 && ceiled > 0 && ceiled !== lastTickedSecondRef.current) {
+        lastTickedSecondRef.current = ceiled;
+        playTimerTick(ceiled === 1);
+      }
     };
 
     updateTimer();
@@ -492,6 +663,8 @@ export default function LiveEventParticipant() {
 
   const handleAnswerSelect = async (answer: string) => {
     if (!event || !eventId || !sessionId || hasAnswered || remainingTime === 0) return;
+    // Resume shared AudioContext on first tap (covers inPerson mode with no unlock overlay)
+    tickAudioCtxRef.current?.resume().catch(() => {});
     setSelectedAnswer(answer);
 
     try {
@@ -535,40 +708,12 @@ export default function LiveEventParticipant() {
   }
 
   if (event === null && competition === null) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 to-indigo-900 flex items-center justify-center p-6">
-        <div className="text-center text-white max-w-sm w-full">
-          <Trophy className="h-16 w-16 text-yellow-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold mb-3">Event Ended</h2>
-          <p className="text-white/70 mb-6">This event has been completed and deleted by the host.</p>
-          <button
-            onClick={() => navigate('/')}
-            className="w-full py-4 bg-white text-purple-700 font-bold text-lg rounded-2xl active:scale-95 transition-transform"
-          >
-            Back to Home
-          </button>
-        </div>
-      </div>
-    );
+    return <EventEndedRedirect navigate={navigate} />;
   }
 
   if (!event || !competition) {
     if (eventWasLoaded && !event) {
-      return (
-        <div className="min-h-screen bg-gradient-to-br from-purple-900 to-indigo-900 flex items-center justify-center p-6">
-          <div className="text-center text-white max-w-sm w-full">
-            <Trophy className="h-16 w-16 text-yellow-400 mx-auto mb-4" />
-            <h2 className="text-2xl font-bold mb-3">Event Ended</h2>
-            <p className="text-white/70 mb-6">The host has ended this event.</p>
-            <button
-              onClick={() => navigate('/')}
-              className="w-full py-4 bg-white text-purple-700 font-bold text-lg rounded-2xl active:scale-95 transition-transform"
-            >
-              Go Home
-            </button>
-          </div>
-        </div>
-      );
+      return <EventEndedRedirect navigate={navigate} />;
     }
 
     if (loadingTimeout) {
@@ -726,11 +871,18 @@ export default function LiveEventParticipant() {
                       </div>
                     </div>
 
-                    <div className="flex gap-4 text-white/40 text-sm">
+                    <div className="flex gap-4 text-white/40 text-sm mb-4">
                       <span>📋 {competition?.questions?.length || 0} questions</span>
                       <span>·</span>
                       <span>⏱ {event.settings?.questionTimer || 30}s each</span>
                     </div>
+                    {lobbyCount > 0 && (
+                      <div className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all duration-300 ${countFlash ? 'scale-110' : 'scale-100'}`}
+                        style={{ background: 'rgba(167,139,250,0.2)', border: '1px solid rgba(167,139,250,0.4)' }}>
+                        <span className="w-2 h-2 rounded-full bg-purple-400 animate-pulse" />
+                        <span className="text-purple-300 font-bold text-sm">{lobbyCount} {lobbyCount === 1 ? 'competitor' : 'competitors'} ready</span>
+                      </div>
+                    )}
 
                   </>
                 ) : (
@@ -744,24 +896,7 @@ export default function LiveEventParticipant() {
               </>
             ) : (
               /* No scheduled time — waiting for host */
-              <>
-                <div className="relative mb-6">
-                  <div className="w-24 h-24 rounded-full bg-purple-600/40 flex items-center justify-center mx-auto">
-                    <Trophy className="h-12 w-12 text-yellow-400" />
-                  </div>
-                  <div className="absolute inset-0 rounded-full bg-purple-500/20 animate-ping" />
-                </div>
-                <h2 className="text-2xl font-bold text-white mb-2">Welcome, {myName}!</h2>
-                <p className="text-white/60 mb-3">You've successfully joined.</p>
-                <div className="bg-white/10 rounded-2xl px-6 py-4 inline-block">
-                  <p className="text-white/80 text-sm">Waiting for host to start...</p>
-                  <div className="flex items-center justify-center gap-1 mt-2">
-                    <span className="w-2 h-2 bg-white/60 rounded-full animate-bounce" />
-                    <span className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '0.15s' }} />
-                    <span className="w-2 h-2 bg-white/60 rounded-full animate-bounce" style={{ animationDelay: '0.3s' }} />
-                  </div>
-                </div>
-              </>
+              <LobbyWaiting myName={myName} lobbyCount={lobbyCount} countFlash={countFlash} hypeIdx={hypeIdx} maxParticipants={event.maxParticipants} questions={competition?.questions?.length || 0} timerSecs={event.settings?.questionTimer || 30} />
             )}
           </div>
         )}

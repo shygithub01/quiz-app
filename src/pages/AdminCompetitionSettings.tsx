@@ -42,6 +42,7 @@ export default function AdminCompetitionSettings() {
   const [liveArchives, setLiveArchives] = useState<any[]>([]);
   const [archivesLoading, setArchivesLoading] = useState(false);
   const [expandedArchive, setExpandedArchive] = useState<string | null>(null);
+  const [maskedArchives, setMaskedArchives] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     checkAdminAndLoad();
@@ -506,6 +507,18 @@ export default function AdminCompetitionSettings() {
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <button
+                            onClick={() => setMaskedArchives(prev => {
+                              const next = new Set(prev);
+                              next.has(archive.id) ? next.delete(archive.id) : next.add(archive.id);
+                              return next;
+                            })}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                            style={maskedArchives.has(archive.id)
+                              ? { background: 'rgba(251,191,36,0.2)', color: '#fbbf24' }
+                              : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)' }}>
+                            {maskedArchives.has(archive.id) ? '👁️ Unmask' : '🙈 Mask Names'}
+                          </button>
+                          <button
                             onClick={() => setExpandedArchive(isExpanded ? null : archive.id)}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
                             style={{ background: 'rgba(167,139,250,0.15)', color: '#c4b5fd' }}>
@@ -545,7 +558,11 @@ export default function AdminCompetitionSettings() {
                                     <td className="px-5 py-3 font-bold text-white/80">
                                       {p.rank === 1 ? '🥇' : p.rank === 2 ? '🥈' : p.rank === 3 ? '🥉' : `#${p.rank}`}
                                     </td>
-                                    <td className="px-3 py-3 text-white font-medium">{p.name}</td>
+                                    <td className="px-3 py-3 text-white font-medium">
+                                      {maskedArchives.has(archive.id)
+                                        ? `${p.name?.[0] ?? '?'}${'*'.repeat(Math.max(1, (p.name?.length ?? 2) - 1))}`
+                                        : p.name}
+                                    </td>
                                     <td className="px-3 py-3 text-right text-purple-300 font-bold">{p.score}</td>
                                     <td className="px-3 py-3 text-right text-white/60">
                                       {p.correctAnswers ?? Object.values(p.answers || {}).filter((a: any) => a.correct).length}

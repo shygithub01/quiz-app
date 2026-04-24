@@ -23,7 +23,9 @@ import {
   listenToParticipants,
   updateEvent,
   getEventById,
-  getAnyCurrentEvent
+  getAnyCurrentEvent,
+  reactivateParticipant,
+  reactivateAllParticipants
 } from '@/services/liveEventService';
 import { LiveEvent, GuestParticipant } from '@/types/liveEvent';
 import { QRCodeSVG } from 'qrcode.react';
@@ -365,8 +367,13 @@ export default function LiveEventHost() {
     
     try {
       // Get competition to access questions
-      const competition = competitions.find(c => c.id === event.competitionId);
-      
+      let competition = competitions.find(c => c.id === event.competitionId);
+
+      if (!competition) {
+        const { getCompetitionById } = await import('@/components/ui/firebase');
+        competition = await getCompetitionById(event.competitionId);
+      }
+
       if (!competition) {
         throw new Error('Competition not found');
       }
@@ -405,9 +412,9 @@ export default function LiveEventHost() {
       // Open projector view in new window
       const projectorUrl = `${window.location.origin}/live-event/${event.id}/projector`;
       window.open(projectorUrl, '_blank');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error starting event:', error);
-      alert('Failed to start event');
+      alert(`Failed to start event: ${error?.message || String(error)}`);
     }
   };
   
@@ -717,14 +724,18 @@ export default function LiveEventHost() {
                     onClick={async () => {
                       if (confirm('⚠️ FORCE DELETE ALL EVENTS?\n\nThis will delete ALL live events and related data from the database. This action cannot be undone.\n\nUse this only for testing/debugging.')) {
                         try {
-                          const { ref, remove } = await import('firebase/database');
+                          const { ref, get } = await import('firebase/database');
                           const { realtimeDb } = await import('@/components/ui/firebase');
-                          
-                          await remove(ref(realtimeDb, 'liveEvents'));
-                          await remove(ref(realtimeDb, 'eventParticipants'));
-                          await remove(ref(realtimeDb, 'eventAnswers'));
-                          await remove(ref(realtimeDb, 'eventLeaderboard'));
-                          
+                          const { deleteEvent } = await import('@/services/liveEventService');
+
+                          const snap = await get(ref(realtimeDb, 'liveEvents'));
+                          if (snap.exists()) {
+                            const ids = Object.keys(snap.val());
+                            for (const id of ids) {
+                              await deleteEvent(id);
+                            }
+                          }
+
                           alert('✅ All events deleted. Please refresh the page.');
                           window.location.reload();
                         } catch (error) {
@@ -824,7 +835,7 @@ export default function LiveEventHost() {
           </Card>
         ) : (
           /* Step 2: Event Control Panel */
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className={`grid grid-cols-1 lg:grid-cols-3 gap-6 ${event?.status === 'lobby' ? 'pt-12' : ''}`}>
             {/* Left Column: Event Info & QR Code */}
             <div className="lg:col-span-1 space-y-6">
               <Card style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
@@ -874,13 +885,24 @@ export default function LiveEventHost() {
               
               <Card style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
                 <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-white">
+                  <CardTitle className="flex items-center gap-2 text-white flex-wrap">
                     <Users className="h-5 w-5" />
                     Participants ({participants.filter(p => p.isActive).length}/{event.maxParticipants})
                     {participants.filter(p => p.isActive).length >= event.maxParticipants && (
                       <span className="ml-2 px-2 py-1 bg-yellow-500/20 text-yellow-300 text-xs font-bold rounded-full animate-pulse">
                         FULL
                       </span>
+                    )}
+                    {participants.some(p => !p.isActive) && eventId && (
+                      <button
+                        onClick={async () => {
+                          await reactivateAllParticipants(eventId);
+                        }}
+                        className="ml-auto text-xs px-3 py-1 rounded-full font-semibold bg-green-500/20 text-green-300 hover:bg-green-500/40 transition-colors"
+                        title="Reactivate all inactive participants"
+                      >
+                        Reactivate All
+                      </button>
                     )}
                   </CardTitle>
                 </CardHeader>
@@ -904,6 +926,15 @@ export default function LiveEventHost() {
                             }`}>
                               {p.isActive ? 'Active' : 'Inactive'}
                             </span>
+                            {!p.isActive && eventId && (
+                              <button
+                                onClick={async () => { await reactivateParticipant(eventId, p.sessionId); }}
+                                className="text-xs px-2 py-1 rounded text-green-400 hover:text-green-300 hover:bg-green-500/20 transition-colors"
+                                title="Reactivate participant"
+                              >
+                                ↩
+                              </button>
+                            )}
                             <button
                               onClick={async () => {
                                 const displayName = p.name || p.sessionId?.slice(0, 8) || 'this participant';
@@ -1102,21 +1133,21 @@ export default function LiveEventHost() {
         )}
       </div>
 
-      {/* Sticky Start Event bar — visible at all scroll positions during lobby */}
+      {/* Sticky Start Event bar — pinned below the top nav on mobile */}
       {event && event.status === 'lobby' && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 p-4"
-          style={{ background: 'rgba(15,10,30,0.92)', backdropFilter: 'blur(12px)', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
-          <div className="max-w-4xl mx-auto flex items-center gap-4">
+        <div className="fixed top-14 left-0 right-0 z-40 px-4 py-2"
+          style={{ background: 'rgba(15,10,30,0.95)', backdropFilter: 'blur(12px)', borderBottom: '1px solid rgba(255,255,255,0.1)' }}>
+          <div className="max-w-4xl mx-auto flex items-center gap-3">
             <div className="flex-1 text-sm text-white/50">
-              <span className="font-bold text-white text-lg">{participants.filter(p => p.isActive).length}</span>
+              <span className="font-bold text-white">{participants.filter(p => p.isActive).length}</span>
               <span className="ml-1">/ {event.maxParticipants} joined</span>
             </div>
             <Button
               onClick={handleStartEvent}
               disabled={participants.filter(p => p.isActive).length === 0}
-              className="bg-green-600 hover:bg-green-700 text-white font-bold px-8 py-3 text-base disabled:opacity-40 disabled:cursor-not-allowed"
+              className="bg-green-600 hover:bg-green-700 text-white font-bold px-6 py-2 text-sm disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <Play className="h-5 w-5 mr-2" />
+              <Play className="h-4 w-4 mr-1" />
               Start Event
             </Button>
           </div>

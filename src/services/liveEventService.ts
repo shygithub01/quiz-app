@@ -180,6 +180,20 @@ export async function getActiveEvent(): Promise<LiveEvent | null> {
 }
 
 /**
+ * Get the count of active (connected) participants for an event.
+ */
+export async function getActiveParticipantCount(eventId: string): Promise<number> {
+  try {
+    const snapshot = await get(ref(realtimeDb, `eventParticipants/${eventId}`));
+    if (!snapshot.exists()) return 0;
+    const data = snapshot.val();
+    return Object.values(data).filter((p: any) => p.isActive).length;
+  } catch {
+    return 0;
+  }
+}
+
+/**
  * Return any current event (including recently completed ones not yet deleted)
  * Used by host page to show recovery banner for completed games
  */
