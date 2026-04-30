@@ -379,7 +379,7 @@ export default function PracticeResults() {
             <RotateCcw className="h-5 w-5 mr-2" />
             Try Again
           </Button>
-          
+
           {session.settings.showLeaderboard && (
             <Button
               onClick={handleViewLeaderboard}
@@ -387,10 +387,17 @@ export default function PracticeResults() {
               className="flex-1 font-bold text-lg py-6 text-white border-white/20 hover:bg-white/10"
             >
               <Trophy className="h-5 w-5 mr-2" />
-              View Leaderboard
+              Leaderboard
             </Button>
           )}
         </div>
+        <Button
+          onClick={() => navigate('/')}
+          variant="outline"
+          className="w-full font-semibold text-base py-5 text-white/60 border-white/10 hover:bg-white/5 hover:text-white"
+        >
+          ← Back to Home
+        </Button>
       </div>
     </div>
   );

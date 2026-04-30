@@ -3,7 +3,8 @@
     "rules": "storage.rules"
   },
   "database": {
-    "rules": "database.rules.json"
+    "rules": "database.rules.json",
+    "instance": "quizapp-42057-default-rtdb"
   },
   "firestore": {
     "database": "(default)",

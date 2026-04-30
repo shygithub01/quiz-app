@@ -1,73 +1,91 @@
-// Practice Live Mode Join Page — Mobile-first redesign
-
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Target, Users, AlertCircle, ChevronRight } from 'lucide-react';
-import {
-  getSessionByPIN,
-  joinPracticeSession
-} from '@/services/practiceService';
+import { Target, AlertCircle, ChevronRight } from 'lucide-react';
+import { getSessionByPIN, getSessionById, joinPracticeSession } from '@/services/practiceService';
 import { validatePINFormat, validateNameLength } from '@/services/liveEventService';
-import {
-  saveNameToLocalStorage,
-  getNameFromLocalStorage
-} from '@/utils/practiceStorage';
+import { saveNameToLocalStorage, getNameFromLocalStorage } from '@/utils/practiceStorage';
+import { PracticeSession } from '@/types/practiceMode';
 
+const BG = 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 40%, #0a1628 100%)';
 const PIN_LENGTH = 6;
 
 export default function PracticeJoin() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
+  const sessionIdParam = searchParams.get('sessionId');
+  const pinParam = searchParams.get('pin');
+
+  const [session, setSession] = useState<PracticeSession | null>(null);
   const [pin, setPin] = useState('');
   const [name, setName] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(!!sessionIdParam);
+  const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
-  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [resolvedSessionId, setResolvedSessionId] = useState<string | null>(sessionIdParam);
 
   const pinInputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
-  // Auto-fill PIN from QR code
+  // Direct join via sessionId (from Home page card)
   useEffect(() => {
-    const pinFromQR = searchParams.get('pin');
-    if (pinFromQR) setPin(pinFromQR.replace(/\D/g, '').slice(0, PIN_LENGTH));
-  }, [searchParams]);
+    if (!sessionIdParam) return;
+    const load = async () => {
+      try {
+        const s = await getSessionById(sessionIdParam);
+        if (!s || s.status !== 'active') {
+          setError('This session is no longer available.');
+          setLoading(false);
+          return;
+        }
+        setSession(s);
+        const saved = getNameFromLocalStorage(s.id);
+        if (saved) setName(saved);
+      } catch {
+        setError('Failed to load session.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [sessionIdParam]);
 
-  // Auto-focus PIN on mount
+  // PIN auto-fill from QR code
   useEffect(() => {
-    pinInputRef.current?.focus();
-  }, []);
+    if (pinParam && !sessionIdParam) {
+      setPin(pinParam.replace(/\D/g, '').slice(0, PIN_LENGTH));
+    }
+  }, [pinParam, sessionIdParam]);
 
-  // Validate PIN and auto-move focus to name when PIN is complete
+  // Auto-focus
   useEffect(() => {
-    if (pin.length === PIN_LENGTH) {
-      validateSession();
+    if (!sessionIdParam) pinInputRef.current?.focus();
+    else nameInputRef.current?.focus();
+  }, [sessionIdParam, loading]);
+
+  // Validate PIN when complete
+  useEffect(() => {
+    if (!sessionIdParam && pin.length === PIN_LENGTH) {
+      validatePin();
       nameInputRef.current?.focus();
     }
   }, [pin]);
 
-  // Auto-fill saved name when session is found
+  // Auto-fill saved name when session resolved from PIN
   useEffect(() => {
-    if (sessionId) {
-      const savedName = getNameFromLocalStorage(sessionId);
-      if (savedName) setName(savedName);
+    if (resolvedSessionId && !sessionIdParam) {
+      const saved = getNameFromLocalStorage(resolvedSessionId);
+      if (saved) setName(saved);
     }
-  }, [sessionId]);
+  }, [resolvedSessionId]);
 
-  const validateSession = async () => {
+  const validatePin = async () => {
     try {
-      const session = await getSessionByPIN(pin);
-      if (session) {
-        setSessionId(session.id);
-        setError('');
-      } else {
-        setSessionId(null);
-        setError('Invalid PIN. Session not found.');
-      }
+      const s = await getSessionByPIN(pin);
+      if (s) { setResolvedSessionId(s.id); setSession(s); setError(''); }
+      else { setResolvedSessionId(null); setSession(null); setError('Invalid PIN — session not found.'); }
     } catch {
-      setSessionId(null);
-      setError('Error validating PIN. Please try again.');
+      setError('Error checking PIN. Please try again.');
     }
   };
 
@@ -75,155 +93,142 @@ export default function PracticeJoin() {
     e.preventDefault();
     setError('');
 
-    if (!validatePINFormat(pin)) { setError('PIN must be exactly 6 digits'); return; }
+    const sid = sessionIdParam || resolvedSessionId;
+    if (!sid) { setError('Please enter a valid PIN'); return; }
     if (!validateNameLength(name)) { setError('Name must be 2–50 characters'); return; }
+    if (!sessionIdParam && !validatePINFormat(pin)) { setError('PIN must be 6 digits'); return; }
 
     try {
-      setLoading(true);
-      const session = await getSessionByPIN(pin);
-      if (!session) { setError('Invalid PIN. Session not found.'); return; }
+      setSubmitting(true);
+      const targetSession = session || await getSessionByPIN(pin);
+      if (!targetSession) { setError('Session not found.'); return; }
+      if (targetSession.status !== 'active') { setError('This session has ended.'); return; }
 
-      await joinPracticeSession(session.id, name);
-      saveNameToLocalStorage(session.id, name);
-      navigate(`/practice/quiz/${session.id}`);
+      await joinPracticeSession(targetSession.id, name);
+      saveNameToLocalStorage(targetSession.id, name);
+      navigate(`/practice/quiz/${targetSession.id}`);
     } catch (err: any) {
-      setError(err.message || 'Failed to join session. Please try again.');
+      setError(err.message || 'Failed to join. Please try again.');
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
-  const canSubmit = pin.length === PIN_LENGTH && name.trim().length >= 2 && !loading;
+  const canSubmit = name.trim().length >= 2 && !submitting &&
+    (sessionIdParam ? !!session : pin.length === PIN_LENGTH && !!resolvedSessionId);
+
+  if (loading) {
+    return (
+      <div className="min-h-[100dvh] flex items-center justify-center" style={{ background: BG }}>
+        <div className="text-center text-white">
+          <div className="w-12 h-12 border-4 border-white/20 border-t-emerald-400 rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-white/50">Loading session...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div
-      className="min-h-[100dvh] flex flex-col"
-      style={{
-        background: 'linear-gradient(135deg, #064e3b 0%, #065f46 40%, #1e1b4b 100%)',
-        paddingTop: 'env(safe-area-inset-top)',
-        paddingBottom: 'env(safe-area-inset-bottom)',
-      }}
-    >
-      {/* Top branding */}
+    <div className="min-h-[100dvh] flex flex-col" style={{ background: BG, paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
+
+      {/* Header */}
       <div className="flex flex-col items-center pt-12 pb-6 px-6">
-        <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center mb-4 border-2 border-white/20">
-          <Target className="h-10 w-10 text-emerald-400" />
+        <div className="w-18 h-18 w-[72px] h-[72px] rounded-full bg-white/10 flex items-center justify-center mb-4 border-2 border-emerald-400/30">
+          <Target className="h-9 w-9 text-emerald-400" />
         </div>
-        <h1 className="text-2xl font-black text-white">Join Practice Session</h1>
-        <p className="text-white/60 text-sm mt-1 text-center">
-          Enter the PIN from your teacher + your name
-        </p>
+        {session ? (
+          <>
+            <h1 className="text-xl font-black text-white text-center">{session.title}</h1>
+            <p className="text-emerald-400 text-sm font-semibold mt-1">Practice Session · Open</p>
+          </>
+        ) : (
+          <>
+            <h1 className="text-2xl font-black text-white">Join Practice</h1>
+            <p className="text-white/50 text-sm mt-1 text-center">Enter PIN from your teacher</p>
+          </>
+        )}
       </div>
 
-      {/* Form */}
       <div className="flex-1 px-5">
-        <form onSubmit={handleJoin} className="space-y-5">
+        <form onSubmit={handleJoin} className="space-y-4">
 
-          {/* Error */}
           {error && (
-            <div className="flex items-start gap-3 bg-red-500/20 border border-red-400/30 rounded-2xl px-4 py-3">
+            <div className="flex items-start gap-3 rounded-2xl px-4 py-3"
+              style={{ background: 'rgba(239,68,68,0.15)', border: '1px solid rgba(239,68,68,0.3)' }}>
               <AlertCircle className="h-5 w-5 text-red-400 flex-shrink-0 mt-0.5" />
               <p className="text-red-300 text-sm">{error}</p>
             </div>
           )}
 
-          {/* PIN input */}
-          <div>
-            <label className="block text-white/70 text-xs font-semibold mb-2 uppercase tracking-wider">
-              Session PIN
-            </label>
-            <input
-              ref={pinInputRef}
-              type="tel"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              value={pin}
-              onChange={(e) => {
-                setPin(e.target.value.replace(/\D/g, '').slice(0, PIN_LENGTH));
-                setError('');
-              }}
-              placeholder="• • • • • •"
-              maxLength={PIN_LENGTH}
-              required
-              className="w-full text-center text-4xl font-black tracking-[0.5em] py-5 px-4 rounded-2xl border-2 outline-none transition-all"
-              style={{
-                background: 'rgba(255,255,255,0.1)',
-                borderColor: pin.length === PIN_LENGTH ? '#34d399' : 'rgba(255,255,255,0.2)',
-                color: 'white',
-                caretColor: '#34d399',
-              }}
-            />
-            <p className="text-white/40 text-xs text-center mt-2">
-              {pin.length}/{PIN_LENGTH} digits entered
-            </p>
-          </div>
+          {/* PIN input — only shown when NOT coming from direct sessionId link */}
+          {!sessionIdParam && (
+            <div>
+              <label className="block text-white/60 text-xs font-semibold uppercase tracking-wider mb-2">
+                Session PIN
+              </label>
+              <input
+                ref={pinInputRef}
+                type="tel" inputMode="numeric" pattern="[0-9]*"
+                value={pin}
+                onChange={e => { setPin(e.target.value.replace(/\D/g, '').slice(0, PIN_LENGTH)); setError(''); }}
+                placeholder="• • • • • •"
+                maxLength={PIN_LENGTH}
+                className="w-full text-center text-4xl font-black tracking-[0.5em] py-5 px-4 rounded-2xl border-2 outline-none transition-all"
+                style={{
+                  background: 'rgba(255,255,255,0.08)',
+                  borderColor: pin.length === PIN_LENGTH && resolvedSessionId ? '#34d399' : pin.length === PIN_LENGTH ? '#ef4444' : 'rgba(255,255,255,0.15)',
+                  color: 'white', caretColor: '#34d399',
+                }}
+              />
+              {pin.length === PIN_LENGTH && resolvedSessionId && (
+                <p className="text-emerald-400 text-xs text-center mt-2 font-semibold">✓ {session?.title}</p>
+              )}
+            </div>
+          )}
 
-          {/* Name input */}
+          {/* Name */}
           <div>
-            <label className="block text-white/70 text-xs font-semibold mb-2 uppercase tracking-wider">
+            <label className="block text-white/60 text-xs font-semibold uppercase tracking-wider mb-2">
               Your Name
             </label>
             <input
               ref={nameInputRef}
               type="text"
               value={name}
-              onChange={(e) => { setName(e.target.value); setError(''); }}
+              onChange={e => { setName(e.target.value); setError(''); }}
               placeholder="Enter your name"
-              minLength={2}
-              maxLength={50}
-              required
+              minLength={2} maxLength={50}
               className="w-full text-lg font-semibold py-4 px-5 rounded-2xl border-2 outline-none transition-all"
               style={{
-                background: 'rgba(255,255,255,0.1)',
-                borderColor: name.trim().length >= 2 ? '#34d399' : 'rgba(255,255,255,0.2)',
+                background: 'rgba(255,255,255,0.08)',
+                borderColor: name.trim().length >= 2 ? '#34d399' : 'rgba(255,255,255,0.15)',
                 color: 'white',
               }}
             />
-            <p className="text-white/40 text-xs mt-2">
-              Your name will be saved for future attempts on this session
-            </p>
           </div>
 
-          {/* Submit */}
           <button
             type="submit"
             disabled={!canSubmit}
-            className="w-full flex items-center justify-center gap-3 py-5 rounded-2xl text-lg font-black transition-all active:scale-95"
+            className="w-full flex items-center justify-center gap-2 py-5 rounded-2xl text-lg font-black transition-all active:scale-95"
             style={{
-              background: canSubmit
-                ? 'linear-gradient(135deg, #059669, #065f46)'
-                : 'rgba(255,255,255,0.1)',
-              color: canSubmit ? 'white' : 'rgba(255,255,255,0.3)',
+              background: canSubmit ? 'linear-gradient(135deg, #059669, #065f46)' : 'rgba(255,255,255,0.06)',
+              color: canSubmit ? 'white' : 'rgba(255,255,255,0.25)',
               cursor: canSubmit ? 'pointer' : 'not-allowed',
               minHeight: '64px',
             }}
           >
-            {loading ? (
-              <>
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                Joining...
-              </>
-            ) : (
-              <>
-                <Users className="h-5 w-5" />
-                Start Practicing
-                <ChevronRight className="h-5 w-5" />
-              </>
-            )}
+            {submitting
+              ? <><div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Joining...</>
+              : <>Start Practicing <ChevronRight className="h-5 w-5" /></>}
           </button>
         </form>
 
-        {/* Feature hints */}
-        <div className="mt-6 bg-white/5 rounded-2xl px-5 py-4 border border-white/10 space-y-2">
-          <p className="text-white/60 text-xs font-semibold uppercase tracking-wider mb-3">Practice Mode</p>
-          {[
-            'Unlimited attempts — practice as many times as you want',
-            'Self-paced — no time pressure',
-            'Track your improvement on the leaderboard',
-          ].map((f) => (
+        <div className="mt-5 rounded-2xl px-5 py-4 space-y-2" style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+          {['Unlimited attempts — practice as many times as you want', 'Self-paced — no time pressure', 'Track your improvement on the leaderboard'].map(f => (
             <div key={f} className="flex items-start gap-2">
               <span className="text-emerald-400 text-xs mt-0.5">✓</span>
-              <p className="text-white/50 text-xs">{f}</p>
+              <p className="text-white/40 text-xs">{f}</p>
             </div>
           ))}
         </div>

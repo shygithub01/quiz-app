@@ -1,286 +1,422 @@
-// Practice Live Mode Host Control Panel
-// Allows teachers to create practice sessions from templates
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Target, Trophy, Calendar } from 'lucide-react';
-import { getCompetitions } from '@/components/ui/firebase';
-import { createPracticeSession, getActivePracticeSessionForCompetition } from '@/services/practiceService';
+import { Target, Plus, ExternalLink, Trash2, ChevronDown, ChevronUp, Calendar, Infinity } from 'lucide-react';
+import { getCompetitions, auth, realtimeDb } from '@/components/ui/firebase';
+import { ref, get } from 'firebase/database';
+import {
+  createPracticeSession,
+  endPracticeSession,
+  getActivePracticeSessionForCompetition
+} from '@/services/practiceService';
 import { getActiveLiveEventForCompetition } from '@/services/liveEventService';
-import { auth } from '@/components/ui/firebase';
+import { PracticeSession } from '@/types/practiceMode';
+
+const BG = { background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 50%, #0a1628 100%)' };
+const CARD = { background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' };
+
+function getDaysRemaining(endDate: number | null) {
+  if (!endDate) return 'No expiry';
+  const diff = endDate - Date.now();
+  const days = Math.ceil(diff / 86400000);
+  if (days < 0) return 'Expired';
+  if (days === 0) return 'Ends today';
+  if (days === 1) return '1 day left';
+  return `${days} days left`;
+}
+
+function formatDate(ts: number) {
+  return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
 
 export default function PracticeLiveHost() {
   const navigate = useNavigate();
-  
-  // State
+
+  // Create form
   const [competitions, setCompetitions] = useState<any[]>([]);
-  const [selectedCompetition, setSelectedCompetition] = useState<string>('');
-  const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
-  
-  // Session settings
-  const [sessionDuration, setSessionDuration] = useState<'week' | 'month' | 'semester' | 'custom'>('month');
+  const [selectedCompetition, setSelectedCompetition] = useState('');
+  const [endType, setEndType] = useState<'none' | 'date'>('none');
   const [customEndDate, setCustomEndDate] = useState('');
-  
-  // Load competitions on mount
+  const [startType, setStartType] = useState<'now' | 'date'>('now');
+  const [customStartDate, setCustomStartDate] = useState('');
+  const [showCreate, setShowCreate] = useState(false);
+  const [creating, setCreating] = useState(false);
+
+  // Sessions list
+  const [sessions, setSessions] = useState<PracticeSession[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [endingSession, setEndingSession] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkEnding, setBulkEnding] = useState(false);
+
   useEffect(() => {
-    loadCompetitions();
+    loadData();
   }, []);
-  
-  const loadCompetitions = async () => {
+
+  const loadData = async () => {
     try {
       setLoading(true);
-      const allCompetitions = await getCompetitions();
-      setCompetitions(allCompetitions);
-    } catch (error) {
-      console.error('Error loading competitions:', error);
-      alert('Failed to load competitions');
+      const userId = auth.currentUser?.uid;
+      if (!userId) return;
+
+      const [allComps, snap] = await Promise.all([
+        getCompetitions(),
+        get(ref(realtimeDb, 'practiceSessions'))
+      ]);
+
+      setCompetitions(allComps);
+
+      if (snap.exists()) {
+        const active = Object.entries(snap.val())
+          .map(([id, d]: [string, any]) => ({ id, ...d } as PracticeSession))
+          .filter(s => s.createdBy === userId && s.status === 'active')
+          .sort((a, b) => b.createdAt - a.createdAt);
+        setSessions(active);
+      } else {
+        setSessions([]);
+      }
+    } catch (err) {
+      console.error('Error loading data:', err);
     } finally {
       setLoading(false);
     }
   };
-  
-  const handleCreateSession = async () => {
-    if (!selectedCompetition) {
-      alert('Please select a template');
-      return;
-    }
-    
+
+  const handleCreate = async () => {
+    if (!selectedCompetition) { alert('Please select a question bank'); return; }
+
+    const competition = competitions.find(c => c.id === selectedCompetition);
+    if (!competition) return;
+
     try {
       setCreating(true);
-      
-      const competition = competitions.find(c => c.id === selectedCompetition);
-      if (!competition) {
-        throw new Error('Competition not found');
-      }
 
       const activeLive = await getActiveLiveEventForCompetition(selectedCompetition);
       if (activeLive) {
-        alert(`⚠️ "${competition.title}" already has an active Live Event (PIN: ${activeLive.pin}).\n\nEnd the live event first before starting a practice session for this question bank.`);
+        alert(`⚠️ "${competition.title}" already has an active Live Event (PIN: ${activeLive.pin}).\n\nEnd the live event first.`);
         return;
       }
 
       const existingPractice = await getActivePracticeSessionForCompetition(selectedCompetition);
       if (existingPractice) {
-        alert(`⚠️ "${competition.title}" already has an active Practice session (PIN: ${existingPractice.pin}).\n\nEnd the existing practice session before creating a new one for this question bank.`);
+        alert(`⚠️ "${competition.title}" already has an active Practice session (PIN: ${existingPractice.pin}).\n\nEnd the existing session first.`);
         return;
       }
 
-      // Calculate end date based on session duration
-      let calculatedEndDate = Date.now();
-      if (sessionDuration === 'week') {
-        calculatedEndDate += 7 * 24 * 60 * 60 * 1000;
-      } else if (sessionDuration === 'month') {
-        calculatedEndDate += 30 * 24 * 60 * 60 * 1000;
-      } else if (sessionDuration === 'semester') {
-        calculatedEndDate += 120 * 24 * 60 * 60 * 1000; // ~4 months
-      } else if (sessionDuration === 'custom' && customEndDate) {
-        calculatedEndDate = new Date(customEndDate).getTime();
-      }
-      
-      // Get settings from competition template
+      const endDate = endType === 'date' && customEndDate
+        ? new Date(customEndDate).getTime()
+        : null;
+
+      const startDate = startType === 'date' && customStartDate
+        ? new Date(customStartDate).getTime()
+        : undefined;
+
       const settings = competition.practiceLiveSettings || {
         showLeaderboard: true,
         showExplanations: true,
         maxQuestions: 20
       };
-      
+
       const { sessionId, pin } = await createPracticeSession(
         competition.id,
         competition.title,
         competition.description || '',
         settings,
         auth.currentUser?.uid || '',
-        calculatedEndDate
+        endDate,
+        startDate
       );
-      
-      alert(`✅ Practice Session Created!\n\nPIN: ${pin}\n\nShare this PIN with students or show the QR code.`);
-      
-      // Redirect to teacher dashboard
+
+      setShowCreate(false);
+      setSelectedCompetition('');
+      setEndType('none');
+      setStartType('now');
+      setCustomEndDate('');
+      setCustomStartDate('');
+
+      await loadData();
+      alert(`✅ Practice Session Created!\n\nPIN: ${pin}\n\nStudents can find and join from the home page, or enter the PIN directly.`);
       navigate(`/admin/practice/dashboard/${sessionId}`);
-    } catch (error: any) {
-      console.error('Error creating session:', error);
-      
-      // Check if it's the session limit error
-      if (error.message.includes('Maximum of 5 active sessions')) {
-        const goToManager = confirm(
-          '⚠️ Session Limit Reached\n\n' +
-          'You have 5 active practice sessions (maximum allowed).\n\n' +
-          'Would you like to go to the Session Manager to end an existing session?\n\n' +
-          'Click OK to manage sessions, or Cancel to stay here.'
-        );
-        
-        if (goToManager) {
-          navigate('/admin/practice/manage');
-        }
+    } catch (err: any) {
+      if (err.message?.includes('Maximum of 5')) {
+        alert('⚠️ You have 5 active sessions (maximum). End one before creating a new one.');
       } else {
-        alert(`Failed to create session: ${error.message}`);
+        alert(`Failed to create session: ${err.message}`);
       }
     } finally {
       setCreating(false);
     }
   };
-  
+
+  const handleEnd = async (sessionId: string, title: string) => {
+    if (!confirm(`End "${title}"?\n\nThis will stop accepting new participants and free up a session slot.`)) return;
+    try {
+      setEndingSession(sessionId);
+      await endPracticeSession(sessionId);
+      setSelected(prev => { const n = new Set(prev); n.delete(sessionId); return n; });
+      await loadData();
+    } catch (err: any) {
+      alert(`Failed to end session: ${err.message}`);
+    } finally {
+      setEndingSession(null);
+    }
+  };
+
+  const handleBulkEnd = async () => {
+    if (selected.size === 0) return;
+    if (!confirm(`End ${selected.size} selected session${selected.size > 1 ? 's' : ''}?\n\nThis cannot be undone.`)) return;
+    try {
+      setBulkEnding(true);
+      await Promise.all([...selected].map(id => endPracticeSession(id)));
+      setSelected(new Set());
+      await loadData();
+    } catch (err: any) {
+      alert(`Failed to end sessions: ${err.message}`);
+    } finally {
+      setBulkEnding(false);
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelected(prev => {
+      const n = new Set(prev);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    setSelected(selected.size === sessions.length ? new Set() : new Set(sessions.map(s => s.id)));
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 50%, #0a1628 100%)' }}>
-        <div className="text-center">
-          <Target className="h-12 w-12 text-purple-400 animate-spin mx-auto mb-4" />
-          <p className="text-white/50">Loading templates...</p>
+      <div className="min-h-screen flex items-center justify-center" style={BG}>
+        <div className="text-center text-white">
+          <div className="w-12 h-12 border-4 border-white/20 border-t-purple-400 rounded-full animate-spin mx-auto mb-4" />
+          <p className="text-white/50">Loading...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen p-4 md:p-6" style={{ background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 50%, #0a1628 100%)' }}>
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="min-h-screen p-4 md:p-6" style={BG}>
+      <div className="max-w-4xl mx-auto space-y-5">
+
         {/* Header */}
-        <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-5 md:p-6 rounded-xl shadow-xl">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl md:text-4xl font-bold flex items-center gap-3">
-                <Target className="h-7 w-7 md:h-10 md:w-10 flex-shrink-0" />
-                Practice Live Mode Host
-              </h1>
-              <p className="text-purple-100 mt-1 text-sm md:text-lg">
-                Create practice sessions from your templates
-              </p>
-            </div>
-            <div className="flex gap-2 flex-shrink-0">
-              <Button
-                variant="outline"
-                onClick={() => navigate('/admin/practice/manage')}
-                className="bg-white text-purple-600 hover:bg-purple-50 border-0 font-semibold text-sm"
-              >
-                Manage Sessions
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => navigate('/admin/competitions')}
-                className="bg-white text-purple-600 hover:bg-purple-50 border-0 font-semibold text-sm"
-              >
-                ← Back
-              </Button>
-            </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-black text-white flex items-center gap-2">
+              <Target className="h-6 w-6 text-emerald-400" />
+              Practice Sessions
+            </h1>
+            <p className="text-white/40 text-sm mt-0.5">{sessions.length}/5 active</p>
           </div>
+          <button
+            onClick={() => setShowCreate(v => !v)}
+            disabled={sessions.length >= 5}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-sm transition-all active:scale-95 disabled:opacity-40"
+            style={{ background: 'linear-gradient(135deg, #059669, #065f46)', color: 'white' }}
+          >
+            <Plus className="h-4 w-4" />
+            New Session
+            {showCreate ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          </button>
         </div>
-        
-        {/* Create Session Card */}
-        <Card style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)' }}>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-white">
-              <Trophy className="h-5 w-5 text-yellow-400" />
-              Create New Practice Session
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {competitions.length === 0 ? (
-              <div className="text-center py-8">
-                <Target className="h-12 w-12 text-white/30 mx-auto mb-4" />
-                <p className="text-white/60 mb-4">
-                  No Practice Live Mode templates found.
-                </p>
-                <p className="text-sm text-white/40 mb-4">
-                  Create a competition with "Practice Live Mode" type first.
-                </p>
-                <Button onClick={() => navigate('/admin/create-competition')}>
-                  Create Template
-                </Button>
+
+        {/* Create form (collapsible) */}
+        {showCreate && (
+          <div className="rounded-2xl p-5 space-y-4" style={CARD}>
+            <h2 className="text-white font-bold text-lg">Create Practice Session</h2>
+
+            {/* Question bank picker */}
+            <div>
+              <label className="text-white/60 text-xs font-semibold uppercase tracking-wider block mb-2">
+                Question Bank
+              </label>
+              <select
+                value={selectedCompetition}
+                onChange={e => setSelectedCompetition(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl text-white font-semibold"
+                style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}
+              >
+                <option value="" style={{ background: '#1e0a3c' }}>— Select a question bank —</option>
+                {competitions.map(c => (
+                  <option key={c.id} value={c.id} style={{ background: '#1e0a3c' }}>
+                    {c.title} ({c.questionCount || 0} questions)
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Start */}
+            <div>
+              <label className="text-white/60 text-xs font-semibold uppercase tracking-wider block mb-2">
+                Start
+              </label>
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                {(['now', 'date'] as const).map(t => (
+                  <button key={t} type="button"
+                    onClick={() => setStartType(t)}
+                    className="py-2 rounded-xl text-sm font-bold transition-all"
+                    style={{
+                      background: startType === t ? 'rgba(167,139,250,0.2)' : 'rgba(255,255,255,0.05)',
+                      border: startType === t ? '1px solid rgba(167,139,250,0.5)' : '1px solid rgba(255,255,255,0.1)',
+                      color: startType === t ? '#c4b5fd' : 'rgba(255,255,255,0.4)',
+                    }}>
+                    {t === 'now' ? 'Start Now' : 'Scheduled Date'}
+                  </button>
+                ))}
               </div>
-            ) : (
-              <>
-                <div>
-                  <label className="block text-sm font-medium text-white/70 mb-2">
-                    Select Template
-                  </label>
-                  <select
-                    value={selectedCompetition}
-                    onChange={(e) => setSelectedCompetition(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg text-white"
-                    style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}
-                  >
-                    <option value="" style={{ background: '#1e0a3c' }}>-- Select a template --</option>
-                    {competitions.map((comp) => (
-                      <option key={comp.id} value={comp.id} style={{ background: '#1e0a3c' }}>
-                        {comp.title} ({comp.questionCount} questions)
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              {startType === 'date' && (
+                <input type="datetime-local" value={customStartDate}
+                  onChange={e => setCustomStartDate(e.target.value)}
+                  className="w-full px-4 py-2 rounded-xl text-white text-sm"
+                  style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }} />
+              )}
+            </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-white/70 mb-2 flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
-                    Session Duration
-                  </label>
-                  <select
-                    value={sessionDuration}
-                    onChange={(e) => setSessionDuration(e.target.value as any)}
-                    className="w-full px-3 py-2 rounded-lg text-white"
-                    style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}
-                  >
-                    <option value="week" style={{ background: '#1e0a3c' }}>1 Week</option>
-                    <option value="month" style={{ background: '#1e0a3c' }}>1 Month</option>
-                    <option value="semester" style={{ background: '#1e0a3c' }}>1 Semester (~4 months)</option>
-                    <option value="custom" style={{ background: '#1e0a3c' }}>Custom</option>
-                  </select>
-                </div>
+            {/* End */}
+            <div>
+              <label className="text-white/60 text-xs font-semibold uppercase tracking-wider block mb-2">
+                End / Expiry
+              </label>
+              <div className="grid grid-cols-2 gap-2 mb-2">
+                {(['none', 'date'] as const).map(t => (
+                  <button key={t} type="button"
+                    onClick={() => setEndType(t)}
+                    className="py-2 rounded-xl text-sm font-bold transition-all flex items-center justify-center gap-1.5"
+                    style={{
+                      background: endType === t ? 'rgba(52,211,153,0.15)' : 'rgba(255,255,255,0.05)',
+                      border: endType === t ? '1px solid rgba(52,211,153,0.4)' : '1px solid rgba(255,255,255,0.1)',
+                      color: endType === t ? '#6ee7b7' : 'rgba(255,255,255,0.4)',
+                    }}>
+                    {t === 'none' ? <><Infinity className="h-3.5 w-3.5" /> No Expiry</> : <><Calendar className="h-3.5 w-3.5" /> Set End Date</>}
+                  </button>
+                ))}
+              </div>
+              {endType === 'date' && (
+                <input type="datetime-local" value={customEndDate}
+                  onChange={e => setCustomEndDate(e.target.value)}
+                  className="w-full px-4 py-2 rounded-xl text-white text-sm"
+                  style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }} />
+              )}
+            </div>
 
-                {sessionDuration === 'custom' && (
-                  <div>
-                    <label className="block text-sm font-medium text-white/70 mb-2">
-                      Custom End Date
-                    </label>
-                    <input
-                      type="date"
-                      value={customEndDate}
-                      onChange={(e) => setCustomEndDate(e.target.value)}
-                      className="w-full px-3 py-2 rounded-lg text-white"
-                      style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}
-                      min={new Date().toISOString().split('T')[0]}
-                    />
+            {/* Create button */}
+            <button
+              onClick={handleCreate}
+              disabled={creating || !selectedCompetition}
+              className="w-full py-4 rounded-xl font-black text-white text-base transition-all active:scale-95 disabled:opacity-40"
+              style={{ background: 'linear-gradient(135deg, #059669, #065f46)' }}
+            >
+              {creating
+                ? <><span className="inline-block w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin mr-2 align-middle" />Creating...</>
+                : '+ Create Session'}
+            </button>
+          </div>
+        )}
+
+        {/* Active sessions */}
+        {sessions.length === 0 ? (
+          <div className="rounded-2xl p-10 text-center" style={CARD}>
+            <Target className="h-12 w-12 text-white/20 mx-auto mb-3" />
+            <p className="text-white/50 font-semibold">No active practice sessions</p>
+            <p className="text-white/30 text-sm mt-1">Create one to let students practice any time</p>
+          </div>
+        ) : (
+          <>
+            {/* Bulk action bar */}
+            <div className="flex items-center gap-3">
+              <button
+                onClick={toggleSelectAll}
+                className="flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-lg transition-all"
+                style={{ background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.5)', border: '1px solid rgba(255,255,255,0.1)' }}
+              >
+                <span className="w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0"
+                  style={{ borderColor: selected.size === sessions.length ? '#a78bfa' : 'rgba(255,255,255,0.3)', background: selected.size === sessions.length ? 'rgba(167,139,250,0.3)' : 'transparent' }}>
+                  {selected.size === sessions.length && <span className="text-purple-300 text-[10px] font-black">✓</span>}
+                </span>
+                {selected.size === sessions.length ? 'Deselect All' : 'Select All'}
+              </button>
+
+              {selected.size > 0 && (
+                <button
+                  onClick={handleBulkEnd}
+                  disabled={bulkEnding}
+                  className="flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-lg transition-all active:scale-95 disabled:opacity-50"
+                  style={{ background: 'rgba(239,68,68,0.2)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.4)' }}
+                >
+                  {bulkEnding
+                    ? <span className="inline-block w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    : <Trash2 className="h-3.5 w-3.5" />}
+                  End {selected.size} selected
+                </button>
+              )}
+              <span className="ml-auto text-white/25 text-xs">{5 - sessions.length} slot{5 - sessions.length !== 1 ? 's' : ''} free</span>
+            </div>
+
+            <div className="space-y-2">
+              {sessions.map(session => {
+                const comp = competitions.find(c => c.id === session.competitionId);
+                const isSelected = selected.has(session.id);
+                const expiry = getDaysRemaining(session.endDate);
+                const isExpired = expiry === 'Expired';
+                return (
+                  <div key={session.id} className="rounded-2xl p-4 transition-all"
+                    style={{ ...CARD, borderColor: isSelected ? 'rgba(167,139,250,0.5)' : isExpired ? 'rgba(239,68,68,0.25)' : 'rgba(255,255,255,0.1)', background: isSelected ? 'rgba(167,139,250,0.08)' : 'rgba(255,255,255,0.05)' }}>
+                    <div className="flex items-start gap-3 mb-3">
+                      {/* Checkbox */}
+                      <button onClick={() => toggleSelect(session.id)}
+                        className="w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 mt-0.5 transition-all"
+                        style={{ borderColor: isSelected ? '#a78bfa' : 'rgba(255,255,255,0.25)', background: isSelected ? 'rgba(167,139,250,0.3)' : 'transparent' }}>
+                        {isSelected && <span className="text-purple-300 text-xs font-black">✓</span>}
+                      </button>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-white font-bold text-sm truncate">{session.title}</h3>
+                          {isExpired && <span className="text-xs font-bold px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: 'rgba(239,68,68,0.2)', color: '#fca5a5' }}>Expired</span>}
+                        </div>
+                        <p className="text-white/40 text-xs mt-0.5">{comp?.questionCount || 0} questions · {formatDate(session.createdAt)}</p>
+                      </div>
+
+                      <div className="flex gap-1.5 flex-shrink-0">
+                        <button onClick={() => navigate(`/admin/practice/dashboard/${session.id}`)}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95"
+                          style={{ background: 'rgba(99,102,241,0.2)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.3)' }}>
+                          <ExternalLink className="h-3 w-3" />
+                        </button>
+                        <button onClick={() => handleEnd(session.id, session.title)} disabled={endingSession === session.id}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95 disabled:opacity-40"
+                          style={{ background: 'rgba(239,68,68,0.15)', color: '#fca5a5', border: '1px solid rgba(239,68,68,0.3)' }}>
+                          {endingSession === session.id
+                            ? <span className="inline-block w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                            : <Trash2 className="h-3 w-3" />}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="rounded-xl p-2.5 text-center" style={{ background: 'rgba(167,139,250,0.1)' }}>
+                        <p className="text-purple-300 font-black text-base tracking-wider">{session.pin}</p>
+                        <p className="text-white/30 text-xs">PIN</p>
+                      </div>
+                      <div className="rounded-xl p-2.5 text-center" style={{ background: 'rgba(52,211,153,0.08)' }}>
+                        <p className="text-white font-bold text-base">{session.statistics?.totalStudents || 0}</p>
+                        <p className="text-white/30 text-xs">Students</p>
+                      </div>
+                      <div className="rounded-xl p-2.5 text-center" style={{ background: isExpired ? 'rgba(239,68,68,0.08)' : 'rgba(251,191,36,0.08)' }}>
+                        <p className={`font-bold text-sm ${isExpired ? 'text-red-400' : 'text-yellow-300'}`}>{expiry}</p>
+                        <p className="text-white/30 text-xs">Expiry</p>
+                      </div>
+                    </div>
                   </div>
-                )}
-                
-                <div className="pt-4 border-t">
-                  <Button
-                    onClick={handleCreateSession}
-                    disabled={!selectedCompetition || creating || (sessionDuration === 'custom' && !customEndDate)}
-                    className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-lg py-6"
-                  >
-                    {creating ? (
-                      <>
-                        <Target className="h-6 w-6 mr-2 animate-spin" />
-                        Creating Session...
-                      </>
-                    ) : (
-                      <>
-                        <Target className="h-6 w-6 mr-2" />
-                        Create Practice Session
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </>
-            )}
-          </CardContent>
-        </Card>
-        
-        {/* Info Card */}
-        <div className="rounded-2xl p-5" style={{ background: 'rgba(124,58,237,0.12)', border: '1.5px solid rgba(124,58,237,0.3)' }}>
-          <h3 className="font-bold text-purple-300 mb-2">How Practice Live Mode Works</h3>
-          <ul className="text-sm text-purple-200/70 space-y-1">
-            <li>• Select a template you created earlier</li>
-            <li>• Choose how long the session should last</li>
-            <li>• Students join using PIN or QR code (no sign-in required)</li>
-            <li>• Students can attempt the quiz multiple times</li>
-            <li>• Same questions on each retry for improvement tracking</li>
-            <li>• Monitor progress in real-time on the dashboard</li>
-          </ul>
-        </div>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

@@ -205,15 +205,8 @@ export default function LiveEventParticipant() {
   // Created on mount so it exists when the user taps the unlock overlay.
   const participantAudioRef = useRef<HTMLAudioElement | null>(null);
   const lastTickedSecondRef = useRef<number>(-1);
-  // Shared AudioContext for timer ticks — created once, reused every tick.
-  const tickAudioCtxRef = useRef<AudioContext | null>(null);
-
   useEffect(() => {
     participantAudioRef.current = new Audio();
-    // Pre-create AudioContext on mount; it starts suspended on iOS until user gesture.
-    try {
-      tickAudioCtxRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-    } catch (_) {}
   }, []);
 
   // iOS Safari requires audio.play() to be called directly from a user gesture
@@ -224,8 +217,6 @@ export default function LiveEventParticipant() {
     if (!el) return;
     el.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
     el.play().then(() => { el.pause(); setAudioUnlocked(true); }).catch(() => setAudioUnlocked(true));
-    // Also resume the shared AudioContext so tick sounds work on iOS
-    tickAudioCtxRef.current?.resume().catch(() => {});
   };
 
   // Play audio on participant device in Remote mode — reuses the unlocked element
@@ -484,25 +475,6 @@ export default function LiveEventParticipant() {
     return () => clearInterval(interval);
   }, [event?.phase]);
 
-  const playTimerTick = (isFinal: boolean) => {
-    try {
-      const ctx = tickAudioCtxRef.current;
-      if (!ctx) return;
-      // iOS suspends AudioContext until user gesture; resume in case it was suspended
-      if (ctx.state === 'suspended') { ctx.resume().catch(() => {}); return; }
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.frequency.value = isFinal ? 880 : 660;
-      osc.type = 'sine';
-      gain.gain.setValueAtTime(0.35, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + (isFinal ? 0.25 : 0.12));
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + (isFinal ? 0.25 : 0.12));
-    } catch (_) {}
-  };
-
   // Timer countdown
   useEffect(() => {
     if (!event || event.phase !== 'question' || !event.timerStartedAt) {
@@ -519,7 +491,7 @@ export default function LiveEventParticipant() {
 
       if (ceiled <= 5 && ceiled > 0 && ceiled !== lastTickedSecondRef.current) {
         lastTickedSecondRef.current = ceiled;
-        playTimerTick(ceiled === 1);
+        // No audio on participant screen — multiple devices in same room would clash
       }
     };
 
@@ -663,8 +635,6 @@ export default function LiveEventParticipant() {
 
   const handleAnswerSelect = async (answer: string) => {
     if (!event || !eventId || !sessionId || hasAnswered || remainingTime === 0) return;
-    // Resume shared AudioContext on first tap (covers inPerson mode with no unlock overlay)
-    tickAudioCtxRef.current?.resume().catch(() => {});
     setSelectedAnswer(answer);
 
     try {

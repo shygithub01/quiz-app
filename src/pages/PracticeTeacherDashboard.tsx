@@ -269,7 +269,7 @@ export default function PracticeTeacherDashboard() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-white/50">Ends</span>
-                  <span className="text-sm text-white">{new Date(session.endDate).toLocaleDateString()}</span>
+                  <span className="text-sm text-white">{session.endDate ? new Date(session.endDate).toLocaleDateString() : 'No expiry'}</span>
                 </div>
               </div>
 
