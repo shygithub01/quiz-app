@@ -9,7 +9,8 @@ export interface PracticeSession {
   description: string;
   createdBy: string;
   createdAt: number;
-  endDate: number;
+  startDate?: number;     // if set and in future, session hidden from discovery
+  endDate: number | null; // null = no expiry
   settings: PracticeSettings;
   statistics: SessionStatistics;
 }

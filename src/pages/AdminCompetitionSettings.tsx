@@ -21,7 +21,8 @@ import {
   ChevronDown,
   ChevronUp,
   Trash2,
-  Users
+  Users,
+  Download
 } from 'lucide-react';
 
 const BG_STYLE = { background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 50%, #0a1628 100%)' };
@@ -42,6 +43,7 @@ export default function AdminCompetitionSettings() {
   const [liveArchives, setLiveArchives] = useState<any[]>([]);
   const [archivesLoading, setArchivesLoading] = useState(false);
   const [expandedArchive, setExpandedArchive] = useState<string | null>(null);
+  const [maskedArchives, setMaskedArchives] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     checkAdminAndLoad();
@@ -177,6 +179,63 @@ export default function AdminCompetitionSettings() {
     } catch { /* silent */ } finally {
       setArchivesLoading(false);
     }
+  };
+
+  const handleDownloadArchive = (archive: any) => {
+    const startedAt = archive.startedAt?.toDate ? archive.startedAt.toDate() : new Date(archive.startedAt);
+    const dateStr = startedAt.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    const timeStr = startedAt.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZoneName: 'short' });
+    const sorted = [...(archive.results || [])].sort((a: any, b: any) => a.rank - b.rank);
+
+    const rankIcon = (r: number) => r === 1 ? '🥇' : r === 2 ? '🥈' : r === 3 ? '🥉' : `#${r} `;
+    const pad = (s: string, n: number) => s.length >= n ? s.slice(0, n) : s + ' '.repeat(n - s.length);
+
+    const rows = sorted.map((p: any) => {
+      const correct = p.correctAnswers ?? Object.values(p.answers || {}).filter((a: any) => a.correct).length;
+      const t = p.totalTime ?? Object.values(p.answers || {}).reduce((sum: number, a: any) => sum + (a.timeToAnswer || 0), 0);
+      const elapsed = t > 0 ? `${t.toFixed(1)}s` : '—';
+      return `${pad(rankIcon(p.rank), 5)}  ${pad(p.name ?? '?', 18)}  ${pad(String(p.score), 7)}  ${pad(`${correct}/${archive.totalQuestions || '?'}`, 7)}  ${elapsed}`;
+    });
+
+    const W = 54;
+    const eq = '═'.repeat(W);
+    const divider = '─'.repeat(W);
+
+    const top3 = sorted.slice(0, 3);
+    const podiumIcons = ['🥇', '🥈', '🥉'];
+    const podiumLines = top3.map((p: any) => {
+      const correct = p.correctAnswers ?? Object.values(p.answers || {}).filter((a: any) => a.correct).length;
+      return `${podiumIcons[p.rank - 1]}  ${pad(p.name ?? '?', 16)}  ${String(p.score).padStart(5)} pts  (${correct}/${archive.totalQuestions || '?'})`;
+    });
+
+    const lines = [
+      `🏆 ${archive.competitionTitle}`,
+      eq,
+      `📅 ${dateStr} · ${timeStr}`,
+      `👥 ${archive.participantCount} Participants · ${archive.totalQuestions || '?'} Questions · PIN: ${archive.pin}`,
+      '',
+      '        ✨ WINNERS ✨',
+      ...podiumLines,
+      '',
+      eq,
+      '   FULL LEADERBOARD',
+      divider,
+      `${'RANK '}  ${'NAME'.padEnd(18)}  ${'SCORE'.padEnd(7)}  ${'CORRECT'.padEnd(7)}  TIME`,
+      divider,
+      ...rows,
+      divider,
+      '',
+      '📱 Powered by Quizist.AI · quizist.ai',
+    ];
+
+    const text = lines.join('\n');
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${archive.competitionTitle.replace(/[^a-z0-9]/gi, '_')}_results.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const handleDeleteArchive = async (archiveId: string, title: string) => {
@@ -506,11 +565,31 @@ export default function AdminCompetitionSettings() {
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
                           <button
+                            onClick={() => setMaskedArchives(prev => {
+                              const next = new Set(prev);
+                              next.has(archive.id) ? next.delete(archive.id) : next.add(archive.id);
+                              return next;
+                            })}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                            style={maskedArchives.has(archive.id)
+                              ? { background: 'rgba(251,191,36,0.2)', color: '#fbbf24' }
+                              : { background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.4)' }}>
+                            {maskedArchives.has(archive.id) ? '👁️ Unmask' : '🙈 Mask Names'}
+                          </button>
+                          <button
                             onClick={() => setExpandedArchive(isExpanded ? null : archive.id)}
                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
                             style={{ background: 'rgba(167,139,250,0.15)', color: '#c4b5fd' }}>
                             {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                             {isExpanded ? 'Hide' : 'View'}
+                          </button>
+                          <button
+                            onClick={() => handleDownloadArchive(archive)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                            style={{ background: 'rgba(34,197,94,0.12)', color: '#86efac' }}
+                            title="Download results as text file">
+                            <Download className="h-3.5 w-3.5" />
+                            Download
                           </button>
                           <button
                             onClick={() => handleDeleteArchive(archive.id, archive.competitionTitle)}
@@ -545,7 +624,11 @@ export default function AdminCompetitionSettings() {
                                     <td className="px-5 py-3 font-bold text-white/80">
                                       {p.rank === 1 ? '🥇' : p.rank === 2 ? '🥈' : p.rank === 3 ? '🥉' : `#${p.rank}`}
                                     </td>
-                                    <td className="px-3 py-3 text-white font-medium">{p.name}</td>
+                                    <td className="px-3 py-3 text-white font-medium">
+                                      {maskedArchives.has(archive.id)
+                                        ? `${p.name?.[0] ?? '?'}${'*'.repeat(Math.max(1, (p.name?.length ?? 2) - 1))}`
+                                        : p.name}
+                                    </td>
                                     <td className="px-3 py-3 text-right text-purple-300 font-bold">{p.score}</td>
                                     <td className="px-3 py-3 text-right text-white/60">
                                       {p.correctAnswers ?? Object.values(p.answers || {}).filter((a: any) => a.correct).length}

@@ -78,6 +78,9 @@ export default function Home() {
   const [featuredCompetition, setFeaturedCompetition] = useState<FeaturedCompetition | null>(null);
   const [practicePin, setPracticePin] = useState('');
   const [activeTab, setActiveTab] = useState<'live' | 'practice'>('live');
+  const [practiceSessions, setPracticeSessions] = useState<any[]>([]);
+  const [practiceLoaded, setPracticeLoaded] = useState(false);
+  const [showPracticePin, setShowPracticePin] = useState(false);
 
   // Live event detection
   const [liveEvent, setLiveEvent] = useState<any>(null);
@@ -85,6 +88,7 @@ export default function Home() {
   const [liveName, setLiveName] = useState('');
   const [liveLoading, setLiveLoading] = useState(false);
   const [liveError, setLiveError] = useState('');
+  const [liveParticipantCount, setLiveParticipantCount] = useState(0);
 
   useEffect(() => {
     loadFeaturedCompetition();
@@ -94,11 +98,18 @@ export default function Home() {
 
     const checkLiveEvent = async () => {
       try {
-        const { getActiveEvent } = await import('@/services/liveEventService');
+        const { getActiveEvent, getActiveParticipantCount } = await import('@/services/liveEventService');
         const active = await getActiveEvent();
         setLiveEvent(active);
+        if (active?.id) {
+          const count = await getActiveParticipantCount(active.id);
+          setLiveParticipantCount(count);
+        } else {
+          setLiveParticipantCount(0);
+        }
       } catch {
         setLiveEvent(null);
+        setLiveParticipantCount(0);
       } finally {
         setLiveCheckDone(true);
       }
@@ -107,7 +118,21 @@ export default function Home() {
     checkLiveEvent();
     intervalId = setInterval(() => { if (!stopped) checkLiveEvent(); }, 5000);
 
-    return () => { stopped = true; clearInterval(intervalId); };
+    const loadPracticeSessions = async () => {
+      try {
+        const { getActivePracticeSessions } = await import('@/services/practiceService');
+        const sessions = await getActivePracticeSessions();
+        setPracticeSessions(sessions);
+      } catch {
+        setPracticeSessions([]);
+      } finally {
+        setPracticeLoaded(true);
+      }
+    };
+    loadPracticeSessions();
+    const practiceInterval = setInterval(() => { if (!stopped) loadPracticeSessions(); }, 30000);
+
+    return () => { stopped = true; clearInterval(intervalId); clearInterval(practiceInterval); };
   }, []);
 
   const loadFeaturedCompetition = async () => {
@@ -247,10 +272,15 @@ export default function Home() {
               </div>
             ) : liveEvent && liveEvent.phase === 'lobby' ? (
               <form onSubmit={handleJoinLiveEvent} className="space-y-3">
-                <div className="flex items-center gap-2 rounded-xl px-3 py-2"
+                <div className="flex items-center justify-between rounded-xl px-3 py-2"
                   style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.3)' }}>
-                  <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse flex-shrink-0" />
-                  <p className="text-green-300 text-xs font-semibold">Live event in progress</p>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse flex-shrink-0" />
+                    <p className="text-green-300 text-xs font-semibold">Live event — lobby open</p>
+                  </div>
+                  {liveParticipantCount > 0 && (
+                    <span className="text-green-300 text-xs font-bold">{liveParticipantCount} joined</span>
+                  )}
                 </div>
                 <PinBoxes value={liveEvent.pin} readOnly accentColor="#a78bfa" />
                 <input
@@ -286,10 +316,15 @@ export default function Home() {
               </form>
             ) : liveEvent ? (
               <div className="space-y-3">
-                <div className="rounded-xl px-4 py-3 text-center"
+                <div className="flex items-center justify-between rounded-xl px-4 py-3"
                   style={{ background: 'rgba(234,179,8,0.1)', border: '1px solid rgba(234,179,8,0.25)' }}>
-                  <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse inline-block mr-2 align-middle" />
-                  <p className="text-yellow-300 text-sm font-semibold inline">Event in progress — late join available</p>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse flex-shrink-0" />
+                    <p className="text-yellow-300 text-sm font-semibold">Event in progress — late join available</p>
+                  </div>
+                  {liveParticipantCount > 0 && (
+                    <span className="text-yellow-300 text-xs font-bold">{liveParticipantCount} active</span>
+                  )}
                 </div>
                 <PinBoxes value={liveEvent.pin} readOnly accentColor="#a78bfa" />
                 <button
@@ -323,24 +358,87 @@ export default function Home() {
 
           {/* ── PRACTICE TAB ── */}
           {activeTab === 'practice' && (
-            <form onSubmit={handleJoinPractice} className="space-y-3">
-              <PinBoxes value={practicePin} onChange={v => setPracticePin(v)} accentColor="#34d399" />
-              <button
-                type="submit"
-                disabled={practicePin.length !== 6}
-                className="w-full py-5 rounded-2xl font-black text-xl transition-all active:scale-95"
-                style={{
-                  background: practicePin.length === 6 ? 'linear-gradient(135deg, #059669, #065f46)' : 'rgba(255,255,255,0.08)',
-                  color: practicePin.length === 6 ? 'white' : 'rgba(255,255,255,0.3)',
-                  cursor: practicePin.length !== 6 ? 'not-allowed' : 'pointer',
-                }}>
-                Enter! <ChevronRight className="inline h-6 w-6" />
-              </button>
-            </form>
+            <div className="space-y-3">
+              {!practiceLoaded ? (
+                <div className="flex flex-col items-center py-6 gap-2">
+                  <div className="w-6 h-6 border-2 border-white/20 border-t-emerald-400 rounded-full animate-spin" />
+                  <p className="text-white/40 text-sm">Finding practice sessions...</p>
+                </div>
+              ) : practiceSessions.length > 0 ? (
+                <>
+                  <div className="flex items-center gap-2 rounded-xl px-3 py-2"
+                    style={{ background: 'rgba(52,211,153,0.1)', border: '1px solid rgba(52,211,153,0.25)' }}>
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse flex-shrink-0" />
+                    <p className="text-emerald-300 text-xs font-semibold">{practiceSessions.length} practice session{practiceSessions.length > 1 ? 's' : ''} open</p>
+                  </div>
+                  <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {practiceSessions.map(session => (
+                    <button
+                      key={session.id}
+                      onClick={() => navigate(`/practice/join?sessionId=${session.id}`)}
+                      className="w-full flex items-center justify-between px-4 py-3 rounded-2xl text-left transition-all active:scale-[0.98]"
+                      style={{ background: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.12)' }}
+                    >
+                      <div className="min-w-0">
+                        <p className="text-white font-bold text-sm truncate">{session.title}</p>
+                        <p className="text-white/40 text-xs mt-0.5">
+                          {session.statistics?.totalStudents || 0} practicing · unlimited attempts
+                        </p>
+                      </div>
+                      <span className="ml-3 flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-black"
+                        style={{ background: 'linear-gradient(135deg, #059669, #065f46)', color: 'white' }}>
+                        Join
+                      </span>
+                    </button>
+                  ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowPracticePin(v => !v)}
+                    className="w-full text-center text-white/30 text-xs py-1 hover:text-white/50 transition-colors"
+                  >
+                    {showPracticePin ? '▲ Hide PIN entry' : 'Have a PIN? Enter it →'}
+                  </button>
+                  {showPracticePin && (
+                    <form onSubmit={handleJoinPractice} className="space-y-2 pt-1">
+                      <PinBoxes value={practicePin} onChange={v => setPracticePin(v)} accentColor="#34d399" />
+                      <button type="submit" disabled={practicePin.length !== 6}
+                        className="w-full py-4 rounded-2xl font-black text-base transition-all active:scale-95"
+                        style={{
+                          background: practicePin.length === 6 ? 'linear-gradient(135deg, #059669, #065f46)' : 'rgba(255,255,255,0.06)',
+                          color: practicePin.length === 6 ? 'white' : 'rgba(255,255,255,0.25)',
+                          cursor: practicePin.length !== 6 ? 'not-allowed' : 'pointer',
+                        }}>
+                        Join with PIN <ChevronRight className="inline h-5 w-5" />
+                      </button>
+                    </form>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="rounded-xl px-4 py-3 text-center"
+                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <p className="text-white/40 text-sm font-medium">No practice sessions open right now</p>
+                  </div>
+                  <form onSubmit={handleJoinPractice} className="space-y-2">
+                    <PinBoxes value={practicePin} onChange={v => setPracticePin(v)} accentColor="#34d399" />
+                    <button type="submit" disabled={practicePin.length !== 6}
+                      className="w-full py-4 rounded-2xl font-black text-base transition-all active:scale-95"
+                      style={{
+                        background: practicePin.length === 6 ? 'linear-gradient(135deg, #059669, #065f46)' : 'rgba(255,255,255,0.06)',
+                        color: practicePin.length === 6 ? 'white' : 'rgba(255,255,255,0.25)',
+                        cursor: practicePin.length !== 6 ? 'not-allowed' : 'pointer',
+                      }}>
+                      Join with PIN <ChevronRight className="inline h-5 w-5" />
+                    </button>
+                  </form>
+                </>
+              )}
+            </div>
           )}
 
           <p className="text-center text-white/30 text-sm mt-3">
-            Get the PIN from your teacher or event host
+            {activeTab === 'live' ? 'Get the PIN from your event host' : 'Open to everyone — no login needed'}
           </p>
           </div>{/* end glass card */}
         </div>

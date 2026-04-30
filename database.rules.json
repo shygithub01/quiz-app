@@ -59,7 +59,9 @@
     "practiceLeaderboard": {
       ".read": true,
       "$sessionId": {
-        ".write": "auth != null"
+        "$studentName": {
+          ".write": true
+        }
       }
     }
   }

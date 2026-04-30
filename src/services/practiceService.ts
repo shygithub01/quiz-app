@@ -35,18 +35,18 @@ export async function createPracticeSession(
   description: string,
   settings: PracticeSettings,
   createdBy: string,
-  endDate: number
+  endDate: number | null,
+  startDate?: number
 ): Promise<{ sessionId: string; pin: string }> {
   try {
     const sessionId = generateEventId();
     const pin = generatePIN();
-    
-    // Check concurrent session limit (5 per teacher)
+
     const activeSessionCount = await getActiveSessionCount(createdBy);
     if (activeSessionCount >= 5) {
       throw new Error('Maximum of 5 active sessions reached. Please end an existing session first.');
     }
-    
+
     const sessionData: PracticeSession = {
       id: sessionId,
       competitionId,
@@ -56,6 +56,7 @@ export async function createPracticeSession(
       description,
       createdBy,
       createdAt: Date.now(),
+      ...(startDate ? { startDate } : {}),
       endDate,
       settings,
       statistics: {
@@ -64,14 +65,46 @@ export async function createPracticeSession(
         averageScore: 0
       }
     };
-    
+
     await set(ref(realtimeDb, `practiceSessions/${sessionId}`), sessionData);
-    
-    console.log('✅ Practice session created:', sessionId, 'PIN:', pin);
     return { sessionId, pin };
   } catch (error) {
     console.error('❌ Error creating practice session:', error);
     throw error;
+  }
+}
+
+export async function getActivePracticeSessions(): Promise<PracticeSession[]> {
+  try {
+    const snapshot = await get(ref(realtimeDb, 'practiceSessions'));
+    if (!snapshot.exists()) return [];
+    const now = Date.now();
+    return Object.entries(snapshot.val())
+      .map(([id, data]: [string, any]) => ({ id, ...data } as PracticeSession))
+      .filter(s =>
+        s.status === 'active' &&
+        (!s.startDate || s.startDate <= now) &&
+        (s.endDate === null || s.endDate === 0 || s.endDate > now)
+      )
+      .sort((a, b) => b.createdAt - a.createdAt);
+  } catch {
+    return [];
+  }
+}
+
+export async function getActivePracticeSessionForCompetition(competitionId: string): Promise<PracticeSession | null> {
+  try {
+    const snapshot = await get(ref(realtimeDb, 'practiceSessions'));
+    if (!snapshot.exists()) return null;
+    const sessions = snapshot.val();
+    const entry = Object.entries(sessions).find(([_, s]: [string, any]) =>
+      (s as any).competitionId === competitionId && (s as any).status === 'active'
+    );
+    if (!entry) return null;
+    const [id, data] = entry;
+    return { id, ...(data as object) } as PracticeSession;
+  } catch {
+    return null;
   }
 }
 
@@ -87,11 +120,15 @@ export async function getActiveSessionCount(teacherId: string): Promise<number> 
       return 0;
     }
     
+    const now = Date.now();
     const sessions = snapshot.val();
     const activeSessions = Object.values(sessions).filter(
-      (session: any) => session.createdBy === teacherId && session.status === 'active'
+      (session: any) =>
+        session.createdBy === teacherId &&
+        session.status === 'active' &&
+        (session.endDate === null || session.endDate === 0 || session.endDate === undefined || session.endDate > now)
     );
-    
+
     return activeSessions.length;
   } catch (error) {
     console.error('Error getting active session count:', error);
@@ -770,7 +807,7 @@ export async function archivePracticeSession(sessionId: string): Promise<void> {
       title: session.title,
       pin: session.pin,
       createdAt: Timestamp.fromMillis(session.createdAt),
-      endedAt: Timestamp.fromMillis(session.endDate),
+      endedAt: session.endDate ? Timestamp.fromMillis(session.endDate) : Timestamp.now(),
       leaderboard,
       analytics,
       expiresAt: Timestamp.fromDate(expiresAt),

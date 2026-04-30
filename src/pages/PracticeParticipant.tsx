@@ -1,7 +1,7 @@
 // Practice Live Mode Participant View — Mobile-first redesign
 // Self-paced quiz: no timer, prev/next navigation, question jump grid
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Target, ChevronLeft, ChevronRight, CheckCircle2 } from 'lucide-react';
 import BottomNav from '@/components/BottomNav';
@@ -33,6 +33,25 @@ export default function PracticeParticipant() {
   const [submitting, setSubmitting] = useState(false);
   const [showResumePrompt, setShowResumePrompt] = useState(false);
   const [quizStartTime] = useState<number>(Date.now());
+  const wakeLockRef = useRef<any>(null);
+
+  // Keep screen on while practicing
+  useEffect(() => {
+    const acquire = async () => {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
+        }
+      } catch {}
+    };
+    acquire();
+    const onVisible = () => { if (document.visibilityState === 'visible') acquire(); };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      wakeLockRef.current?.release().catch(() => {});
+    };
+  }, []);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -129,7 +148,7 @@ export default function PracticeParticipant() {
   if (loading) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center"
-        style={{ background: 'linear-gradient(135deg, #064e3b 0%, #065f46 40%, #1e1b4b 100%)' }}>
+        style={{ background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 40%, #1e1b4b 100%)' }}>
         <div className="text-center text-white">
           <div className="w-16 h-16 border-4 border-white/30 border-t-emerald-400 rounded-full animate-spin mx-auto mb-4" />
           <p className="text-lg font-medium">Loading practice session...</p>
@@ -144,7 +163,7 @@ export default function PracticeParticipant() {
   if (showResumePrompt) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center px-6"
-        style={{ background: 'linear-gradient(135deg, #064e3b 0%, #065f46 40%, #1e1b4b 100%)' }}>
+        style={{ background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 40%, #1e1b4b 100%)' }}>
         <div className="text-center text-white max-w-sm w-full">
           <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center mx-auto mb-4">
             <Target className="h-10 w-10 text-emerald-400" />
@@ -183,167 +202,133 @@ export default function PracticeParticipant() {
 
   return (
     <div
-      className="min-h-[100dvh] flex flex-col"
-      style={{
-        background: 'linear-gradient(135deg, #064e3b 0%, #065f46 30%, #1e1b4b 100%)',
-        paddingTop: 'env(safe-area-inset-top)',
-        paddingBottom: 'env(safe-area-inset-bottom)',
-      }}
+      className="h-[100dvh] flex flex-col"
+      style={{ background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 50%, #0a1628 100%)' }}
     >
-      {/* Sticky Header */}
-      <div className="sticky top-0 z-20 px-4 pt-3 pb-3 border-b border-white/10"
-        style={{ paddingTop: 'max(12px, env(safe-area-inset-top))' }}>
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2 min-w-0 flex-1">
-            <Target className="h-5 w-5 text-emerald-400 flex-shrink-0" />
-            <span className="font-bold text-white text-sm truncate">{session.title}</span>
-          </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            <span className="text-white/60 text-xs">{studentName}</span>
-            <span className="bg-emerald-500/20 text-emerald-300 text-xs font-bold px-2 py-1 rounded-full border border-emerald-400/30">
-              {answeredCount}/{totalQuestions}
-            </span>
-          </div>
-        </div>
-
-        {/* Progress bar */}
-        <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-emerald-400 rounded-full transition-all duration-300"
-            style={{ width: `${progressPercent}%` }}
-          />
-        </div>
+      {/* Header — compact */}
+      <div className="flex-shrink-0 px-3 py-2 border-b border-white/10 flex items-center gap-2">
+        <Target className="h-4 w-4 text-emerald-400 flex-shrink-0" />
+        <span className="font-bold text-white text-xs truncate flex-1">{session.title}</span>
+        <span className="text-white/50 text-xs flex-shrink-0">{studentName}</span>
+        <span className="bg-emerald-500/20 text-emerald-300 text-xs font-bold px-2 py-0.5 rounded-full border border-emerald-400/30 flex-shrink-0">
+          {answeredCount}/{totalQuestions}
+        </span>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 flex flex-col px-4 py-4 overflow-y-auto">
+      {/* Progress bar */}
+      <div className="flex-shrink-0 h-1 bg-white/10">
+        <div className="h-full bg-emerald-400 transition-all duration-300" style={{ width: `${progressPercent}%` }} />
+      </div>
 
-        {/* Question number */}
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-white/50 text-xs font-semibold uppercase tracking-wider">
-            Question {currentQuestionIndex + 1} of {totalQuestions}
+      {/* Question number */}
+      <div className="flex-shrink-0 flex items-center justify-between px-3 pt-2 pb-1">
+        <span className="text-white/40 text-xs font-semibold uppercase tracking-wider">
+          Q {currentQuestionIndex + 1} / {totalQuestions}
+        </span>
+        {answers[currentQuestionIndex] && (
+          <span className="flex items-center gap-1 text-emerald-400 text-xs font-semibold">
+            <CheckCircle2 className="h-3 w-3" /> Answered
           </span>
-          {answers[currentQuestionIndex] && (
-            <span className="flex items-center gap-1 text-emerald-400 text-xs font-semibold">
-              <CheckCircle2 className="h-3.5 w-3.5" /> Answered
-            </span>
-          )}
-        </div>
+        )}
+      </div>
 
-        {/* Question text */}
-        <div className="bg-white/10 rounded-2xl p-4 mb-4 border border-white/10">
-          <p className="text-white text-lg font-bold leading-relaxed">
-            {currentQuestion.question}
-          </p>
-        </div>
+      {/* Question text — scrollable if very long */}
+      <div className="flex-shrink-0 mx-3 mb-2 rounded-xl p-3 border border-white/10" style={{ background: 'rgba(255,255,255,0.07)' }}>
+        <p className="text-white text-sm font-bold leading-snug">
+          {currentQuestion.question}
+        </p>
+      </div>
 
-        {/* Answer options */}
-        <div className="space-y-3 flex-1">
-          {currentQuestion.options.map((option: string, idx: number) => {
-            const isSelected = answers[currentQuestionIndex] === option;
-            return (
-              <button
-                key={idx}
-                onClick={() => handleAnswerSelect(option)}
-                className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-left transition-all duration-150 active:scale-[0.98] border-2 min-h-[72px]"
+      {/* Answer options — flex-1 on mobile to fill space, compact on desktop */}
+      <div className="flex-1 flex flex-col gap-2 px-3 py-1 min-h-0">
+        {currentQuestion.options.map((option: string, idx: number) => {
+          const isSelected = answers[currentQuestionIndex] === option;
+          return (
+            <button
+              key={idx}
+              onClick={() => handleAnswerSelect(option)}
+              className="flex-1 md:flex-none flex items-center gap-3 px-3 py-3 rounded-xl text-left transition-all duration-150 active:scale-[0.98] border-2"
+              style={{
+                background: isSelected ? 'rgba(52,211,153,0.15)' : 'rgba(255,255,255,0.06)',
+                borderColor: isSelected ? '#34d399' : 'rgba(255,255,255,0.08)',
+                color: 'white',
+                touchAction: 'manipulation',
+                WebkitTapHighlightColor: 'transparent',
+              }}
+            >
+              <span
+                className="w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-lg font-black text-xs"
                 style={{
-                  background: isSelected ? 'rgba(16, 185, 129, 0.2)' : 'white',
-                  borderColor: isSelected ? '#34d399' : 'transparent',
-                  color: isSelected ? 'white' : '#111827',
-                  touchAction: 'manipulation',
-                  WebkitTapHighlightColor: 'transparent',
+                  background: isSelected ? 'rgba(52,211,153,0.25)' : 'rgba(255,255,255,0.1)',
+                  color: isSelected ? '#34d399' : 'rgba(255,255,255,0.6)',
                 }}
               >
-                <span
-                  className="w-9 h-9 flex-shrink-0 flex items-center justify-center rounded-xl font-black text-sm"
-                  style={{
-                    background: isSelected ? 'rgba(52, 211, 153, 0.3)' : '#d1fae5',
-                    color: isSelected ? '#34d399' : '#065f46',
-                  }}
-                >
-                  {LABELS[idx]}
-                </span>
-                <span className="font-semibold text-base leading-snug flex-1">
-                  {option}
-                </span>
-                {isSelected && (
-                  <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
-                )}
-              </button>
-            );
-          })}
-        </div>
+                {LABELS[idx]}
+              </span>
+              <span className="font-semibold text-sm leading-snug flex-1">{option}</span>
+              {isSelected && <CheckCircle2 className="w-4 h-4 text-emerald-400 flex-shrink-0" />}
+            </button>
+          );
+        })}
+      </div>
 
-        {/* Question jump grid */}
-        <div className="mt-5 bg-white/5 rounded-2xl p-4 border border-white/10">
-          <p className="text-white/40 text-xs font-semibold uppercase tracking-wider mb-3">Jump to Question</p>
-          <div className="grid grid-cols-5 gap-2">
-            {competition.questions.map((_: any, idx: number) => (
-              <button
-                key={idx}
-                onClick={() => setCurrentQuestionIndex(idx)}
-                className="h-11 rounded-xl font-bold text-sm transition-all active:scale-90"
-                style={{
-                  background: idx === currentQuestionIndex
-                    ? '#059669'
-                    : answers[idx]
-                      ? 'rgba(16, 185, 129, 0.2)'
-                      : 'rgba(255,255,255,0.1)',
-                  color: idx === currentQuestionIndex
-                    ? 'white'
-                    : answers[idx]
-                      ? '#34d399'
-                      : 'rgba(255,255,255,0.5)',
-                  border: idx === currentQuestionIndex ? '2px solid #34d399' : '2px solid transparent',
-                }}
-              >
-                {idx + 1}
-              </button>
-            ))}
-          </div>
+      {/* Spacer — only on mobile to push controls to bottom */}
+      <div className="md:hidden flex-none" />
+
+      {/* Jump grid — compact strip */}
+      <div className="flex-shrink-0 px-3 py-2 mt-1">
+        <div className="flex gap-1.5 flex-wrap">
+          {competition.questions.map((_: any, idx: number) => (
+            <button
+              key={idx}
+              onClick={() => setCurrentQuestionIndex(idx)}
+              className="h-7 min-w-[28px] px-1 rounded-lg font-bold text-xs transition-all active:scale-90 flex-shrink-0"
+              style={{
+                background: idx === currentQuestionIndex ? '#059669' : answers[idx] ? 'rgba(52,211,153,0.2)' : 'rgba(255,255,255,0.08)',
+                color: idx === currentQuestionIndex ? 'white' : answers[idx] ? '#34d399' : 'rgba(255,255,255,0.4)',
+                border: idx === currentQuestionIndex ? '1.5px solid #34d399' : '1.5px solid transparent',
+              }}
+            >
+              {idx + 1}
+            </button>
+          ))}
         </div>
       </div>
 
-      {/* Bottom navigation */}
-      <div className="px-4 pb-4 pt-2 border-t border-white/10 flex gap-3"
-        style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}>
+      {/* Bottom nav */}
+      <div className="flex-shrink-0 px-3 pb-3 pt-1.5 border-t border-white/10 flex gap-2"
+        style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
         <button
           onClick={() => setCurrentQuestionIndex((i) => Math.max(0, i - 1))}
           disabled={currentQuestionIndex === 0}
-          className="flex items-center justify-center gap-2 px-5 py-4 rounded-2xl font-bold transition-all active:scale-95 min-h-[56px]"
+          className="flex items-center justify-center gap-1 px-4 py-3 rounded-xl font-bold text-sm transition-all active:scale-95"
           style={{
-            background: currentQuestionIndex === 0 ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.15)',
-            color: currentQuestionIndex === 0 ? 'rgba(255,255,255,0.2)' : 'white',
-            minWidth: '80px',
+            background: currentQuestionIndex === 0 ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.12)',
+            color: currentQuestionIndex === 0 ? 'rgba(255,255,255,0.15)' : 'white',
+            minWidth: '70px',
           }}
         >
-          <ChevronLeft className="h-5 w-5" />
-          Prev
+          <ChevronLeft className="h-4 w-4" /> Prev
         </button>
 
         {!isLastQuestion ? (
           <button
             onClick={() => setCurrentQuestionIndex((i) => i + 1)}
-            className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl font-bold text-white transition-all active:scale-95 min-h-[56px]"
+            className="flex-1 flex items-center justify-center gap-1 py-3 rounded-xl font-bold text-sm text-white transition-all active:scale-95"
             style={{ background: 'linear-gradient(135deg, #059669, #065f46)' }}
           >
-            Next
-            <ChevronRight className="h-5 w-5" />
+            Next <ChevronRight className="h-4 w-4" />
           </button>
         ) : (
           <button
             onClick={handleSubmit}
             disabled={submitting}
-            className="flex-1 flex items-center justify-center gap-2 py-4 rounded-2xl font-black text-white transition-all active:scale-95 min-h-[56px]"
-            style={{
-              background: allAnswered
-                ? 'linear-gradient(135deg, #059669, #065f46)'
-                : 'rgba(255,255,255,0.15)',
-            }}
+            className="flex-1 flex items-center justify-center gap-1 py-3 rounded-xl font-black text-sm text-white transition-all active:scale-95"
+            style={{ background: allAnswered ? 'linear-gradient(135deg, #059669, #065f46)' : 'rgba(255,255,255,0.12)' }}
           >
             {submitting ? (
               <>
-                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 Submitting...
               </>
             ) : (

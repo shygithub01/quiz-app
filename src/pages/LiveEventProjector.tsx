@@ -614,8 +614,8 @@ export default function LiveEventProjector() {
                       background: col.bg,
                       border: `3px solid ${col.border}`,
                       boxShadow: `0 8px 28px ${col.bg}55`,
-                      fontSize: 'clamp(1.1rem, 2vw, 1.7rem)',
-                      minHeight: 90,
+                      fontSize: 'clamp(1.4rem, 2.6vw, 2.2rem)',
+                      minHeight: 100,
                     }}>
                     <span className="w-12 h-12 flex-shrink-0 rounded-2xl bg-black/20 flex items-center justify-center font-black text-2xl">
                       {col.label}
