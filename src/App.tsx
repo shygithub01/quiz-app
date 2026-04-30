@@ -47,6 +47,7 @@ import Contact from "./pages/Contact";
 import Pricing from "./pages/Pricing";
 import SubscriptionManagement from "./pages/SubscriptionManagement";
 import NotFound from "./pages/NotFound";
+import EventResultsCard from "./pages/EventResultsCard";
 
 const queryClient = new QueryClient();
 
@@ -126,6 +127,7 @@ const App = () => (
                   <Route path="pricing" element={<Pricing />} />
                   <Route path="account/subscription" element={<SubscriptionManagement />} />
                 </Route>
+                <Route path="event-results/:archiveId" element={<EventResultsCard />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>

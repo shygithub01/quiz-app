@@ -1307,6 +1307,18 @@ export async function getLiveEventArchives(): Promise<any[]> {
   }
 }
 
+export async function getArchiveById(archiveId: string): Promise<any | null> {
+  try {
+    const { db } = await import('../components/ui/firebase');
+    const { doc, getDoc } = await import('firebase/firestore');
+    const snap = await getDoc(doc(db, 'liveEventArchive', archiveId));
+    if (!snap.exists()) return null;
+    return { id: snap.id, ...snap.data() };
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Delete a single live event archive by its Firestore document ID
  */

@@ -22,7 +22,8 @@ import {
   ChevronUp,
   Trash2,
   Users,
-  Download
+  Download,
+  Share2
 } from 'lucide-react';
 
 const BG_STYLE = { background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 50%, #0a1628 100%)' };
@@ -582,6 +583,22 @@ export default function AdminCompetitionSettings() {
                             style={{ background: 'rgba(167,139,250,0.15)', color: '#c4b5fd' }}>
                             {isExpanded ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
                             {isExpanded ? 'Hide' : 'View'}
+                          </button>
+                          <button
+                            onClick={() => {
+                              const url = `${window.location.origin}/event-results/${archive.id}`;
+                              if (navigator.share) {
+                                navigator.share({ title: archive.competitionTitle, url });
+                              } else {
+                                navigator.clipboard.writeText(url);
+                                alert('Share link copied!\n\n' + url);
+                              }
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors"
+                            style={{ background: 'rgba(99,102,241,0.15)', color: '#a5b4fc' }}
+                            title="Share results link">
+                            <Share2 className="h-3.5 w-3.5" />
+                            Share
                           </button>
                           <button
                             onClick={() => handleDownloadArchive(archive)}
