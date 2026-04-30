@@ -36,7 +36,8 @@ export async function createPracticeSession(
   settings: PracticeSettings,
   createdBy: string,
   endDate: number | null,
-  startDate?: number
+  startDate?: number,
+  isDaily?: boolean
 ): Promise<{ sessionId: string; pin: string }> {
   try {
     const sessionId = generateEventId();
@@ -57,6 +58,7 @@ export async function createPracticeSession(
       createdBy,
       createdAt: Date.now(),
       ...(startDate ? { startDate } : {}),
+      ...(isDaily ? { isDaily: true } : {}),
       endDate,
       settings,
       statistics: {
@@ -89,6 +91,26 @@ export async function getActivePracticeSessions(): Promise<PracticeSession[]> {
       .sort((a, b) => b.createdAt - a.createdAt);
   } catch {
     return [];
+  }
+}
+
+export async function getDailySession(): Promise<PracticeSession | null> {
+  try {
+    const snapshot = await get(ref(realtimeDb, 'practiceSessions'));
+    if (!snapshot.exists()) return null;
+    const now = Date.now();
+    const sessions = Object.entries(snapshot.val())
+      .map(([id, data]: [string, any]) => ({ id, ...data } as PracticeSession))
+      .filter(s =>
+        s.isDaily &&
+        s.status === 'active' &&
+        (!s.startDate || s.startDate <= now) &&
+        (s.endDate === null || s.endDate === 0 || s.endDate > now)
+      )
+      .sort((a, b) => b.createdAt - a.createdAt);
+    return sessions[0] ?? null;
+  } catch {
+    return null;
   }
 }
 

@@ -370,6 +370,25 @@ export default function PracticeResults() {
           </Card>
         )}
         
+        {/* Share button — shown for daily challenge sessions */}
+        {session.isDaily && (
+          <button
+            onClick={() => {
+              const text = `I scored ${attempt.correctAnswers}/${attempt.totalQuestions} on today's On This Day quiz — ranked #${myRank}! Can you beat me? → ${window.location.origin}/daily`;
+              if (navigator.share) {
+                navigator.share({ text, url: `${window.location.origin}/daily` });
+              } else {
+                navigator.clipboard.writeText(text);
+                alert('Copied to clipboard! Paste it anywhere to share.');
+              }
+            }}
+            className="w-full py-5 rounded-2xl font-black text-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+            style={{ background: 'linear-gradient(135deg, #0077b5, #005885)', color: 'white' }}
+          >
+            🔗 Share My Result
+          </button>
+        )}
+
         {/* Action Buttons */}
         <div className="flex gap-3">
           <Button
