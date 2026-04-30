@@ -28,6 +28,9 @@ export default function AdminQuizTemplatesList() {
   // Practice settings
   const [practiceTitle, setPracticeTitle] = useState('');
   const [practiceEndDays, setPracticeEndDays] = useState(7);
+  const [practiceStartTime, setPracticeStartTime] = useState('');
+  const [practiceEndTime, setPracticeEndTime] = useState('');
+  const [practiceIsDaily, setPracticeIsDaily] = useState(false);
 
   // Shuffle settings (shared)
   const [shuffleQuestions, setShuffleQuestions] = useState(false);
@@ -139,6 +142,9 @@ export default function AdminQuizTemplatesList() {
     setQuestionTimer(30);
     setMaxParticipants(template?.liveEventSettings?.maxParticipants || 100);
     setPracticeEndDays(7);
+    setPracticeStartTime('');
+    setPracticeEndTime('');
+    setPracticeIsDaily(false);
     setShuffleQuestions(false);
     setShuffleOptions(true);
     setScheduledStartEt('');
@@ -246,14 +252,17 @@ export default function AdminQuizTemplatesList() {
       const competitionId = compDoc.id;
 
       const { createPracticeSession } = await import('@/services/practiceService');
-      const endDate = Date.now() + practiceEndDays * 86400000;
+      const endDate = practiceEndTime ? new Date(practiceEndTime).getTime() : Date.now() + practiceEndDays * 86400000;
+      const startDate = practiceStartTime ? new Date(practiceStartTime).getTime() : undefined;
       const { sessionId, pin } = await createPracticeSession(
         competitionId,
         practiceTitle,
         `Practice session from template: ${launchTemplate.title}`,
         { showLeaderboard: true, showExplanations: true, maxQuestions: launchTemplate.questions?.length || 0 },
         user.uid,
-        endDate
+        endDate,
+        startDate,
+        practiceIsDaily
       );
 
       closeLaunchModal();
@@ -651,19 +660,52 @@ export default function AdminQuizTemplatesList() {
                       placeholder="e.g. Odia Culture — April 2026"
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-white/70 mb-1">Open for (days)</label>
-                    <input
-                      type="number" min={1} max={365}
-                      value={practiceEndDays}
-                      onChange={e => setPracticeEndDays(Number(e.target.value))}
-                      className="w-full px-3 py-2 rounded-lg text-white"
-                      style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }}
-                    />
-                    <p className="text-xs text-white/40 mt-1">
-                      Closes on {new Date(Date.now() + practiceEndDays * 86400000).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </p>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-semibold text-white/70 mb-1">Opens at (optional)</label>
+                      <input
+                        type="datetime-local"
+                        value={practiceStartTime}
+                        onChange={e => setPracticeStartTime(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg text-white text-sm"
+                        style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', colorScheme: 'dark' }}
+                      />
+                      <p className="text-xs text-white/30 mt-1">Leave blank = open now</p>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-white/70 mb-1">Closes at (optional)</label>
+                      <input
+                        type="datetime-local"
+                        value={practiceEndTime}
+                        onChange={e => setPracticeEndTime(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg text-white text-sm"
+                        style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)', colorScheme: 'dark' }}
+                      />
+                      <p className="text-xs text-white/30 mt-1">Leave blank = no expiry</p>
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={() => setPracticeIsDaily(v => !v)}
+                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all"
+                    style={{
+                      background: practiceIsDaily ? 'rgba(250,204,21,0.12)' : 'rgba(255,255,255,0.04)',
+                      border: practiceIsDaily ? '1px solid rgba(250,204,21,0.4)' : '1px solid rgba(255,255,255,0.1)',
+                    }}>
+                    <div className="text-left">
+                      <p className="font-bold text-sm" style={{ color: practiceIsDaily ? '#fde047' : 'rgba(255,255,255,0.5)' }}>
+                        ⚡ Daily Challenge
+                      </p>
+                      <p className="text-xs mt-0.5" style={{ color: practiceIsDaily ? 'rgba(253,224,71,0.6)' : 'rgba(255,255,255,0.25)' }}>
+                        Appears at quizist.ai/daily — shareable on all social media
+                      </p>
+                    </div>
+                    <div className="flex-shrink-0 ml-3 w-11 h-6 rounded-full transition-all relative"
+                      style={{ background: practiceIsDaily ? '#ca8a04' : 'rgba(255,255,255,0.15)' }}>
+                      <div className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all"
+                        style={{ left: practiceIsDaily ? '22px' : '2px' }} />
+                    </div>
+                  </button>
                 </>
               )}
             </div>
