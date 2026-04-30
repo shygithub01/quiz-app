@@ -11,6 +11,7 @@ export interface PracticeSession {
   createdAt: number;
   startDate?: number;     // if set and in future, session hidden from discovery
   endDate: number | null; // null = no expiry
+  isDaily?: boolean;      // marks this as the daily challenge (quizist.ai/daily)
   settings: PracticeSettings;
   statistics: SessionStatistics;
 }

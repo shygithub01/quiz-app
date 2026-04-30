@@ -38,6 +38,7 @@ export default function PracticeLiveHost() {
   const [customEndDate, setCustomEndDate] = useState('');
   const [startType, setStartType] = useState<'now' | 'date'>('now');
   const [customStartDate, setCustomStartDate] = useState('');
+  const [isDaily, setIsDaily] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
 
@@ -123,7 +124,8 @@ export default function PracticeLiveHost() {
         settings,
         auth.currentUser?.uid || '',
         endDate,
-        startDate
+        startDate,
+        isDaily
       );
 
       setShowCreate(false);
@@ -132,6 +134,7 @@ export default function PracticeLiveHost() {
       setStartType('now');
       setCustomEndDate('');
       setCustomStartDate('');
+      setIsDaily(false);
 
       await loadData();
       alert(`✅ Practice Session Created!\n\nPIN: ${pin}\n\nStudents can find and join from the home page, or enter the PIN directly.`);
@@ -302,6 +305,30 @@ export default function PracticeLiveHost() {
                   style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.15)' }} />
               )}
             </div>
+
+            {/* Daily Challenge toggle */}
+            <button
+              type="button"
+              onClick={() => setIsDaily(v => !v)}
+              className="w-full flex items-center justify-between px-4 py-3 rounded-xl transition-all"
+              style={{
+                background: isDaily ? 'rgba(250,204,21,0.12)' : 'rgba(255,255,255,0.04)',
+                border: isDaily ? '1px solid rgba(250,204,21,0.4)' : '1px solid rgba(255,255,255,0.1)',
+              }}>
+              <div className="text-left">
+                <p className="font-bold text-sm" style={{ color: isDaily ? '#fde047' : 'rgba(255,255,255,0.5)' }}>
+                  ⚡ Daily Challenge
+                </p>
+                <p className="text-xs mt-0.5" style={{ color: isDaily ? 'rgba(253,224,71,0.7)' : 'rgba(255,255,255,0.25)' }}>
+                  Shows at quizist.ai/daily — shareable on social media
+                </p>
+              </div>
+              <div className="flex-shrink-0 ml-3 w-11 h-6 rounded-full transition-all relative"
+                style={{ background: isDaily ? '#ca8a04' : 'rgba(255,255,255,0.15)' }}>
+                <div className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-all"
+                  style={{ left: isDaily ? '22px' : '2px' }} />
+              </div>
+            </button>
 
             {/* Create button */}
             <button
