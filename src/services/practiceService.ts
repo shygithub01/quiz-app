@@ -85,6 +85,7 @@ export async function getActivePracticeSessions(): Promise<PracticeSession[]> {
       .map(([id, data]: [string, any]) => ({ id, ...data } as PracticeSession))
       .filter(s =>
         s.status === 'active' &&
+        !s.isDaily &&
         (!s.startDate || s.startDate <= now) &&
         (s.endDate === null || s.endDate === 0 || s.endDate > now)
       )
