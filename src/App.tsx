@@ -112,8 +112,7 @@ const App = () => (
                   <Route path="admin/practice/host" element={<PracticeLiveHost />} />
                   <Route path="admin/practice/manage" element={<PracticeSessionManager />} />
                   <Route path="practice/join" element={<PracticeJoin />} />
-                  <Route path="practice/quiz/:sessionId" element={<PracticeParticipant />} />
-                  <Route path="practice/results/:sessionId/:attemptId" element={<PracticeResults />} />
+                  {/* practice/quiz and practice/results are moved outside Layout below */}
                   <Route path="admin/practice/dashboard/:sessionId" element={<PracticeTeacherDashboard />} />
                   <Route path="schools" element={<Schools />} />
                   <Route path="scholarship" element={<ScholarshipHome />} />
@@ -130,6 +129,8 @@ const App = () => (
                 </Route>
                 <Route path="event-results/:archiveId" element={<EventResultsCard />} />
                 <Route path="daily" element={<DailyChallenge />} />
+                <Route path="practice/quiz/:sessionId" element={<PracticeParticipant />} />
+                <Route path="practice/results/:sessionId/:attemptId" element={<PracticeResults />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </BrowserRouter>

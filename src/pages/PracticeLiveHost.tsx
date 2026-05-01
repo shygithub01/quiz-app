@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Target, Plus, ExternalLink, Trash2, ChevronDown, ChevronUp, Calendar, Infinity } from 'lucide-react';
+import { Target, Plus, ExternalLink, Trash2, ChevronDown, ChevronUp, Calendar, Infinity, Download, Clock } from 'lucide-react';
 import { getCompetitions, auth, realtimeDb } from '@/components/ui/firebase';
 import { ref, get } from 'firebase/database';
 import {
@@ -48,6 +48,10 @@ export default function PracticeLiveHost() {
   const [endingSession, setEndingSession] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkEnding, setBulkEnding] = useState(false);
+  const [extendingSession, setExtendingSession] = useState<string | null>(null);
+  const [extendEndDate, setExtendEndDate] = useState('');
+  const [expandedLeaderboard, setExpandedLeaderboard] = useState<string | null>(null);
+  const [leaderboardData, setLeaderboardData] = useState<Record<string, any[]>>({});
 
   useEffect(() => {
     loadData();
@@ -164,6 +168,68 @@ export default function PracticeLiveHost() {
     }
   };
 
+  const handleDownloadCard = async (session: PracticeSession) => {
+    try {
+      const snap = await get(ref(realtimeDb, `practiceLeaderboard/${session.id}`));
+      const entries = snap.exists()
+        ? (Object.values(snap.val()) as any[]).sort((a, b) => a.rank - b.rank)
+        : [];
+
+      const pad = (s: string, n: number) => s.length >= n ? s.slice(0, n) : s + ' '.repeat(n - s.length);
+      const rankIcon = (r: number) => r === 1 ? '🥇' : r === 2 ? '🥈' : r === 3 ? '🥉' : `#${r}`;
+      const durLabel = (ms?: number) => {
+        if (!ms) return '—';
+        return ms >= 60000
+          ? `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`
+          : `${(ms / 1000).toFixed(1)}s`;
+      };
+
+      const W = 54;
+      const eq = '═'.repeat(W);
+      const divider = '─'.repeat(W);
+      const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+      const top3 = entries.slice(0, 3);
+      const podiumLines = top3.map(e =>
+        `${rankIcon(e.rank)}  ${pad(e.name ?? '?', 18)}  ${String(e.bestScore).padStart(3)}%  ${durLabel(e.lastDuration)}`
+      );
+      const rows = entries.map(e =>
+        `${pad(rankIcon(e.rank), 4)}  ${pad(e.name ?? '?', 18)}  ${String(e.bestScore).padStart(3)}%  ${durLabel(e.lastDuration)}`
+      );
+
+      const lines = [
+        `⚡ ${session.title}`,
+        eq,
+        `📅 ${today}`,
+        `👥 ${session.statistics?.totalStudents || entries.length} Players`,
+        '',
+        '        ✨ TODAY\'S WINNERS ✨',
+        ...podiumLines,
+        '',
+        eq,
+        '   TODAY\'S LEADERBOARD',
+        divider,
+        `${'RANK'}  ${'NAME'.padEnd(18)}  ${'SCORE'.padEnd(5)}  TIME`,
+        divider,
+        ...rows,
+        divider,
+        '',
+        '🧠 Play tomorrow → quizist.ai/daily',
+        '📱 Powered by Quizist.AI · quizist.ai',
+      ];
+
+      const text = lines.join('\n');
+      const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${session.title.replace(/[^a-z0-9]/gi, '_')}_leaderboard.txt`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert('Failed to generate card: ' + err.message);
+    }
+  };
+
   const handleBulkEnd = async () => {
     if (selected.size === 0) return;
     if (!confirm(`End ${selected.size} selected session${selected.size > 1 ? 's' : ''}?\n\nThis cannot be undone.`)) return;
@@ -176,6 +242,45 @@ export default function PracticeLiveHost() {
       alert(`Failed to end sessions: ${err.message}`);
     } finally {
       setBulkEnding(false);
+    }
+  };
+
+  const toggleLeaderboard = async (sessionId: string) => {
+    if (expandedLeaderboard === sessionId) {
+      setExpandedLeaderboard(null);
+      return;
+    }
+    setExpandedLeaderboard(sessionId);
+    if (!leaderboardData[sessionId]) {
+      const snap = await get(ref(realtimeDb, `practiceLeaderboard/${sessionId}`));
+      const entries = snap.exists()
+        ? (Object.values(snap.val()) as any[]).sort((a, b) => a.rank - b.rank)
+        : [];
+      setLeaderboardData(prev => ({ ...prev, [sessionId]: entries }));
+    }
+  };
+
+  const openExtend = (session: PracticeSession) => {
+    // Pre-fill with current end date if set, otherwise now + 12h
+    const ts = session.endDate && session.endDate > 0 ? session.endDate : Date.now() + 12 * 3600000;
+    const d = new Date(ts);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const local = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    setExtendEndDate(local);
+    setExtendingSession(session.id);
+  };
+
+  const handleSaveEndTime = async (sessionId: string) => {
+    if (!extendEndDate) return;
+    const ts = new Date(extendEndDate).getTime();
+    if (isNaN(ts)) { alert('Invalid date'); return; }
+    try {
+      const { updateSession } = await import('@/services/practiceService');
+      await updateSession(sessionId, { endDate: ts, status: 'active' });
+      setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, endDate: ts, status: 'active' } : s));
+      setExtendingSession(null);
+    } catch (err: any) {
+      alert('Failed to update end time: ' + err.message);
     }
   };
 
@@ -409,10 +514,24 @@ export default function PracticeLiveHost() {
                       </div>
 
                       <div className="flex gap-1.5 flex-shrink-0">
+                        <button onClick={() => handleDownloadCard(session)}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95"
+                          style={{ background: 'rgba(52,211,153,0.15)', color: '#6ee7b7', border: '1px solid rgba(52,211,153,0.3)' }}
+                          title="Download leaderboard card">
+                          <Download className="h-3 w-3" />
+                        </button>
+                        <button onClick={() => openExtend(session)}
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95"
+                          style={{ background: 'rgba(251,191,36,0.15)', color: '#fde68a', border: '1px solid rgba(251,191,36,0.3)' }}
+                          title="Set / extend end time">
+                          <Clock className="h-3 w-3" />
+                        </button>
                         <button onClick={() => navigate(`/admin/practice/dashboard/${session.id}`)}
                           className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95"
-                          style={{ background: 'rgba(99,102,241,0.2)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.3)' }}>
+                          style={{ background: 'rgba(99,102,241,0.2)', color: '#a5b4fc', border: '1px solid rgba(99,102,241,0.3)' }}
+                          title="Control page">
                           <ExternalLink className="h-3 w-3" />
+                          <span>Control</span>
                         </button>
                         <button onClick={() => handleEnd(session.id, session.title)} disabled={endingSession === session.id}
                           className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all active:scale-95 disabled:opacity-40"
@@ -423,6 +542,28 @@ export default function PracticeLiveHost() {
                         </button>
                       </div>
                     </div>
+
+                    {/* Inline extend end time */}
+                    {extendingSession === session.id && (
+                      <div className="mb-3 flex items-center gap-2 p-3 rounded-xl" style={{ background: 'rgba(251,191,36,0.08)', border: '1px solid rgba(251,191,36,0.2)' }}>
+                        <Clock className="h-3.5 w-3.5 text-yellow-300 flex-shrink-0" />
+                        <input
+                          type="datetime-local"
+                          value={extendEndDate}
+                          onChange={e => setExtendEndDate(e.target.value)}
+                          className="flex-1 bg-transparent text-yellow-200 text-xs font-bold outline-none"
+                        />
+                        <button onClick={() => handleSaveEndTime(session.id)}
+                          className="px-3 py-1 rounded-lg text-xs font-black transition-all active:scale-95"
+                          style={{ background: 'rgba(251,191,36,0.25)', color: '#fde68a' }}>
+                          Save
+                        </button>
+                        <button onClick={() => setExtendingSession(null)}
+                          className="text-white/30 text-xs hover:text-white/60 transition-colors">
+                          ✕
+                        </button>
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-3 gap-2">
                       <div className="rounded-xl p-2.5 text-center" style={{ background: 'rgba(167,139,250,0.1)' }}>
@@ -438,6 +579,55 @@ export default function PracticeLiveHost() {
                         <p className="text-white/30 text-xs">Expiry</p>
                       </div>
                     </div>
+
+                    {/* Leaderboard toggle */}
+                    <button
+                      onClick={() => toggleLeaderboard(session.id)}
+                      className="w-full mt-2 flex items-center justify-center gap-2 py-2 rounded-xl text-xs font-bold transition-all active:scale-[0.99]"
+                      style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.4)' }}
+                    >
+                      {expandedLeaderboard === session.id ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                      {expandedLeaderboard === session.id ? 'Hide Leaderboard' : 'View Leaderboard'}
+                    </button>
+
+                    {/* Inline leaderboard */}
+                    {expandedLeaderboard === session.id && (
+                      <div className="mt-2 rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.08)' }}>
+                        {!leaderboardData[session.id] ? (
+                          <div className="flex items-center justify-center py-4">
+                            <span className="inline-block w-4 h-4 border-2 border-white/20 border-t-white/60 rounded-full animate-spin" />
+                          </div>
+                        ) : leaderboardData[session.id].length === 0 ? (
+                          <p className="text-center text-white/30 text-xs py-4">No players yet</p>
+                        ) : (
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr style={{ background: 'rgba(255,255,255,0.05)' }}>
+                                <th className="text-left px-3 py-2 text-white/30 font-semibold">#</th>
+                                <th className="text-left px-3 py-2 text-white/30 font-semibold">Name</th>
+                                <th className="text-right px-3 py-2 text-white/30 font-semibold">Score</th>
+                                <th className="text-right px-3 py-2 text-white/30 font-semibold">Time</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {leaderboardData[session.id].map((e, i) => {
+                                const medal = e.rank === 1 ? '🥇' : e.rank === 2 ? '🥈' : e.rank === 3 ? '🥉' : `#${e.rank}`;
+                                const ms = e.lastDuration ?? null;
+                                const time = ms === null ? '—' : ms >= 60000 ? `${Math.floor(ms/60000)}m ${Math.floor((ms%60000)/1000)}s` : `${(ms/1000).toFixed(1)}s`;
+                                return (
+                                  <tr key={i} style={{ borderTop: '1px solid rgba(255,255,255,0.05)', background: i % 2 === 0 ? 'transparent' : 'rgba(255,255,255,0.02)' }}>
+                                    <td className="px-3 py-2 text-base">{medal}</td>
+                                    <td className="px-3 py-2 text-white font-semibold truncate max-w-[120px]">{e.name}</td>
+                                    <td className="px-3 py-2 text-right text-emerald-300 font-bold">{e.bestScore}%</td>
+                                    <td className="px-3 py-2 text-right text-white/40">{time}</td>
+                                  </tr>
+                                );
+                              })}
+                            </tbody>
+                          </table>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}

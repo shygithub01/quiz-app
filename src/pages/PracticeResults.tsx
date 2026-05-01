@@ -30,6 +30,7 @@ export default function PracticeResults() {
   const [averageScore, setAverageScore] = useState(0);
   const [improvement, setImprovement] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [streak, setStreak] = useState(0);
   
   // Load data
   useEffect(() => {
@@ -118,6 +119,19 @@ export default function PracticeResults() {
     return unsubscribe;
   }, [sessionId, attempt]);
   
+  // Streak tracking for daily challenge
+  useEffect(() => {
+    if (!session?.isDaily || !attempt) return;
+    const today = new Date().toISOString().split('T')[0];
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    const lastPlayed = localStorage.getItem('daily_last_played_date');
+    const saved = parseInt(localStorage.getItem('daily_streak_count') || '0');
+    const newStreak = lastPlayed === today ? saved : lastPlayed === yesterday ? saved + 1 : 1;
+    localStorage.setItem('daily_last_played_date', today);
+    localStorage.setItem('daily_streak_count', String(newStreak));
+    setStreak(newStreak);
+  }, [session, attempt]);
+
   const handleTryAgain = () => {
     navigate(`/practice/quiz/${sessionId}`);
   };
@@ -153,11 +167,23 @@ export default function PracticeResults() {
   return (
     <div className="min-h-screen" style={{ background: 'linear-gradient(160deg, #0f0a1e 0%, #1e0a3c 50%, #0a1628 100%)' }}>
       {/* Header */}
-      <div className="p-6" style={{ background: 'rgba(124,58,237,0.2)', borderBottom: '1px solid rgba(124,58,237,0.3)' }}>
+      <div className="p-6" style={{ background: session.isDaily ? 'rgba(250,204,21,0.1)' : 'rgba(124,58,237,0.2)', borderBottom: `1px solid ${session.isDaily ? 'rgba(250,204,21,0.25)' : 'rgba(124,58,237,0.3)'}` }}>
         <div className="max-w-4xl mx-auto text-center">
-          <Target className="h-16 w-16 mx-auto mb-4 text-purple-400" />
-          <h1 className="text-3xl font-bold mb-2 text-white">Practice Complete!</h1>
-          <p className="text-purple-300">{session.title}</p>
+          {session.isDaily
+            ? <div className="text-5xl mb-4">⚡</div>
+            : <Target className="h-16 w-16 mx-auto mb-4 text-purple-400" />}
+          <h1 className="text-3xl font-bold mb-2 text-white">
+            {session.isDaily ? 'Daily Challenge Complete!' : 'Practice Complete!'}
+          </h1>
+          <p className={session.isDaily ? 'text-yellow-300' : 'text-purple-300'}>{session.title}</p>
+          {session.isDaily && streak > 0 && (
+            <div className="flex items-center justify-center gap-2 mt-3">
+              <span className="px-4 py-1.5 rounded-full text-sm font-black"
+                style={{ background: 'rgba(251,146,60,0.2)', color: '#fb923c', border: '1px solid rgba(251,146,60,0.35)' }}>
+                {streak === 1 ? '🔥 First day!' : `🔥 ${streak} day streak`}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -178,17 +204,31 @@ export default function PracticeResults() {
                 <p className="text-sm text-white/50 mb-2">Your Rank</p>
                 <p className="text-5xl font-bold text-purple-400">#{myRank}</p>
                 <p className="text-sm text-white/50 mt-2">
-                  Attempt {allAttempts.length}
+                  {session.isDaily
+                    ? `of ${leaderboard.length} players`
+                    : `Attempt ${allAttempts.length}`}
                 </p>
               </div>
 
               <div>
-                <p className="text-sm text-white/50 mb-2">Average Score</p>
-                <p className="text-5xl font-bold text-blue-400">{averageScore}%</p>
-                {isNewBest && allAttempts.length > 1 && (
-                  <p className="text-sm text-green-400 font-semibold mt-2">
-                    🎉 Above Your Average!
-                  </p>
+                {session.isDaily ? (
+                  <>
+                    <p className="text-sm text-white/50 mb-2">Your Answers</p>
+                    <p className="text-2xl tracking-widest">
+                      {Object.keys(attempt.answers)
+                        .sort((a, b) => Number(a) - Number(b))
+                        .map(k => attempt.answers[Number(k)].isCorrect ? '🟩' : '🟥')
+                        .join('')}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-sm text-white/50 mb-2">Average Score</p>
+                    <p className="text-5xl font-bold text-blue-400">{averageScore}%</p>
+                    {isNewBest && allAttempts.length > 1 && (
+                      <p className="text-sm text-green-400 font-semibold mt-2">🎉 Above Your Average!</p>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -311,7 +351,7 @@ export default function PracticeResults() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-white">
                 <Trophy className="h-5 w-5 text-yellow-400" />
-                Leaderboard (Top 20)
+                {session.isDaily ? "Today's Leaderboard" : 'Leaderboard (Top 20)'}
               </CardTitle>
             </CardHeader>
             <CardContent>
@@ -320,7 +360,42 @@ export default function PracticeResults() {
                   <p className="text-sm text-white/40 text-center py-8">
                     No other participants yet.
                   </p>
+                ) : session.isDaily ? (
+                  /* Daily: simplified Rank | Name | Score | Time */
+                  <table className="w-full">
+                    <thead style={{ background: 'rgba(255,255,255,0.05)' }}>
+                      <tr>
+                        <th className="px-3 py-2 text-center text-xs font-medium text-white/50 uppercase w-10">#</th>
+                        <th className="px-3 py-2 text-left text-xs font-medium text-white/50 uppercase">Name</th>
+                        <th className="px-3 py-2 text-center text-xs font-medium text-white/50 uppercase">Score</th>
+                        <th className="px-3 py-2 text-center text-xs font-medium text-white/50 uppercase">Time</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {leaderboard.slice(0, 20).map((entry) => {
+                        const isMe = entry.name === attempt.studentName;
+                        const durMs = entry.lastDuration ?? null;
+                        const durLabel = durMs === null ? '—' : durMs >= 60000
+                          ? `${Math.floor(durMs / 60000)}m ${Math.floor((durMs % 60000) / 1000)}s`
+                          : `${(durMs / 1000).toFixed(1)}s`;
+                        const medal = entry.rank === 1 ? '🥇' : entry.rank === 2 ? '🥈' : entry.rank === 3 ? '🥉' : entry.rank;
+                        return (
+                          <tr key={entry.name}
+                            style={isMe ? { background: 'rgba(34,197,94,0.12)' } : undefined}
+                            className="hover:bg-white/5">
+                            <td className="px-3 py-3 text-center font-bold text-base">{medal}</td>
+                            <td className="px-3 py-3 font-semibold text-white text-sm">
+                              {entry.name}{isMe && <span className="text-emerald-400 ml-1 text-xs">(you)</span>}
+                            </td>
+                            <td className="px-3 py-3 text-center font-bold text-emerald-400">{entry.bestScore}%</td>
+                            <td className="px-3 py-3 text-center text-white/50 text-sm">{durLabel}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 ) : (
+                  /* Practice: full stats table */
                   <table className="w-full">
                     <thead style={{ background: 'rgba(255,255,255,0.05)' }}>
                       <tr>
@@ -334,30 +409,21 @@ export default function PracticeResults() {
                     </thead>
                     <tbody className="divide-y divide-white/5">
                       {leaderboard.slice(0, 20).map((entry) => (
-                        <tr
-                          key={entry.name}
+                        <tr key={entry.name}
                           style={entry.name === attempt.studentName ? { background: 'rgba(34,197,94,0.12)' } : undefined}
-                          className="hover:bg-white/5"
-                        >
+                          className="hover:bg-white/5">
                           <td className="px-4 py-3 font-medium text-white">
-                            {entry.name}
-                            {entry.name === attempt.studentName && <span className="text-green-400 ml-1">(You)</span>}
+                            {entry.name}{entry.name === attempt.studentName && <span className="text-green-400 ml-1">(You)</span>}
                           </td>
-                          <td className="px-4 py-3 text-center text-white/60">
-                            {entry.attemptCount}
-                          </td>
-                          <td className="px-4 py-3 text-center font-semibold text-red-400">
-                            {entry.worstScore}%
-                          </td>
-                          <td className="px-4 py-3 text-center font-bold text-green-400">
-                            {entry.bestScore}%
-                          </td>
-                          <td className="px-4 py-3 text-center font-semibold text-purple-400">
-                            {entry.lastScore}%
-                          </td>
+                          <td className="px-4 py-3 text-center text-white/60">{entry.attemptCount}</td>
+                          <td className="px-4 py-3 text-center font-semibold text-red-400">{entry.worstScore}%</td>
+                          <td className="px-4 py-3 text-center font-bold text-green-400">{entry.bestScore}%</td>
+                          <td className="px-4 py-3 text-center font-semibold text-purple-400">{entry.lastScore}%</td>
                           <td className="px-4 py-3 text-center text-white/50 text-sm">
                             {entry.lastDuration
-                              ? (() => { const s = Math.floor(entry.lastDuration / 1000); const m = Math.floor(s / 60); return m > 0 ? `${m}m ${s % 60}s` : `${s}s`; })()
+                              ? entry.lastDuration >= 60000
+                                ? `${Math.floor(entry.lastDuration / 60000)}m ${Math.floor((entry.lastDuration % 60000) / 1000)}s`
+                                : `${(entry.lastDuration / 1000).toFixed(1)}s`
                               : '—'}
                           </td>
                         </tr>
@@ -369,54 +435,60 @@ export default function PracticeResults() {
             </CardContent>
           </Card>
         )}
-        
-        {/* Share button — shown for daily challenge sessions */}
-        {session.isDaily && (
+
+        {/* CTA for daily: Share only. For practice: Try Again + Leaderboard + Back to Home */}
+        {session.isDaily ? (
           <button
             onClick={() => {
-              const text = `I scored ${attempt.correctAnswers}/${attempt.totalQuestions} on today's On This Day quiz — ranked #${myRank}! Can you beat me? → ${window.location.origin}/daily`;
+              const emojiRow = Object.keys(attempt.answers)
+                .sort((a, b) => Number(a) - Number(b))
+                .map(k => attempt.answers[Number(k)].isCorrect ? '🟩' : '🟥')
+                .join('');
+              const playerCount = leaderboard.length;
+              const streakLine = streak > 1 ? `🔥 ${streak} day streak\n` : '';
+              const text = `${session.title}\n${emojiRow} ${attempt.correctAnswers}/${attempt.totalQuestions} · Rank #${myRank}\n${streakLine}Join ${playerCount} others → ${window.location.origin}/daily`;
               if (navigator.share) {
-                navigator.share({ text, url: `${window.location.origin}/daily` });
+                navigator.share({ text });
               } else {
                 navigator.clipboard.writeText(text);
                 alert('Copied to clipboard! Paste it anywhere to share.');
               }
             }}
             className="w-full py-5 rounded-2xl font-black text-lg transition-all active:scale-95 flex items-center justify-center gap-2"
-            style={{ background: 'linear-gradient(135deg, #0077b5, #005885)', color: 'white' }}
+            style={{ background: 'linear-gradient(135deg, #7c3aed, #4f46e5)', color: 'white' }}
           >
             🔗 Share My Result
           </button>
-        )}
-
-        {/* Action Buttons */}
-        <div className="flex gap-3">
-          <Button
-            onClick={handleTryAgain}
-            className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-lg py-6"
-          >
-            <RotateCcw className="h-5 w-5 mr-2" />
-            Try Again
-          </Button>
-
-          {session.settings.showLeaderboard && (
+        ) : (
+          <>
+            <div className="flex gap-3">
+              <Button
+                onClick={handleTryAgain}
+                className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white font-bold text-lg py-6"
+              >
+                <RotateCcw className="h-5 w-5 mr-2" />
+                Try Again
+              </Button>
+              {session.settings.showLeaderboard && (
+                <Button
+                  onClick={handleViewLeaderboard}
+                  variant="outline"
+                  className="flex-1 font-bold text-lg py-6 text-white border-white/20 hover:bg-white/10"
+                >
+                  <Trophy className="h-5 w-5 mr-2" />
+                  Leaderboard
+                </Button>
+              )}
+            </div>
             <Button
-              onClick={handleViewLeaderboard}
+              onClick={() => navigate('/')}
               variant="outline"
-              className="flex-1 font-bold text-lg py-6 text-white border-white/20 hover:bg-white/10"
+              className="w-full font-semibold text-base py-5 text-white/60 border-white/10 hover:bg-white/5 hover:text-white"
             >
-              <Trophy className="h-5 w-5 mr-2" />
-              Leaderboard
+              ← Back to Home
             </Button>
-          )}
-        </div>
-        <Button
-          onClick={() => navigate('/')}
-          variant="outline"
-          className="w-full font-semibold text-base py-5 text-white/60 border-white/10 hover:bg-white/5 hover:text-white"
-        >
-          ← Back to Home
-        </Button>
+          </>
+        )}
       </div>
     </div>
   );

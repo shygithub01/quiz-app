@@ -57,6 +57,16 @@ export function clearNameFromLocalStorage(sessionId: string): void {
   }
 }
 
+// ===== UID STORAGE (daily challenge dedup) =====
+
+export function saveUidToLocalStorage(sessionId: string, uid: string): void {
+  try { localStorage.setItem(`practiceLive_${sessionId}_uid`, uid); } catch {}
+}
+
+export function getUidFromLocalStorage(sessionId: string): string | null {
+  try { return localStorage.getItem(`practiceLive_${sessionId}_uid`); } catch { return null; }
+}
+
 // ===== PROGRESS STORAGE =====
 
 /**

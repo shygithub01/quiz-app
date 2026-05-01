@@ -12,6 +12,7 @@ import {
 } from '@/services/practiceService';
 import {
   getNameFromLocalStorage,
+  getUidFromLocalStorage,
   saveProgressToLocalStorage,
   resumeFromLocalStorage,
   clearProgressFromLocalStorage
@@ -19,6 +20,36 @@ import {
 import { PracticeSession } from '@/types/practiceMode';
 
 const LABELS = ['A', 'B', 'C', 'D'];
+
+function playCorrectSound() {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    [523, 784].forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = freq; osc.type = 'sine';
+      gain.gain.setValueAtTime(0, ctx.currentTime + i * 0.15);
+      gain.gain.linearRampToValueAtTime(0.3, ctx.currentTime + i * 0.15 + 0.05);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + i * 0.15 + 0.3);
+      osc.start(ctx.currentTime + i * 0.15);
+      osc.stop(ctx.currentTime + i * 0.15 + 0.35);
+    });
+  } catch {}
+}
+
+function playWrongSound() {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain); gain.connect(ctx.destination);
+    osc.frequency.value = 200; osc.type = 'sawtooth';
+    gain.gain.setValueAtTime(0.35, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+    osc.start(ctx.currentTime); osc.stop(ctx.currentTime + 0.4);
+  } catch {}
+}
 
 export default function PracticeParticipant() {
   const { sessionId } = useParams<{ sessionId: string }>();
@@ -72,7 +103,10 @@ export default function PracticeParticipant() {
         setCompetition(compData);
 
         const savedProgress = resumeFromLocalStorage(sessionId);
-        if (savedProgress && !savedProgress.isComplete) {
+        if (sessionData.isDaily) {
+          // Daily challenge always starts fresh — clear any stale progress
+          clearProgressFromLocalStorage(sessionId);
+        } else if (savedProgress && !savedProgress.isComplete) {
           setShowResumePrompt(true);
         }
 
@@ -105,6 +139,8 @@ export default function PracticeParticipant() {
 
   const handleAnswerSelect = (answer: string) => {
     if (!sessionId || answers[currentQuestionIndex]) return; // locked once answered
+    const isCorrect = answer === competition?.questions[currentQuestionIndex]?.correctAnswer;
+    if (isCorrect) playCorrectSound(); else playWrongSound();
     const newAnswers = { ...answers, [currentQuestionIndex]: answer };
     setAnswers(newAnswers);
     saveProgressToLocalStorage(sessionId, {
@@ -134,11 +170,30 @@ export default function PracticeParticipant() {
 
     try {
       setSubmitting(true);
-      const { attemptId } = await submitAttempt(sessionId, studentName, answers, competition.questions, quizStartTime);
+      // Only use uid explicitly saved for this session via Google sign-in on /daily.
+      // Never fall back to auth.currentUser — a previous Google session persists in auth
+      // even when the user chose "Play as Guest", which would incorrectly trigger the
+      // duplicate block for guests.
+      const uid = getUidFromLocalStorage(sessionId) ?? undefined;
+      const { attemptId } = await submitAttempt(sessionId, studentName, answers, competition.questions, quizStartTime, uid);
       clearProgressFromLocalStorage(sessionId);
       navigate(`/practice/results/${sessionId}/${attemptId}`);
     } catch (err: any) {
-      alert(err.message || 'Failed to submit. Please try again.');
+      if (err.message?.includes('already played') && sessionId) {
+        // Google user who already played — find and show their existing results
+        const lsUid = getUidFromLocalStorage(sessionId);
+        if (lsUid) {
+          const { getExistingAttemptByUid } = await import('@/services/practiceService');
+          const existingId = await getExistingAttemptByUid(sessionId, lsUid);
+          if (existingId && existingId !== 'played') {
+            navigate(`/practice/results/${sessionId}/${existingId}`);
+            return;
+          }
+        }
+        navigate('/daily');
+      } else {
+        alert(err.message || 'Failed to submit. Please try again.');
+      }
     } finally {
       setSubmitting(false);
     }

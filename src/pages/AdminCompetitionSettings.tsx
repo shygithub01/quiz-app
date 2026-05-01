@@ -199,8 +199,8 @@ export default function AdminCompetitionSettings() {
     });
 
     const W = 54;
-    const eq = '═'.repeat(W);
-    const divider = '─'.repeat(W);
+    const eq = '='.repeat(W);
+    const divider = '-'.repeat(W);
 
     const top3 = sorted.slice(0, 3);
     const podiumIcons = ['🥇', '🥈', '🥉'];

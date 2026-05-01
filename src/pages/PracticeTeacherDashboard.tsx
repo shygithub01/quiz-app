@@ -1,7 +1,7 @@
 // Practice Live Mode Teacher Dashboard
 // Real-time monitoring and analytics for practice sessions
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,6 +17,7 @@ import {
   ArrowUpDown,
   ChevronUp,
   ChevronDown,
+  Download,
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import {
@@ -52,6 +53,8 @@ export default function PracticeTeacherDashboard() {
   const [sortField, setSortField] = useState<SortField>('bestScore');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
   const [maskNames, setMaskNames] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const captureRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!sessionId) {
@@ -94,6 +97,85 @@ export default function PracticeTeacherDashboard() {
     if (!session) return;
     if (!window.confirm('Are you sure you want to end this practice session?')) return;
     alert('End session functionality will be implemented in Phase 4');
+  };
+
+  const handleDownloadStats = async () => {
+    if (!captureRef.current || !session) return;
+    setIsCapturing(true);
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    try {
+      const el = captureRef.current;
+
+      // Force minimum width so the output is never low-res
+      const prevMinWidth = el.style.minWidth;
+      el.style.minWidth = '700px';
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+      const { default: html2canvas } = await import('html2canvas');
+      const raw = await html2canvas(el, {
+        backgroundColor: '#0f0a1e',
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        windowWidth: 1440,
+      });
+
+      el.style.minWidth = prevMinWidth;
+
+      // Build header (at scale 2: 1px CSS = 2px canvas)
+      const TITLE_H = 200;
+      const PAD = 40;
+      const interim = document.createElement('canvas');
+      interim.width = raw.width;
+      interim.height = raw.height + TITLE_H;
+
+      const ic = interim.getContext('2d')!;
+      const g = ic.createLinearGradient(0, 0, interim.width, interim.height);
+      g.addColorStop(0, '#0f0a1e');
+      g.addColorStop(0.5, '#1e0a3c');
+      g.addColorStop(1, '#0a1628');
+      ic.fillStyle = g;
+      ic.fillRect(0, 0, interim.width, interim.height);
+
+      ic.fillStyle = '#a78bfa';
+      ic.font = 'bold 60px -apple-system, BlinkMacSystemFont, sans-serif';
+      ic.fillText('quizist.ai daily stat', PAD, 76);
+
+      const date = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+      ic.fillStyle = 'rgba(255,255,255,0.9)';
+      ic.font = 'bold 36px -apple-system, BlinkMacSystemFont, sans-serif';
+      ic.fillText(date, PAD, 128);
+
+      ic.fillStyle = 'rgba(255,255,255,0.4)';
+      ic.font = '28px -apple-system, BlinkMacSystemFont, sans-serif';
+      ic.fillText(session.title, PAD, 172);
+
+      ic.drawImage(raw, 0, TITLE_H);
+
+      // Normalise to exactly 1200px wide — LinkedIn's sweet spot, no upscaling needed
+      const TARGET_W = 1200;
+      const ratio = TARGET_W / interim.width;
+      const final = document.createElement('canvas');
+      final.width = TARGET_W;
+      final.height = Math.round(interim.height * ratio);
+      const fc = final.getContext('2d')!;
+      fc.imageSmoothingEnabled = true;
+      fc.imageSmoothingQuality = 'high';
+      fc.drawImage(interim, 0, 0, final.width, final.height);
+
+      setIsCapturing(false);
+      final.toBlob(blob => {
+        if (!blob) return;
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `quizist-daily-stat-${new Date().toISOString().split('T')[0]}.jpg`;
+        a.click();
+        URL.revokeObjectURL(a.href);
+      }, 'image/jpeg', 0.97);
+    } catch (e) {
+      setIsCapturing(false);
+      console.error('Screenshot failed', e);
+    }
   };
 
   const handleDownloadQR = () => {
@@ -199,7 +281,7 @@ export default function PracticeTeacherDashboard() {
   }
 
   const statBlocks = [
-    { label: 'Total Students', value: analytics?.totalStudents || 0, color: 'text-blue-400', bg: 'rgba(59,130,246,0.15)', Icon: Users },
+    { label: 'Total Participants', value: analytics?.totalStudents || 0, color: 'text-blue-400', bg: 'rgba(59,130,246,0.15)', Icon: Users },
     { label: 'Total Attempts', value: analytics?.totalAttempts || 0, color: 'text-green-400', bg: 'rgba(34,197,94,0.15)', Icon: Target },
     { label: 'Average Score', value: `${analytics?.averageScore ? analytics.averageScore.toFixed(1) : '0.0'}%`, color: 'text-purple-400', bg: 'rgba(124,58,237,0.15)', Icon: TrendingUp },
     { label: 'Avg Attempts', value: analytics?.averageAttempts ? analytics.averageAttempts.toFixed(1) : '0.0', color: 'text-orange-400', bg: 'rgba(249,115,22,0.15)', Icon: Clock },
@@ -280,7 +362,7 @@ export default function PracticeTeacherDashboard() {
           </div>
 
           {/* ── Right column: Stats + Leaderboard ── */}
-          <div className="lg:col-span-2 flex flex-col gap-4">
+          <div ref={captureRef} className="lg:col-span-2 flex flex-col gap-4">
 
             {/* Statistics — compact row */}
             <div className="rounded-xl p-4" style={GLASS_ROUNDED}>
@@ -304,20 +386,36 @@ export default function PracticeTeacherDashboard() {
                 <h2 className="flex items-center gap-2 text-white font-semibold">
                   <Users className="h-4 w-4" /> Leaderboard (Top 20)
                 </h2>
-                <button
-                  onClick={() => setMaskNames(v => !v)}
-                  className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-colors"
-                  style={{
-                    background: maskNames ? 'rgba(124,58,237,0.25)' : 'rgba(255,255,255,0.08)',
-                    border: '1px solid rgba(255,255,255,0.15)',
-                    color: maskNames ? '#c4b5fd' : 'rgba(255,255,255,0.6)',
-                  }}
-                >
-                  {maskNames ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
-                  {maskNames ? 'Hidden' : 'Mask'}
-                </button>
+                {!isCapturing && (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleDownloadStats}
+                      className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-colors"
+                      style={{
+                        background: 'rgba(255,255,255,0.08)',
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        color: 'rgba(255,255,255,0.6)',
+                      }}
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      Download
+                    </button>
+                    <button
+                      onClick={() => setMaskNames(v => !v)}
+                      className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-semibold transition-colors"
+                      style={{
+                        background: maskNames ? 'rgba(124,58,237,0.25)' : 'rgba(255,255,255,0.08)',
+                        border: '1px solid rgba(255,255,255,0.15)',
+                        color: maskNames ? '#c4b5fd' : 'rgba(255,255,255,0.6)',
+                      }}
+                    >
+                      {maskNames ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                      {maskNames ? 'Hidden' : 'Mask'}
+                    </button>
+                  </div>
+                )}
               </div>
-              <div className="overflow-y-auto flex-1 min-h-0 px-2 pb-4" style={{ maxHeight: '420px' }}>
+              <div className="overflow-y-auto flex-1 min-h-0 px-2 pb-4" style={{ maxHeight: isCapturing ? 'none' : '420px' }}>
                 {leaderboard.length === 0 ? (
                   <p className="text-sm text-white/40 text-center py-8">
                     No attempts yet. Students will appear here after their first attempt.
@@ -335,7 +433,7 @@ export default function PracticeTeacherDashboard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5">
-                      {sortedLeaderboard.slice(0, 20).map((entry) => (
+                      {sortedLeaderboard.slice(0, isCapturing ? 10 : 20).map((entry) => (
                         <tr key={entry.name} className="hover:bg-white/5">
                           <td className="px-4 py-2.5 font-medium text-white text-sm">{maskName(entry.name)}</td>
                           <td className="px-4 py-2.5 text-center text-white/60 text-sm">{entry.attemptCount}</td>

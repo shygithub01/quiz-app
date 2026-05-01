@@ -346,7 +346,8 @@ export default function Layout() {
       {/* Mobile Bottom Tab Bar — hidden on full-screen quiz/event pages */}
       {!location.pathname.startsWith('/practice/quiz/') &&
        !location.pathname.includes('/participate/') &&
-       !location.pathname.includes('/projector') && (
+       !location.pathname.includes('/projector') &&
+       !location.pathname.startsWith('/daily') && (
         <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden border-t border-white/10 safe-area-bottom"
           style={{ background: 'linear-gradient(135deg, #4c1d95 0%, #3730a3 100%)' }}
         >

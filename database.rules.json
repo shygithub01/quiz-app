@@ -63,6 +63,14 @@
           ".write": true
         }
       }
+    },
+    "practiceAttemptsByUid": {
+      ".read": true,
+      "$sessionId": {
+        "$uid": {
+          ".write": true
+        }
+      }
     }
   }
 }

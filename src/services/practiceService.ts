@@ -373,6 +373,23 @@ export function listenToParticipants(
 // ===== ATTEMPT OPERATIONS =====
 
 /**
+ * Check if a Google UID already has a leaderboard entry for this session.
+ * Scans leaderboard entries for a matching uid field.
+ * Returns attemptId stored in the entry, or a sentinel 'played' string if found without one.
+ */
+export async function getExistingAttemptByUid(sessionId: string, uid: string): Promise<string | null> {
+  try {
+    const snap = await get(ref(realtimeDb, `practiceLeaderboard/${sessionId}`));
+    if (!snap.exists()) return null;
+    const entries = Object.values(snap.val()) as any[];
+    const match = entries.find(e => e.uid === uid);
+    return match ? (match.lastAttemptId ?? 'played') : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Submit a practice attempt
  */
 export async function submitAttempt(
@@ -380,7 +397,8 @@ export async function submitAttempt(
   studentName: string,
   answers: Record<number, string>,
   questions: any[],
-  startedAt?: number
+  startedAt?: number,
+  uid?: string
 ): Promise<{ attemptId: string; score: number }> {
   try {
     // Calculate score
@@ -425,10 +443,16 @@ export async function submitAttempt(
       answers: attemptAnswers
     };
 
+    // Block duplicate daily plays at submit time (belt-and-suspenders)
+    if (uid) {
+      const alreadyPlayed = await getExistingAttemptByUid(sessionId, uid);
+      if (alreadyPlayed) throw new Error('You have already played today\'s challenge. Come back tomorrow!');
+    }
+
     await set(attemptRef, attemptData);
 
-    // Update leaderboard
-    await updateLeaderboardEntry(sessionId, studentName, score, completedAt, duration);
+    // Update leaderboard — store uid + attemptId so future sign-in checks can find it
+    await updateLeaderboardEntry(sessionId, studentName, score, completedAt, duration, uid, attemptId);
     
     // Update session statistics
     await updateSessionStatistics(sessionId);
@@ -500,7 +524,9 @@ export async function updateLeaderboardEntry(
   studentName: string,
   newScore: number,
   attemptDate: number,
-  duration?: number
+  duration?: number,
+  uid?: string,
+  attemptId?: string
 ): Promise<void> {
   try {
     const leaderboardRef = ref(realtimeDb, `practiceLeaderboard/${sessionId}/${studentName}`);
@@ -520,7 +546,8 @@ export async function updateLeaderboardEntry(
         attemptCount: entry.attemptCount + 1,
         lastAttemptDate: attemptDate,
         improvement,
-        ...(duration !== undefined && { lastDuration: duration })
+        ...(duration !== undefined && { lastDuration: duration }),
+        ...(attemptId !== undefined && { lastAttemptId: attemptId }),
       });
     } else {
       // Create new entry
@@ -533,8 +560,10 @@ export async function updateLeaderboardEntry(
         firstAttemptDate: attemptDate,
         lastAttemptDate: attemptDate,
         improvement: 0,
-        rank: 0, // Will be calculated
-        ...(duration !== undefined && { lastDuration: duration })
+        rank: 0,
+        ...(duration !== undefined && { lastDuration: duration }),
+        ...(uid !== undefined && { uid }),
+        ...(attemptId !== undefined && { lastAttemptId: attemptId }),
       };
       
       await set(leaderboardRef, entryData);
@@ -567,13 +596,15 @@ async function recalculateRanks(sessionId: string): Promise<void> {
       ...data
     }));
     
-    // Sort by bestScore (desc), then attemptCount (asc), then firstAttemptDate (asc)
+    // Sort by bestScore (desc), then fastest completion time (asc), then first attempt date (asc)
     entries.sort((a, b) => {
       if (b.bestScore !== a.bestScore) {
         return b.bestScore - a.bestScore;
       }
-      if (a.attemptCount !== b.attemptCount) {
-        return a.attemptCount - b.attemptCount;
+      const aDur = a.lastDuration ?? Infinity;
+      const bDur = b.lastDuration ?? Infinity;
+      if (aDur !== bDur) {
+        return aDur - bDur; // faster = higher rank
       }
       return a.firstAttemptDate - b.firstAttemptDate;
     });

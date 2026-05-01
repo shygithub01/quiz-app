@@ -57,6 +57,7 @@ export interface LeaderboardEntry {
   improvement: number;
   rank: number;
   lastDuration?: number; // ms — time spent on last attempt
+  uid?: string; // Google UID — stored to prevent duplicate daily plays
 }
 
 export interface StudentSummary {
